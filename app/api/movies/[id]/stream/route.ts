@@ -46,7 +46,7 @@ export async function GET(
     url = movie.video_url;
   } else {
     // Fallback: return a sample video for testing
-    url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
+    url = "https://www.w3schools.com/html/mov_bbb.mp4";
   }
 
   return NextResponse.json({ url });

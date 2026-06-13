@@ -3,7 +3,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import VideoPlayer from "@/components/VideoPlayer";
 import Header from "@/components/Header";
 import { Loader2, AlertCircle } from "lucide-react";
 
@@ -22,6 +21,7 @@ export default function WatchPage() {
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const videoRef = useRef<HTMLVideoElement>(null);
   const saveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -55,12 +55,66 @@ export default function WatchPage() {
     loadMovie();
   }, [id, user, authLoading, router]);
 
-  // Cleanup interval on unmount
+  // Setup video player when streamUrl is ready
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !streamUrl) return;
+
+    video.src = streamUrl;
+
+    const handleCanPlay = () => {
+      // Restore progress
+      fetch(`/api/watch-progress?movie_id=${id}`)
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.position_seconds > 0 && !data.completed) {
+            video.currentTime = data.position_seconds;
+          }
+        });
+
+      // Save progress every 10 seconds
+      saveIntervalRef.current = setInterval(() => {
+        if (video.paused) return;
+        fetch("/api/watch-progress", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            movie_id: id,
+            position_seconds: video.currentTime,
+            duration_seconds: video.duration,
+          }),
+        });
+      }, 10000);
+    };
+
+    const handleEnded = () => {
+      if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
+      fetch("/api/watch-progress", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          movie_id: id,
+          position_seconds: video.duration,
+          duration_seconds: video.duration,
+          completed: true,
+        }),
+      });
+    };
+
+    video.addEventListener("canplay", handleCanPlay, { once: true });
+    video.addEventListener("ended", handleEnded);
+
+    return () => {
+      if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
+      video.removeEventListener("canplay", handleCanPlay);
+      video.removeEventListener("ended", handleEnded);
+    };
+  }, [streamUrl, id]);
+
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (saveIntervalRef.current) {
-        clearInterval(saveIntervalRef.current);
-      }
+      if (saveIntervalRef.current) clearInterval(saveIntervalRef.current);
     };
   }, []);
 
@@ -93,65 +147,18 @@ export default function WatchPage() {
     <div className="min-h-screen bg-black">
       <Header />
       <div className="pt-16">
-        <VideoPlayer
-          src={streamUrl!}
-          poster={movie?.poster_url}
-          onReady={(player) => {
-            // 恢复进度
-            fetch(`/api/watch-progress?movie_id=${id}`)
-              .then((res) => res.json())
-              .then((data) => {
-                if (data.position_seconds > 0 && !data.completed) {
-                  player.currentTime(data.position_seconds);
-                }
-              });
-
-            // 定期保存进度（每 10 秒）
-            saveIntervalRef.current = setInterval(() => {
-              if (player.paused()) return;
-              fetch("/api/watch-progress", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  movie_id: id,
-                  position_seconds: player.currentTime(),
-                  duration_seconds: player.duration(),
-                }),
-              });
-            }, 10000);
-
-            // 播放结束标记完成
-            player.on("ended", () => {
-              if (saveIntervalRef.current) {
-                clearInterval(saveIntervalRef.current);
-              }
-              fetch("/api/watch-progress", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  movie_id: id,
-                  position_seconds: player.duration(),
-                  duration_seconds: player.duration(),
-                  completed: true,
-                }),
-              });
-            });
-
-            // 页面离开时保存
-            const handleBeforeUnload = () => {
-              fetch("/api/watch-progress", {
-                method: "PUT",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  movie_id: id,
-                  position_seconds: player.currentTime(),
-                  duration_seconds: player.duration(),
-                }),
-              });
-            };
-            window.addEventListener("beforeunload", handleBeforeUnload);
-          }}
-        />
+        <div className="w-full max-w-5xl mx-auto">
+          <video
+            ref={videoRef}
+            controls
+            autoPlay
+            className="w-full rounded-lg bg-black"
+            style={{ maxHeight: "70vh" }}
+            poster={movie?.poster_url}
+          >
+            Your browser does not support the video tag.
+          </video>
+        </div>
         <div className="max-w-5xl mx-auto px-4 mt-6">
           <h1 className="text-2xl font-bold text-white">{movie?.title}</h1>
           <p className="text-gray-400 mt-2">{movie?.description}</p>
