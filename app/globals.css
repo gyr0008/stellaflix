@@ -13,10 +13,20 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-inter), system-ui, sans-serif;
+  font-family: var(--font-plus-jakarta), system-ui, sans-serif;
 }
 
-/* Custom scrollbar */
+/* 横向滚动行：隐藏滚动条 */
+.scroll-row {
+  overflow-x: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+.scroll-row::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* 自定义滚动条（非滚动行区域） */
 ::-webkit-scrollbar {
   width: 8px;
 }
@@ -31,7 +41,7 @@ body {
   background: #555;
 }
 
-/* Video.js overrides */
+/* Video.js 覆盖 */
 .video-js .vjs-big-play-button {
   background: rgba(229, 9, 20, 0.8) !important;
   border: none !important;
