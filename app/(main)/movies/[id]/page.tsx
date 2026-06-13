@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/Header";
+import FavoriteButton from "@/components/FavoriteButton";
 import { Play, Star, Clock, Calendar, Film } from "lucide-react";
 
 export default async function MovieDetailPage({
@@ -78,11 +79,6 @@ export default async function MovieDetailPage({
                 <Clock className="w-4 h-4 text-gray-500" />
                 <span>{durationStr}</span>
               </div>
-              {movie.is_premium && (
-                <span className="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-xs font-semibold">
-                  会员专享
-                </span>
-              )}
             </div>
 
             {/* Genres */}
@@ -115,20 +111,21 @@ export default async function MovieDetailPage({
             )}
 
             {/* Actions */}
-            <div className="flex gap-4">
+            <div className="flex gap-4 items-center">
               <Link
                 href={`/watch/${movie.id}`}
-                className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-semibold px-8 py-3 rounded-lg transition text-lg"
+                className="inline-flex items-center gap-2 bg-white text-black font-semibold px-8 py-3 rounded-lg transition text-lg hover:bg-gray-200"
               >
-                <Play className="w-5 h-5" fill="white" />
+                <Play className="w-5 h-5" fill="black" />
                 立即观看
               </Link>
+              <FavoriteButton movieId={movie.id} />
               {movie.trailer_url && (
                 <a
                   href={movie.trailer_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white font-semibold px-8 py-3 rounded-lg transition text-lg"
+                  className="inline-flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-white font-semibold px-6 py-3 rounded-lg transition text-lg"
                 >
                   <Film className="w-5 h-5" />
                   预告片
