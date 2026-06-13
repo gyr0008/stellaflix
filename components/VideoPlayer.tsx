@@ -27,7 +27,7 @@ export default function VideoPlayer({ src, poster, onReady }: VideoPlayerProps) 
       preload: "auto",
       fluid: true,
       responsive: true,
-      sources: [{ src, type: "application/x-mpegURL" }],
+      sources: [{ src, type: src.endsWith(".m3u8") ? "application/x-mpegURL" : "video/mp4" }],
       poster,
     });
 

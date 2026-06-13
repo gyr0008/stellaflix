@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { generateSignedUrl } from "@/lib/bunny";
 import { rateLimit } from "@/lib/rate-limit";
 import { NextRequest, NextResponse } from "next/server";
@@ -27,7 +26,7 @@ export async function GET(
   // Get movie
   const { data: movie, error } = await supabase
     .from("movies")
-    .select("id, bunny_video_id, is_premium")
+    .select("id, bunny_video_id, video_url, is_premium")
     .eq("id", id)
     .eq("is_published", true)
     .single();
@@ -36,36 +35,19 @@ export async function GET(
     return NextResponse.json({ error: "Movie not found" }, { status: 404 });
   }
 
-  // Check premium access
-  if (movie.is_premium) {
-    const admin = createAdminClient();
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("subscription_status")
-      .eq("id", user.id)
-      .single();
+  // Determine video URL
+  let url: string;
 
-    if (!profile || profile.subscription_status !== "active") {
-      return NextResponse.json(
-        { error: "Premium subscription required" },
-        { status: 403 }
-      );
-    }
+  if (movie.bunny_video_id) {
+    // Use Bunny.net signed URL
+    url = generateSignedUrl(movie.bunny_video_id);
+  } else if (movie.video_url) {
+    // Use direct video URL
+    url = movie.video_url;
+  } else {
+    // Fallback: return a sample video for testing
+    url = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4";
   }
-
-  if (!movie.bunny_video_id) {
-    return NextResponse.json({ error: "Video not available" }, { status: 404 });
-  }
-
-  // Update watch history
-  await supabase
-    .from("watch_history")
-    .upsert(
-      { user_id: user.id, movie_id: id, last_watched_at: new Date().toISOString() },
-      { onConflict: "user_id,movie_id" }
-    );
-
-  const url = generateSignedUrl(movie.bunny_video_id);
 
   return NextResponse.json({ url });
 }
