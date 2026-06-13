@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 import VideoPlayer from "@/components/VideoPlayer";
@@ -22,6 +22,7 @@ export default function WatchPage() {
   const [streamUrl, setStreamUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const saveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -32,13 +33,11 @@ export default function WatchPage() {
 
     const loadMovie = async () => {
       try {
-        // Fetch movie info
         const movieRes = await fetch(`/api/movies/${id}`);
         if (!movieRes.ok) throw new Error("Movie not found");
         const movieData = await movieRes.json();
         setMovie(movieData);
 
-        // Get signed stream URL
         const streamRes = await fetch(`/api/movies/${id}/stream`);
         if (!streamRes.ok) {
           const err = await streamRes.json();
@@ -55,6 +54,15 @@ export default function WatchPage() {
 
     loadMovie();
   }, [id, user, authLoading, router]);
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (saveIntervalRef.current) {
+        clearInterval(saveIntervalRef.current);
+      }
+    };
+  }, []);
 
   if (authLoading || loading) {
     return (
@@ -89,13 +97,59 @@ export default function WatchPage() {
           src={streamUrl!}
           poster={movie?.poster_url}
           onReady={(player) => {
-            player.on("ended", () => {
-              fetch("/api/movies/" + id + "/stream", {
-                method: "PATCH",
+            // 恢复进度
+            fetch(`/api/watch-progress?movie_id=${id}`)
+              .then((res) => res.json())
+              .then((data) => {
+                if (data.position_seconds > 0 && !data.completed) {
+                  player.currentTime(data.position_seconds);
+                }
+              });
+
+            // 定期保存进度（每 10 秒）
+            saveIntervalRef.current = setInterval(() => {
+              if (player.paused()) return;
+              fetch("/api/watch-progress", {
+                method: "PUT",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ completed: true }),
+                body: JSON.stringify({
+                  movie_id: id,
+                  position_seconds: player.currentTime(),
+                  duration_seconds: player.duration(),
+                }),
+              });
+            }, 10000);
+
+            // 播放结束标记完成
+            player.on("ended", () => {
+              if (saveIntervalRef.current) {
+                clearInterval(saveIntervalRef.current);
+              }
+              fetch("/api/watch-progress", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  movie_id: id,
+                  position_seconds: player.duration(),
+                  duration_seconds: player.duration(),
+                  completed: true,
+                }),
               });
             });
+
+            // 页面离开时保存
+            const handleBeforeUnload = () => {
+              fetch("/api/watch-progress", {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  movie_id: id,
+                  position_seconds: player.currentTime(),
+                  duration_seconds: player.duration(),
+                }),
+              });
+            };
+            window.addEventListener("beforeunload", handleBeforeUnload);
           }}
         />
         <div className="max-w-5xl mx-auto px-4 mt-6">
