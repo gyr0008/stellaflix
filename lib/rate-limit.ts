@@ -1,6 +1,5 @@
-import Redis from "ioredis";
-
-const redis = new Redis(process.env.REDIS_URL!);
+// Simple in-memory rate limiter (no Redis dependency)
+const hits = new Map<string, { count: number; resetAt: number }>();
 
 export interface RateLimitResult {
   success: boolean;
@@ -14,20 +13,22 @@ export async function rateLimit(
   windowSeconds = 60
 ): Promise<RateLimitResult> {
   const now = Math.floor(Date.now() / 1000);
-  const windowKey = `ratelimit:${key}:${Math.floor(now / windowSeconds)}`;
+  const windowStart = Math.floor(now / windowSeconds) * windowSeconds;
+  const reset = windowStart + windowSeconds;
 
-  const pipeline = redis.pipeline();
-  pipeline.incr(windowKey);
-  pipeline.expire(windowKey, windowSeconds);
-  const results = await pipeline.exec();
+  const entry = hits.get(key);
 
-  const count = results?.[0]?.[1] as number;
-  const remaining = Math.max(0, limit - count);
-  const reset = (Math.floor(now / windowSeconds) + 1) * windowSeconds;
+  if (!entry || entry.resetAt <= now) {
+    hits.set(key, { count: 1, resetAt: reset });
+    return { success: true, remaining: limit - 1, reset };
+  }
+
+  entry.count++;
+  const remaining = Math.max(0, limit - entry.count);
 
   return {
-    success: count <= limit,
+    success: entry.count <= limit,
     remaining,
-    reset,
+    reset: entry.resetAt,
   };
 }

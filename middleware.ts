@@ -53,7 +53,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // CSRF protection for API routes
-  if (pathname.startsWith("/api/") && !pathname.startsWith("/api/payment/webhook")) {
+  if (pathname.startsWith("/api/")) {
     const origin = request.headers.get("origin");
     const allowed = process.env.NEXT_PUBLIC_APP_URL;
     if (origin && allowed && origin !== allowed) {

@@ -21,7 +21,7 @@ export async function uploadToBunny(
       AccessKey: BUNNY_STREAM_KEY,
       "Content-Type": contentType,
     },
-    body: buffer,
+    body: new Uint8Array(buffer),
   });
 
   if (!res.ok) {
@@ -71,7 +71,7 @@ export async function uploadToStream(
         AccessKey: BUNNY_STREAM_KEY,
         "Content-Type": contentType,
       },
-      body: buffer,
+      body: new Uint8Array(buffer),
     }
   );
 

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import MovieCard from "@/components/MovieCard";
 import Header from "@/components/Header";
-import { Flame, TrendingUp, Sparkles } from "lucide-react";
+import { Flame, Sparkles } from "lucide-react";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -18,14 +18,6 @@ export default async function HomePage() {
     .select("id, title, poster_url, rating, year, genre")
     .eq("is_published", true)
     .order("created_at", { ascending: false })
-    .limit(10);
-
-  const { data: premium } = await supabase
-    .from("movies")
-    .select("id, title, poster_url, rating, year, genre")
-    .eq("is_published", true)
-    .eq("is_premium", true)
-    .order("rating", { ascending: false })
     .limit(10);
 
   return (
@@ -46,7 +38,7 @@ export default async function HomePage() {
           </p>
           <div className="flex gap-4">
             <a
-              href="/pricing"
+              href="#trending"
               className="bg-red-600 hover:bg-red-700 text-white font-semibold px-8 py-3 rounded-lg transition text-lg"
             >
               开始观看
@@ -82,19 +74,6 @@ export default async function HomePage() {
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {latest?.map((movie) => (
-            <MovieCard key={movie.id} movie={movie} />
-          ))}
-        </div>
-      </section>
-
-      {/* Premium */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="flex items-center gap-3 mb-6">
-          <TrendingUp className="w-6 h-6 text-purple-400" />
-          <h2 className="text-2xl font-bold text-white">会员专属</h2>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {premium?.map((movie) => (
             <MovieCard key={movie.id} movie={movie} />
           ))}
         </div>

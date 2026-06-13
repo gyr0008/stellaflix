@@ -7,12 +7,12 @@ import "video.js/dist/video-js.css";
 interface VideoPlayerProps {
   src: string;
   poster?: string;
-  onReady?: (player: videojs.Player) => void;
+  onReady?: (player: any) => void;
 }
 
 export default function VideoPlayer({ src, poster, onReady }: VideoPlayerProps) {
   const videoRef = useRef<HTMLDivElement>(null);
-  const playerRef = useRef<videojs.Player | null>(null);
+  const playerRef = useRef<any>(null);
 
   useEffect(() => {
     if (!videoRef.current) return;

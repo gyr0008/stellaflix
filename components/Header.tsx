@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
-import { Film, User, LogOut, Crown, Shield } from "lucide-react";
+import { Film, User, LogOut, Shield } from "lucide-react";
 import { useState } from "react";
 
 export default function Header() {
@@ -20,9 +20,6 @@ export default function Header() {
         <div className="flex items-center gap-6">
           <Link href="/" className="text-gray-300 hover:text-white transition text-sm">
             首页
-          </Link>
-          <Link href="/pricing" className="text-gray-300 hover:text-white transition text-sm">
-            定价
           </Link>
 
           {loading ? (
@@ -45,13 +42,6 @@ export default function Header() {
                     className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800"
                   >
                     <User className="w-4 h-4" /> 个人中心
-                  </Link>
-                  <Link
-                    href="/pricing"
-                    onClick={() => setMenuOpen(false)}
-                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800"
-                  >
-                    <Crown className="w-4 h-4" /> 会员方案
                   </Link>
                   <Link
                     href="/admin/upload"
