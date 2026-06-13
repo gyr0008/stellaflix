@@ -35,18 +35,63 @@ export async function GET(
     return NextResponse.json({ error: "Movie not found" }, { status: 404 });
   }
 
-  // Determine video URL
-  let url: string;
+  let url: string | null = null;
 
+  // 1. Try Bunny.net
   if (movie.bunny_video_id) {
-    // Use Bunny.net signed URL
     url = generateSignedUrl(movie.bunny_video_id);
-  } else if (movie.video_url) {
-    // Use direct video URL
+  }
+
+  // 2. Try direct video_url
+  if (!url && movie.video_url) {
     url = movie.video_url;
-  } else {
-    // Fallback: return a sample video for testing
-    url = "https://www.w3schools.com/html/mov_bbb.mp4";
+  }
+
+  // 3. Try video_sources table
+  if (!url) {
+    const { data: sources } = await supabase
+      .from("video_sources")
+      .select("url")
+      .eq("movie_id", id)
+      .eq("is_active", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (sources?.url) {
+      // Check if it's a direct video URL
+      if (/\.(mp4|m3u8|webm)(\?|$)/i.test(sources.url)) {
+        url = sources.url;
+      } else {
+        // Try to resolve the video source URL
+        try {
+          const resolveRes = await fetch(
+            `${request.nextUrl.origin}/api/video-sources/resolve`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ url: sources.url }),
+            }
+          );
+
+          if (resolveRes.ok) {
+            const { video_url } = await resolveRes.json();
+            url = video_url;
+          }
+        } catch {
+          // Resolution failed
+        }
+
+        // If resolution failed, use the original URL directly
+        if (!url) {
+          url = sources.url;
+        }
+      }
+    }
+  }
+
+  if (!url) {
+    return NextResponse.json({ error: "Video not available" }, { status: 404 });
   }
 
   return NextResponse.json({ url });
