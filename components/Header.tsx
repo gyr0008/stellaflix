@@ -28,7 +28,7 @@ export default function Header() {
       <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="text-2xl font-bold text-white tracking-tight">
-          CineStream
+          StellaFlix
         </Link>
 
         {/* Nav Links */}

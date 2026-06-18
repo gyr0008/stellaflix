@@ -58,7 +58,7 @@ export default function RegisterPage() {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-2 mb-4">
             <Film className="w-10 h-10 text-red-600" />
-            <span className="text-3xl font-bold text-white">CineStream</span>
+            <span className="text-3xl font-bold text-white">StellaFlix</span>
           </div>
           <p className="text-gray-400">创建您的账号</p>
         </div>

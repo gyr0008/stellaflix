@@ -1,4 +1,4 @@
--- CineStream 数据库迁移
+-- StellaFlix 数据库迁移
 -- 在 Supabase SQL Editor 中执行此文件
 
 create table public.profiles (

@@ -8,7 +8,7 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "CineStream - 沉浸式观影",
+  title: "StellaFlix - 沉浸式观影",
   description: "海量高清电影与纪录片，随时随地畅享观影体验",
 };
 

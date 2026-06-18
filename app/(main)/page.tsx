@@ -103,7 +103,7 @@ export default async function HomePage() {
       {/* Footer */}
       <footer className="border-t border-gray-800 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-gray-600 text-sm">
-          <p>&copy; {new Date().getFullYear()} CineStream</p>
+          <p>&copy; {new Date().getFullYear()} StellaFlix</p>
         </div>
       </footer>
     </div>
