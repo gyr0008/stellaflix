@@ -21,7 +21,7 @@ interface FavoriteMovie {
   rating: number;
   year: number;
   genre: string[];
-  type: "movie" | "documentary";
+  type: string;
 }
 
 export default function MyPage() {
