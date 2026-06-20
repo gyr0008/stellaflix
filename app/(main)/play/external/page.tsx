@@ -68,6 +68,7 @@ function ExternalPlayerContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [useIframe, setUseIframe] = useState(false); // iframe 播放模式
   const [playerState, setPlayerState] = useState<PlayerState>({
     isPlaying: false,
     currentTime: 0,
@@ -114,9 +115,8 @@ function ExternalPlayerContent() {
 
         if (isDirectVideo) {
           console.log("[Player] 直接视频链接，跳过解析");
-          // 使用代理 URL 绕过 CORS
-          const proxiedUrl = `/api/proxy/video?url=${encodeURIComponent(url)}`;
-          setVideoUrl(proxiedUrl);
+          // 直接使用原始 URL（让浏览器直接请求，可能会有 CORS 问题）
+          setVideoUrl(url);
           setLoading(false);
           return;
         }
@@ -134,28 +134,23 @@ function ExternalPlayerContent() {
         if (!response.ok) {
           // 如果解析失败，尝试直接使用原 URL
           console.log("[Player] 解析失败，尝试直接使用原 URL");
-          const proxiedUrl = `/api/proxy/video?url=${encodeURIComponent(url)}`;
-          setVideoUrl(proxiedUrl);
+          setVideoUrl(url);
           setLoading(false);
           return;
         }
 
         if (data.url) {
-          // 使用代理 URL
-          const proxiedUrl = `/api/proxy/video?url=${encodeURIComponent(data.url)}`;
-          setVideoUrl(proxiedUrl);
+          setVideoUrl(data.url);
         } else {
           // 如果没有返回 URL，尝试直接使用原 URL
           console.log("[Player] 未返回 URL，尝试直接使用原 URL");
-          const proxiedUrl = `/api/proxy/video?url=${encodeURIComponent(url)}`;
-          setVideoUrl(proxiedUrl);
+          setVideoUrl(url);
         }
       } catch (err) {
         console.error("[Player] 解析出错:", err);
         // 出错时也尝试直接使用原 URL
         console.log("[Player] 出错，尝试直接使用原 URL");
-        const proxiedUrl = `/api/proxy/video?url=${encodeURIComponent(url)}`;
-        setVideoUrl(proxiedUrl);
+        setVideoUrl(url);
       } finally {
         setLoading(false);
       }
@@ -171,8 +166,8 @@ function ExternalPlayerContent() {
 
     let hlsInstance: Hls | null = null;
 
-    // 检查是否是 m3u8 格式（需要从原始 URL 判断，因为代理后 URL 会变化）
-    const isHLS = url?.includes('.m3u8') || videoUrl.includes('.m3u8') || videoUrl.includes('mpegurl');
+    // 检查是否是 m3u8 格式
+    const isHLS = videoUrl.includes('.m3u8');
 
     console.log('[Player] 视频 URL:', videoUrl, '是否 HLS:', isHLS);
 
@@ -423,6 +418,17 @@ function ExternalPlayerContent() {
           <p className="text-gray-400 mb-6">{error || "无法获取视频地址"}</p>
           <div className="flex flex-col gap-3">
             <button
+              onClick={() => {
+                // 尝试使用 iframe 模式
+                setUseIframe(true);
+                setError("");
+                setLoading(false);
+              }}
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition"
+            >
+              尝试 iframe 播放
+            </button>
+            <button
               onClick={() => window.location.reload()}
               className="flex items-center justify-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
             >
@@ -448,22 +454,34 @@ function ExternalPlayerContent() {
 
       {/* 视频播放器 */}
       <div className="relative w-full h-screen flex items-center justify-center">
-        <video
-          ref={videoRef}
-          src={videoUrl}
-          className="w-full h-full object-contain"
-          onClick={togglePlay}
-          onDoubleClick={toggleFullscreen}
-          playsInline
-          crossOrigin="anonymous"
-          onError={(e) => {
-            console.error("[Player] 视频加载错误:", e);
-            setError("视频加载失败，可能是网络问题或视频格式不支持");
-          }}
-          onLoadedMetadata={() => {
-            console.log("[Player] 视频加载成功");
-          }}
-        />
+        {useIframe ? (
+          // iframe 播放模式
+          <iframe
+            src={url}
+            className="w-full h-full border-0"
+            allowFullScreen
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          />
+        ) : (
+          // 原生视频播放
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            className="w-full h-full object-contain"
+            onClick={togglePlay}
+            onDoubleClick={toggleFullscreen}
+            playsInline
+            crossOrigin="anonymous"
+            onError={(e) => {
+              console.error("[Player] 视频加载错误:", e);
+              // 播放失败时显示切换选项
+              setError("视频加载失败，可能是 CORS 限制或网络问题");
+            }}
+            onLoadedMetadata={() => {
+              console.log("[Player] 视频加载成功");
+            }}
+          />
+        )}
 
         {/* 控制层 */}
         <AnimatePresence>
@@ -484,6 +502,20 @@ function ExternalPlayerContent() {
                     <ArrowLeft className="w-6 h-6 text-white" />
                   </button>
                   <div className="flex-1">
+                    <h1 className="text-white text-lg font-semibold truncate">
+                      {title}
+                    </h1>
+                    <p className="text-gray-300 text-sm">
+                      来源: {source} {!useIframe && `| 当前: ${formatTime(playerState.currentTime)} / ${formatTime(playerState.duration)}`}
+                    </p>
+                  </div>
+                  {/* 切换播放模式按钮 */}
+                  <button
+                    onClick={() => setUseIframe(!useIframe)}
+                    className="px-3 py-1.5 bg-white/20 hover:bg-white/30 text-white text-sm rounded-lg transition"
+                  >
+                    {useIframe ? "原生播放" : "iframe 播放"}
+                  </button>
                     <h1 className="text-white text-lg font-semibold truncate">
                       {title}
                     </h1>
