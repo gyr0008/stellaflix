@@ -20,6 +20,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import Hls from "hls.js";
 
 /**
  * 剧集类型
@@ -161,62 +162,65 @@ function ExternalPlayerContent() {
     const video = videoRef.current;
     if (!video || !videoUrl) return;
 
+    let hlsInstance: Hls | null = null;
+
     // 检查是否是 m3u8 格式
     const isHLS = videoUrl.includes('.m3u8');
 
+    console.log('[Player] 视频 URL:', videoUrl, '是否 HLS:', isHLS);
+
     if (isHLS) {
-      // 动态加载 HLS.js
-      const loadHLS = async () => {
-        try {
-          // 检查是否支持原生 HLS（Safari）
-          if (video.canPlayType('application/vnd.apple.mpegurl')) {
-            // Safari 原生支持 HLS
-            video.src = videoUrl;
-            return;
-          }
+      // 检查是否支持原生 HLS（Safari）
+      if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        console.log('[Player] 使用原生 HLS (Safari)');
+        video.src = videoUrl;
+      } else if (Hls.isSupported()) {
+        console.log('[Player] 使用 hls.js');
+        hlsInstance = new Hls({
+          maxBufferLength: 30,
+          maxMaxBufferLength: 60,
+          enableWorker: true,
+          lowLatencyMode: false,
+        });
 
-          // 其他浏览器使用 hls.js
-          const Hls = (await import('hls.js')).default;
+        hlsInstance.loadSource(videoUrl);
+        hlsInstance.attachMedia(video);
 
-          if (Hls.isSupported()) {
-            const hls = new Hls({
-              maxBufferLength: 30,
-              maxMaxBufferLength: 60,
-            });
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+          console.log('[Player] HLS 视频加载成功');
+        });
 
-            hls.loadSource(videoUrl);
-            hls.attachMedia(video);
-
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
-              console.log('[Player] HLS 视频加载成功');
-              video.play().catch(() => {});
-            });
-
-            hls.on(Hls.Events.ERROR, (event, data) => {
-              console.error('[Player] HLS 错误:', data);
-              if (data.fatal) {
+        hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+          console.error('[Player] HLS 错误:', data.type, data.details, data);
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                console.error('[Player] 网络错误，尝试恢复...');
+                hlsInstance?.startLoad();
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                console.error('[Player] 媒体错误，尝试恢复...');
+                hlsInstance?.recoverMediaError();
+                break;
+              default:
                 setError('HLS 视频加载失败');
-              }
-            });
-
-            // 清理函数
-            return () => {
-              hls.destroy();
-            };
-          } else {
-            setError('您的浏览器不支持 HLS 视频播放');
+                break;
+            }
           }
-        } catch (err) {
-          console.error('[Player] 加载 HLS.js 失败:', err);
-          setError('加载视频播放器失败');
-        }
-      };
-
-      loadHLS();
+        });
+      } else {
+        setError('您的浏览器不支持 HLS 视频播放');
+      }
     } else {
       // 非 HLS 格式，直接设置 src
       video.src = videoUrl;
     }
+
+    return () => {
+      if (hlsInstance) {
+        hlsInstance.destroy();
+      }
+    };
 
     const updateState = () => {
       setPlayerState({
