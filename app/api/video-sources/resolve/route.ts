@@ -1,31 +1,58 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// 解析视频源 URL，提取真实播放地址
+/**
+ * 视频源 URL 解析 API
+ * 解析视频页面 URL，提取真实播放地址
+ */
+
+/**
+ * POST /api/video-sources/resolve
+ * 解析视频 URL
+ * @param url - 视频页面 URL
+ * @param source - 视频源标识（可选）
+ */
 export async function POST(request: NextRequest) {
-  const { url } = await request.json();
+  const { url, source } = await request.json();
 
   if (!url) {
     return NextResponse.json({ error: "URL required" }, { status: 400 });
   }
 
+  console.log(`[Resolve] 解析视频 URL: ${url} (来源: ${source || "未知"})`);
+
   try {
-    // If it's already a direct video URL, return it
+    // 如果是直接视频链接，直接返回
     if (isDirectVideoUrl(url)) {
-      return NextResponse.json({ video_url: url, type: "direct" });
+      console.log("[Resolve] 直接视频链接，无需解析");
+      return NextResponse.json({
+        url: url,
+        type: "direct",
+        source: source || "unknown",
+      });
     }
 
-    // Try to extract video URL from the page
+    // 尝试从页面提取视频 URL
     const videoUrl = await extractVideoUrl(url);
 
     if (videoUrl) {
-      return NextResponse.json({ video_url: videoUrl, type: "extracted" });
+      console.log("[Resolve] 成功提取视频 URL:", videoUrl);
+      return NextResponse.json({
+        url: videoUrl,
+        type: "extracted",
+        source: source || "unknown",
+      });
     }
 
+    console.log("[Resolve] 无法提取视频 URL");
     return NextResponse.json(
-      { error: "Could not extract video URL. Try using a direct .mp4/.m3u8 link." },
+      {
+        error: "无法提取视频地址。请尝试使用直接视频链接（.mp4/.m3u8）。",
+        url: url,
+      },
       { status: 422 }
     );
   } catch (err) {
+    console.error("[Resolve] 解析失败:", err);
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "解析失败" },
       { status: 500 }

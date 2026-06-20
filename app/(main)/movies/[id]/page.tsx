@@ -4,7 +4,8 @@ import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/Header";
 import FavoriteButton from "@/components/FavoriteButton";
-import { Play, Star, Clock, Calendar, Film } from "lucide-react";
+import VideoSourceSearch from "@/components/VideoSourceSearch";
+import { Play, Star, Clock, Calendar, Film, Search } from "lucide-react";
 
 export default async function MovieDetailPage({
   params,
@@ -111,15 +112,27 @@ export default async function MovieDetailPage({
             )}
 
             {/* Actions */}
-            <div className="flex gap-4 items-center">
-              <Link
-                href={`/watch/${movie.id}`}
-                className="inline-flex items-center gap-2 bg-white text-black font-semibold px-8 py-3 rounded-lg transition text-lg hover:bg-gray-200"
-              >
-                <Play className="w-5 h-5" fill="black" />
-                立即观看
-              </Link>
+            <div className="flex flex-wrap gap-4 items-center">
+              {/* 如果有本地视频，显示"立即观看"按钮 */}
+              {movie.video_url && (
+                <Link
+                  href={`/watch/${movie.id}`}
+                  className="inline-flex items-center gap-2 bg-white text-black font-semibold px-8 py-3 rounded-lg transition text-lg hover:bg-gray-200"
+                >
+                  <Play className="w-5 h-5" fill="black" />
+                  立即观看
+                </Link>
+              )}
+
+              {/* 视频源搜索按钮 */}
+              <VideoSourceSearch
+                movieTitle={movie.title}
+                movieYear={movie.year}
+                movieId={movie.id}
+              />
+
               <FavoriteButton movieId={movie.id} />
+
               {movie.trailer_url && (
                 <a
                   href={movie.trailer_url}
