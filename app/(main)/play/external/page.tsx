@@ -457,7 +457,7 @@ function ExternalPlayerContent() {
         {useIframe ? (
           // iframe 播放模式
           <iframe
-            src={url}
+            src={url || undefined}
             className="w-full h-full border-0"
             allowFullScreen
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -516,13 +516,6 @@ function ExternalPlayerContent() {
                   >
                     {useIframe ? "原生播放" : "iframe 播放"}
                   </button>
-                    <h1 className="text-white text-lg font-semibold truncate">
-                      {title}
-                    </h1>
-                    <p className="text-gray-300 text-sm">
-                      来源: {source} | 当前: {formatTime(playerState.currentTime)} / {formatTime(playerState.duration)}
-                    </p>
-                  </div>
                   {episodes.length > 0 && (
                     <button
                       onClick={() => setShowEpisodeList(!showEpisodeList)}
