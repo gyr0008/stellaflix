@@ -70,11 +70,11 @@ export async function GET(request: NextRequest) {
     }
 
     // 按相关度和年份排序
-    results.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
-      const scoreA = (a.relevanceScore as number) || 0;
-      const scoreB = (b.relevanceScore as number) || 0;
+    results.sort((a, b) => {
+      const scoreA = (a as Record<string, unknown>).relevanceScore as number || 0;
+      const scoreB = (b as Record<string, unknown>).relevanceScore as number || 0;
       if (scoreB !== scoreA) return scoreB - scoreA;
-      return ((b.year as number) || 0) - ((a.year as number) || 0);
+      return ((b as Record<string, unknown>).year as number || 0) - ((a as Record<string, unknown>).year as number || 0);
     });
 
     const responseData = {
