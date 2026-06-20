@@ -223,6 +223,7 @@ function ExternalPlayerContent() {
     };
 
     const updateState = () => {
+      if (!video) return;
       setPlayerState({
         isPlaying: !video.paused,
         currentTime: video.currentTime,
@@ -244,13 +245,13 @@ function ExternalPlayerContent() {
       "volumechange",
     ];
 
-    events.forEach((event) => video.addEventListener(event, updateState));
+    events.forEach((event) => video?.addEventListener(event, updateState));
 
     // 全屏变化监听
     document.addEventListener("fullscreenchange", updateState);
 
     return () => {
-      events.forEach((event) => video.removeEventListener(event, updateState));
+      events.forEach((event) => video?.removeEventListener(event, updateState));
       document.removeEventListener("fullscreenchange", updateState);
     };
   }, [videoUrl]);
