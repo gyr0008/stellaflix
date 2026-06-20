@@ -106,6 +106,17 @@ function ExternalPlayerContent() {
       try {
         setLoading(true);
         setError("");
+        console.log("[Player] 开始解析视频:", url);
+
+        // 检查是否是直接视频链接
+        const isDirectVideo = /\.(mp4|m3u8|webm|flv|ts)(\?|$)/i.test(url);
+
+        if (isDirectVideo) {
+          console.log("[Player] 直接视频链接，跳过解析");
+          setVideoUrl(url);
+          setLoading(false);
+          return;
+        }
 
         // 调用解析 API 获取真实视频地址
         const response = await fetch("/api/video-sources/resolve", {
@@ -115,18 +126,28 @@ function ExternalPlayerContent() {
         });
 
         const data = await response.json();
+        console.log("[Player] 解析结果:", data);
 
         if (!response.ok) {
-          throw new Error(data.error || "解析视频失败");
+          // 如果解析失败，尝试直接使用原 URL
+          console.log("[Player] 解析失败，尝试直接使用原 URL");
+          setVideoUrl(url);
+          setLoading(false);
+          return;
         }
 
         if (data.url) {
           setVideoUrl(data.url);
         } else {
-          throw new Error("无法获取视频地址");
+          // 如果没有返回 URL，尝试直接使用原 URL
+          console.log("[Player] 未返回 URL，尝试直接使用原 URL");
+          setVideoUrl(url);
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "视频解析失败");
+        console.error("[Player] 解析出错:", err);
+        // 出错时也尝试直接使用原 URL
+        console.log("[Player] 出错，尝试直接使用原 URL");
+        setVideoUrl(url);
       } finally {
         setLoading(false);
       }
@@ -365,6 +386,13 @@ function ExternalPlayerContent() {
           onDoubleClick={toggleFullscreen}
           playsInline
           crossOrigin="anonymous"
+          onError={(e) => {
+            console.error("[Player] 视频加载错误:", e);
+            setError("视频加载失败，可能是网络问题或视频格式不支持");
+          }}
+          onLoadedMetadata={() => {
+            console.log("[Player] 视频加载成功");
+          }}
         />
 
         {/* 控制层 */}
