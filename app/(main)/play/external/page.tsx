@@ -171,8 +171,8 @@ function ExternalPlayerContent() {
 
     let hlsInstance: Hls | null = null;
 
-    // 检查是否是 m3u8 格式
-    const isHLS = videoUrl.includes('.m3u8');
+    // 检查是否是 m3u8 格式（需要从原始 URL 判断，因为代理后 URL 会变化）
+    const isHLS = url?.includes('.m3u8') || videoUrl.includes('.m3u8') || videoUrl.includes('mpegurl');
 
     console.log('[Player] 视频 URL:', videoUrl, '是否 HLS:', isHLS);
 
@@ -184,38 +184,11 @@ function ExternalPlayerContent() {
       } else if (Hls.isSupported()) {
         console.log('[Player] 使用 hls.js');
 
-        // 自定义片段加载器，通过代理加载
-        const customLoader = {
-          load: function(context: any, config: any, callbacks: any) {
-            const url = context.url;
-            // 通过代理加载
-            const proxyUrl = `/api/proxy/video?url=${encodeURIComponent(url)}`;
-            console.log('[Player] 代理加载:', proxyUrl);
-
-            fetch(proxyUrl)
-              .then(response => {
-                if (!response.ok) {
-                  throw new Error(`HTTP ${response.status}`);
-                }
-                return response.arrayBuffer();
-              })
-              .then(data => {
-                callbacks.onSuccess({ url: url, data: data }, {}, context, null);
-              })
-              .catch(err => {
-                callbacks.onError({ code: 0, message: err.message }, context, null);
-              });
-          }
-        };
-
         hlsInstance = new Hls({
           maxBufferLength: 30,
           maxMaxBufferLength: 60,
           enableWorker: true,
           lowLatencyMode: false,
-          // 使用自定义加载器
-          pLoader: customLoader,
-          fLoader: customLoader,
         });
 
         hlsInstance.loadSource(videoUrl);
