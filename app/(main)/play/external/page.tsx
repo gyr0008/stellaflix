@@ -159,7 +159,64 @@ function ExternalPlayerContent() {
   // 更新播放器状态
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    if (!video || !videoUrl) return;
+
+    // 检查是否是 m3u8 格式
+    const isHLS = videoUrl.includes('.m3u8');
+
+    if (isHLS) {
+      // 动态加载 HLS.js
+      const loadHLS = async () => {
+        try {
+          // 检查是否支持原生 HLS（Safari）
+          if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            // Safari 原生支持 HLS
+            video.src = videoUrl;
+            return;
+          }
+
+          // 其他浏览器使用 hls.js
+          const Hls = (await import('hls.js')).default;
+
+          if (Hls.isSupported()) {
+            const hls = new Hls({
+              maxBufferLength: 30,
+              maxMaxBufferLength: 60,
+            });
+
+            hls.loadSource(videoUrl);
+            hls.attachMedia(video);
+
+            hls.on(Hls.Events.MANIFEST_PARSED, () => {
+              console.log('[Player] HLS 视频加载成功');
+              video.play().catch(() => {});
+            });
+
+            hls.on(Hls.Events.ERROR, (event, data) => {
+              console.error('[Player] HLS 错误:', data);
+              if (data.fatal) {
+                setError('HLS 视频加载失败');
+              }
+            });
+
+            // 清理函数
+            return () => {
+              hls.destroy();
+            };
+          } else {
+            setError('您的浏览器不支持 HLS 视频播放');
+          }
+        } catch (err) {
+          console.error('[Player] 加载 HLS.js 失败:', err);
+          setError('加载视频播放器失败');
+        }
+      };
+
+      loadHLS();
+    } else {
+      // 非 HLS 格式，直接设置 src
+      video.src = videoUrl;
+    }
 
     const updateState = () => {
       setPlayerState({
