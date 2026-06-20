@@ -415,8 +415,17 @@ function ExternalPlayerContent() {
         <div className="text-center max-w-md mx-auto p-6">
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-white mb-2">播放失败</h2>
-          <p className="text-gray-400 mb-6">{error || "无法获取视频地址"}</p>
+          <p className="text-gray-400 mb-4">{error || "无法获取视频地址"}</p>
+          <p className="text-gray-500 text-sm mb-6">💡 提示：该视频源可能有防盗链限制，建议尝试其他播放源或在新窗口打开</p>
           <div className="flex flex-col gap-3">
+            <a
+              href={url || '#'}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg transition"
+            >
+              在新窗口打开
+            </a>
             <button
               onClick={() => {
                 // 尝试使用 iframe 模式
@@ -516,6 +525,15 @@ function ExternalPlayerContent() {
                   >
                     {useIframe ? "原生播放" : "iframe 播放"}
                   </button>
+                  {/* 在新窗口打开 */}
+                  <a
+                    href={url || '#'}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-sm rounded-lg transition"
+                  >
+                    新窗口打开
+                  </a>
                   {episodes.length > 0 && (
                     <button
                       onClick={() => setShowEpisodeList(!showEpisodeList)}
