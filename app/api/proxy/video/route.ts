@@ -19,20 +19,34 @@ export async function GET(request: NextRequest) {
   console.log(`[Proxy] 代理请求: ${url}`);
 
   try {
-    // 获取视频内容
+    // 获取视频源的域名
+    const urlObj = new URL(url);
+    const origin = urlObj.origin;
+
+    // 获取视频内容 - 添加多种可能需要的 headers
     const response = await fetch(url, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Referer": new URL(url).origin,
+        "Referer": origin + "/",
+        "Origin": origin,
+        "Accept": "*/*",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+        "Accept-Encoding": "gzip, deflate, br",
       },
       signal: AbortSignal.timeout(30000),
     });
 
     if (!response.ok) {
-      console.error(`[Proxy] 请求失败: ${response.status}`);
+      console.error(`[Proxy] 请求失败: ${response.status} ${response.statusText}`);
+      console.error(`[Proxy] 请求 URL: ${url}`);
+      console.error(`[Proxy] 请求头:`, {
+        "User-Agent": "Mozilla/5.0...",
+        "Referer": origin + "/",
+        "Origin": origin,
+      });
       return NextResponse.json(
-        { error: `Failed to fetch: ${response.status}` },
+        { error: `Failed to fetch: ${response.status} ${response.statusText}`, url: url },
         { status: response.status }
       );
     }
