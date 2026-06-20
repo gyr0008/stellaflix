@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
-import { User, LogOut, Shield } from "lucide-react";
+import { User, LogOut, Shield, Globe, Upload, Search } from "lucide-react";
 import { useState } from "react";
 
 const navLinks = [
@@ -61,7 +61,7 @@ export default function Header() {
                 <User className="w-4 h-4 text-white" />
               </button>
               {menuOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-gray-900 border border-gray-700 rounded-lg shadow-xl py-2">
+                <div className="absolute right-0 mt-2 w-56 bg-gray-900 border border-gray-700 rounded-lg shadow-xl py-2">
                   <Link
                     href="/my"
                     onClick={() => setMenuOpen(false)}
@@ -69,12 +69,28 @@ export default function Header() {
                   >
                     <User className="w-4 h-4" /> 个人中心
                   </Link>
+                  <hr className="border-gray-700 my-1" />
+                  <p className="px-4 py-1 text-xs text-gray-500">管理</p>
+                  <Link
+                    href="/admin/video-sources"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800"
+                  >
+                    <Globe className="w-4 h-4" /> 视频源管理
+                  </Link>
                   <Link
                     href="/admin/upload"
                     onClick={() => setMenuOpen(false)}
                     className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800"
                   >
-                    <Shield className="w-4 h-4" /> 管理后台
+                    <Upload className="w-4 h-4" /> 视频上传
+                  </Link>
+                  <Link
+                    href="/admin/scraper"
+                    onClick={() => setMenuOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 hover:bg-gray-800"
+                  >
+                    <Search className="w-4 h-4" /> 自动刮削
                   </Link>
                   <hr className="border-gray-700 my-1" />
                   <button
