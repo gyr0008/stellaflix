@@ -114,7 +114,9 @@ function ExternalPlayerContent() {
 
         if (isDirectVideo) {
           console.log("[Player] 直接视频链接，跳过解析");
-          setVideoUrl(url);
+          // 使用代理 URL 绕过 CORS
+          const proxiedUrl = `/api/proxy/video?url=${encodeURIComponent(url)}`;
+          setVideoUrl(proxiedUrl);
           setLoading(false);
           return;
         }
@@ -132,23 +134,28 @@ function ExternalPlayerContent() {
         if (!response.ok) {
           // 如果解析失败，尝试直接使用原 URL
           console.log("[Player] 解析失败，尝试直接使用原 URL");
-          setVideoUrl(url);
+          const proxiedUrl = `/api/proxy/video?url=${encodeURIComponent(url)}`;
+          setVideoUrl(proxiedUrl);
           setLoading(false);
           return;
         }
 
         if (data.url) {
-          setVideoUrl(data.url);
+          // 使用代理 URL
+          const proxiedUrl = `/api/proxy/video?url=${encodeURIComponent(data.url)}`;
+          setVideoUrl(proxiedUrl);
         } else {
           // 如果没有返回 URL，尝试直接使用原 URL
           console.log("[Player] 未返回 URL，尝试直接使用原 URL");
-          setVideoUrl(url);
+          const proxiedUrl = `/api/proxy/video?url=${encodeURIComponent(url)}`;
+          setVideoUrl(proxiedUrl);
         }
       } catch (err) {
         console.error("[Player] 解析出错:", err);
         // 出错时也尝试直接使用原 URL
         console.log("[Player] 出错，尝试直接使用原 URL");
-        setVideoUrl(url);
+        const proxiedUrl = `/api/proxy/video?url=${encodeURIComponent(url)}`;
+        setVideoUrl(proxiedUrl);
       } finally {
         setLoading(false);
       }
@@ -176,11 +183,39 @@ function ExternalPlayerContent() {
         video.src = videoUrl;
       } else if (Hls.isSupported()) {
         console.log('[Player] 使用 hls.js');
+
+        // 自定义片段加载器，通过代理加载
+        const customLoader = {
+          load: function(context: any, config: any, callbacks: any) {
+            const url = context.url;
+            // 通过代理加载
+            const proxyUrl = `/api/proxy/video?url=${encodeURIComponent(url)}`;
+            console.log('[Player] 代理加载:', proxyUrl);
+
+            fetch(proxyUrl)
+              .then(response => {
+                if (!response.ok) {
+                  throw new Error(`HTTP ${response.status}`);
+                }
+                return response.arrayBuffer();
+              })
+              .then(data => {
+                callbacks.onSuccess({ url: url, data: data }, {}, context, null);
+              })
+              .catch(err => {
+                callbacks.onError({ code: 0, message: err.message }, context, null);
+              });
+          }
+        };
+
         hlsInstance = new Hls({
           maxBufferLength: 30,
           maxMaxBufferLength: 60,
           enableWorker: true,
           lowLatencyMode: false,
+          // 使用自定义加载器
+          pLoader: customLoader,
+          fLoader: customLoader,
         });
 
         hlsInstance.loadSource(videoUrl);
