@@ -44,7 +44,7 @@ export default function SimpleVideoPlayer({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showControls, setShowControls] = useState(true);
-  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 更新播放器状态
   useEffect(() => {
