@@ -83,8 +83,8 @@ function ExternalPlayerContent() {
 
   // 视频 ref
   const videoRef = useRef<HTMLVideoElement>(null);
-  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
-  const saveIntervalRef = useRef<ReturnType<typeof setInterval>>();
+  const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // 找到当前集数
   useEffect(() => {
