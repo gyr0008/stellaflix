@@ -57,7 +57,7 @@ export const FONT_SIZE = {
   hero: 36,
 };
 
-// API 配置 - 你的电脑 IP 地址
-export const API_BASE_URL = 'http://192.168.1.11:3000';
+// API 配置 - Vercel 生产环境
+export const API_BASE_URL = 'https://stellaflix.vercel.app';
 
 export default COLORS;
