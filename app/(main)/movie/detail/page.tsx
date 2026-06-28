@@ -14,7 +14,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { Suspense } from "react";
 import {
   ArrowLeft,
@@ -86,6 +86,8 @@ const qualityConfig: Record<string, { bg: string; text: string }> = {
 /** 内容组件 */
 function MovieDetailContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const title = searchParams.get("title") || "";
   const year = searchParams.get("year") || undefined;
 
@@ -95,6 +97,23 @@ function MovieDetailContent() {
   const [selectedSource, setSelectedSource] = useState<VideoSource | null>(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  /** 返回上一页 */
+  const goBack = useCallback(() => {
+    // 检查是否有上一页可以返回
+    if (window.history.length > 1) {
+      router.back();
+    } else {
+      // 如果没有上一页，根据当前页面判断应该返回到哪里
+      if (pathname.includes('/search')) {
+        router.push('/search');
+      } else if (pathname.includes('/netflixgc')) {
+        router.push('/netflixgc');
+      } else {
+        router.push('/');
+      }
+    }
+  }, [router, pathname]);
 
   /** 代理图片 URL */
   const getProxiedImage = useCallback((url: string) => {
@@ -199,13 +218,13 @@ function MovieDetailContent() {
           <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-white mb-2">加载失败</h1>
           <p className="text-gray-400 mb-4">{error || "未找到视频信息"}</p>
-          <Link
-            href="/netflixgc"
+          <button
+            onClick={goBack}
             className="inline-flex items-center gap-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
           >
             <ArrowLeft className="w-5 h-5" />
-            返回列表
-          </Link>
+            返回上一页
+          </button>
         </div>
       </div>
     );
@@ -237,14 +256,13 @@ function MovieDetailContent() {
         {/* 顶部导航 - 只有返回 */}
         <div className="sticky top-0 z-50 bg-[#0a0a0f]/80 backdrop-blur-sm border-b border-white/10">
           <div className="max-w-7xl mx-auto px-4 py-4">
-            <Link
-              href="/netflixgc"
+            <button
+              onClick={goBack}
               className="flex items-center gap-2 text-gray-400 hover:text-white transition w-fit"
-              scroll={false}
             >
               <ArrowLeft className="w-5 h-5" />
               <span>返回</span>
-            </Link>
+            </button>
           </div>
         </div>
 

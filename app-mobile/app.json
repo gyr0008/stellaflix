@@ -19,14 +19,17 @@
       },
       "predictiveBackGestureEnabled": false
     },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
     "extra": {
       "eas": {
         "projectId": "cdbb5be6-ff10-42b2-944c-83f5d7973e8e"
       }
     },
-    "owner": "gyr0008s-organization"
+    "owner": "gyr0008s-organization",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/cdbb5be6-ff10-42b2-944c-83f5d7973e8e"
+    }
   }
 }
