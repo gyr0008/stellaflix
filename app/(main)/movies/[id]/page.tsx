@@ -1,11 +1,32 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 import Header from "@/components/Header";
 import FavoriteButton from "@/components/FavoriteButton";
 import VideoSourceSearch from "@/components/VideoSourceSearch";
 import { Play, Star, Clock, Calendar, Film, Search } from "lucide-react";
+
+// CMS视频源配置
+const CMS_API = "https://bfzyapi.com/api.php/provide/vod/";
+
+/**
+ * 清理 HTML 标签和实体
+ * @param html - 包含 HTML 标签的文本
+ * @returns 清理后的纯文本
+ */
+function cleanHtml(html: string): string {
+  if (!html) return "";
+  return html
+    .replace(/<[^>]*>/g, "") // 移除所有 HTML 标签
+    .replace(/&nbsp;/g, " ") // 移除 &nbsp;
+    .replace(/&amp;/g, "&") // 移除 &amp;
+    .replace(/&lt;/g, "<") // 移除 &lt;
+    .replace(/&gt;/g, ">") // 移除 &gt;
+    .replace(/&quot;/g, '"') // 移除 &quot;
+    .replace(/&#39;/g, "'") // 移除 &#39;
+    .replace(/\s+/g, " ") // 合并多个空格
+    .trim();
+}
 
 export default async function MovieDetailPage({
   params,
@@ -13,14 +34,52 @@ export default async function MovieDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const supabase = await createClient();
 
-  const { data: movie } = await supabase
-    .from("movies")
-    .select("*")
-    .eq("id", id)
-    .eq("is_published", true)
-    .single();
+  let movie: any = null;
+
+  // 如果是CMS电影ID
+  if (id.startsWith("cms_")) {
+    const cmsId = id.replace("cms_", "");
+    try {
+      const response = await fetch(`${CMS_API}?ac=detail&ids=${cmsId}`, {
+        headers: { "User-Agent": "Mozilla/5.0" },
+        next: { revalidate: 3600 },
+      });
+      const data = await response.json();
+
+      if (data.list && data.list.length > 0) {
+        const vod = data.list[0];
+        movie = {
+          id: id,
+          title: vod.vod_name || "未知",
+          poster_url: vod.vod_pic || "",
+          backdrop_url: vod.vod_pic || "",
+          rating: 0,
+          rating_count: 0,
+          year: parseInt(vod.vod_year) || 0,
+          genre: vod.vod_class ? vod.vod_class.split(",") : [],
+          description: vod.vod_content || vod.vod_blurb || "",
+          type: "movie",
+          country: vod.vod_area || "",
+          director: vod.vod_director || "",
+          cast_members: vod.vod_actor ? vod.vod_actor.split(",").slice(0, 5) : [],
+          source: "cms",
+        };
+      }
+    } catch (e) {
+      console.error("获取CMS电影失败:", e);
+    }
+  } else {
+    // 本地数据库查询
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("movies")
+      .select("*")
+      .eq("id", id)
+      .eq("is_published", true)
+      .single();
+    movie = data;
+  }
 
   if (!movie) return notFound();
 
@@ -35,12 +94,10 @@ export default async function MovieDetailPage({
       {/* Backdrop */}
       <div className="relative h-[50vh] pt-16">
         {movie.backdrop_url && (
-          <Image
+          <img
             src={movie.backdrop_url}
             alt={movie.title}
-            fill
-            className="object-cover"
-            priority
+            className="absolute inset-0 w-full h-full object-cover"
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-transparent" />
@@ -52,12 +109,10 @@ export default async function MovieDetailPage({
           {/* Poster */}
           <div className="flex-shrink-0 w-64">
             {movie.poster_url && (
-              <Image
+              <img
                 src={movie.poster_url}
                 alt={movie.title}
-                width={256}
-                height={384}
-                className="rounded-xl shadow-2xl object-cover"
+                className="rounded-xl shadow-2xl object-cover w-64 h-96"
               />
             )}
           </div>
@@ -95,7 +150,7 @@ export default async function MovieDetailPage({
             </div>
 
             <p className="text-gray-300 text-lg leading-relaxed mb-8 max-w-2xl">
-              {movie.description}
+              {cleanHtml(movie.description)}
             </p>
 
             {/* Meta */}

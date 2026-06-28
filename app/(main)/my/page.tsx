@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { createClient } from "@/lib/supabase/client";
 import Header from "@/components/Header";
-import WatchStats from "@/components/WatchStats";
 import MovieCard from "@/components/MovieCard";
 import { User, Mail, Calendar, Heart, Loader2 } from "lucide-react";
 import Link from "next/link";
@@ -114,12 +113,6 @@ export default function MyPage() {
             </div>
           </div>
         </div>
-
-        {/* 观影统计 */}
-        <section className="mb-12">
-          <h2 className="text-xl font-semibold text-white mb-4">观影统计</h2>
-          <WatchStats />
-        </section>
 
         {/* 收藏夹 */}
         <section>

@@ -106,6 +106,7 @@ export interface Company {
 export interface ExternalIds {
   imdb_id?: string;
   tmdb_id?: number;
+  douban_id?: number;
   facebook_id?: string;
   instagram_id?: string;
   twitter_id?: string;

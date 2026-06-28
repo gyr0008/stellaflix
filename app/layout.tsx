@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
+import BackToTop from "@/components/BackToTop";
+import AuroraBackground from "@/components/AuroraBackground";
 
 const plusJakarta = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta",
@@ -38,7 +40,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN" className={`${plusJakarta.variable} h-full antialiased`}>
+    <html lang="zh-CN" className={`${plusJakarta.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
         {/* iOS PWA 支持 */}
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
@@ -52,8 +54,11 @@ export default function RootLayout({
         <meta name="msapplication-TileColor" content="#dc2626" />
         <meta name="msapplication-tap-highlight" content="no" />
       </head>
-      <body className="min-h-full flex flex-col bg-black text-white">
+      <body className="min-h-full flex flex-col bg-[#0a0a0f] text-white">
+        {/* Aurora 极光背景效果 */}
+        <AuroraBackground />
         {children}
+        <BackToTop />
       </body>
     </html>
   );

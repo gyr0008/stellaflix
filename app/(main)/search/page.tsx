@@ -5,17 +5,22 @@
  * - 使用混合搜索API（CMS + 豆瓣）
  * - 显示豆瓣海报和评分
  * - 点击跳转到播放页面
+ * - 3D 倾斜发光效果
  */
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, useRef } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, Star, ExternalLink, Film } from "lucide-react";
+import { Search, Star, ExternalLink, Film, Loader2, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import Header from "@/components/Header";
 import { motion } from "framer-motion";
 import { parseVideoUrls } from "@/lib/video-utils";
+import { cleanDescription } from "@/lib/html-utils";
+import { getCache, setCache, generateSearchKey } from "@/lib/search-cache";
+import { useScrollRestoration } from "@/hooks/useScrollRestoration";
+import TiltCard from "@/components/ui/TiltCard";
 
 /**
  * 搜索结果类型
@@ -35,6 +40,7 @@ interface MovieResult {
   sourceName: string;
   fromDouban: boolean;
   fromCms: boolean;
+  fromNetflixGC: boolean;
 }
 
 /**
@@ -46,9 +52,12 @@ interface SearchStats {
   fromCms: number;
 }
 
-export default function SearchPage() {
+function SearchContent() {
   const searchParams = useSearchParams();
   const query = searchParams.get("q") || "";
+
+  // 启用滚动位置保持
+  useScrollRestoration(`search_${query}`);
 
   // 搜索结果
   const [results, setResults] = useState<MovieResult[]>([]);
@@ -58,17 +67,34 @@ export default function SearchPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // 用于跟踪当前查询
+  const currentQueryRef = useRef(query);
+
   // 搜索
   useEffect(() => {
     if (query) {
+      currentQueryRef.current = query;
       fetchSearchResults(query);
     }
   }, [query]);
 
   /**
-   * 获取混合搜索结果
+   * 获取混合搜索结果（带缓存）
    */
   const fetchSearchResults = async (searchQuery: string) => {
+    // 先检查缓存
+    const cacheKey = generateSearchKey(searchQuery);
+    const cached = getCache<{ results: MovieResult[]; stats: SearchStats }>(cacheKey);
+
+    if (cached) {
+      console.log('[搜索缓存] 命中缓存:', searchQuery);
+      setResults(cached.results);
+      setStats(cached.stats);
+      setLoading(false);
+      return;
+    }
+
+    console.log('[搜索缓存] 未命中，发起请求:', searchQuery);
     setLoading(true);
     setError(null);
 
@@ -79,9 +105,22 @@ export default function SearchPage() {
       );
       const data = await response.json();
 
+      // 确保这是当前查询的结果（避免竞态条件）
+      if (currentQueryRef.current !== searchQuery) {
+        console.log('[搜索缓存] 查询已过期，丢弃结果');
+        return;
+      }
+
       if (data.success) {
-        setResults(data.results || []);
-        setStats(data.stats || null);
+        const searchResults = data.results || [];
+        const searchStats = data.stats || null;
+
+        setResults(searchResults);
+        setStats(searchStats);
+
+        // 缓存结果
+        setCache(cacheKey, { results: searchResults, stats: searchStats });
+        console.log('[搜索缓存] 已缓存结果:', searchQuery);
       } else {
         setError(data.error || '搜索失败');
       }
@@ -145,97 +184,92 @@ export default function SearchPage() {
         ) : results.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {results.map((movie, index) => (
-              <motion.div
+              <TiltCard
                 key={movie.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="bg-gray-900 rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow"
+                enableTilt={true}
+                behindGlowEnabled={true}
+                behindGlowColor="rgba(229, 9, 20, 0.5)"
+                behindGlowSize="60%"
+                innerGradient="linear-gradient(145deg, rgba(229, 9, 20, 0.1) 0%, rgba(0, 0, 0, 0.95) 100%)"
+                maxWidth="100%"
+                aspectRatio="0.667"
+                className="group"
               >
-                {/* 海报 */}
-                <Link href={`/play?source=0&url=${encodeURIComponent(getPlayLink(movie))}`}>
-                  <div className="relative aspect-[2/3] w-full group cursor-pointer">
-                    {movie.poster ? (
-                      <img
-                        src={movie.poster}
-                        alt={movie.title}
-                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-                        onError={(e) => {
-                          // 图片加载失败时显示占位符
-                          (e.target as HTMLImageElement).style.display = 'none';
-                        }}
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gray-800 flex items-center justify-center">
-                        <Film className="w-12 h-12 text-gray-600" />
-                      </div>
-                    )}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="w-full h-full"
+                >
+                  {/* 海报 - 点击进入详情页 */}
+                  <Link href={`/movie/detail?title=${encodeURIComponent(movie.title)}${movie.year ? `&year=${movie.year}` : ''}`} scroll={false}>
+                    <div className="relative w-full h-full">
+                      {movie.poster ? (
+                        <img
+                          src={`/api/proxy/image?url=${encodeURIComponent(movie.poster)}`}
+                          alt={movie.title}
+                          className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                          onError={(e) => {
+                            // 图片加载失败时尝试直接加载
+                            const img = e.target as HTMLImageElement;
+                            if (!img.src.includes(movie.poster)) {
+                              img.src = movie.poster;
+                            } else {
+                              img.style.display = 'none';
+                            }
+                          }}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+                          <Film className="w-12 h-12 text-gray-600" />
+                        </div>
+                      )}
 
-                    {/* 播放按钮覆盖层 */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-                      <div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center">
-                        <div className="w-0 h-0 border-l-[20px] border-l-black border-t-[12px] border-t-transparent border-b-[12px] border-b-transparent ml-1" />
+                      {/* 播放按钮覆盖层 */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                        <div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center">
+                          <div className="w-0 h-0 border-l-[20px] border-l-black border-t-[12px] border-t-transparent border-b-[12px] border-b-transparent ml-1" />
+                        </div>
                       </div>
+
+                      {/* 豆瓣标签 */}
+                      {movie.fromDouban && (
+                        <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded z-10">
+                          豆瓣
+                        </div>
+                      )}
+
+                      {/* NetflixGC标签 */}
+                      {movie.fromNetflixGC && (
+                        <div className="absolute top-2 left-2 bg-red-600 text-white text-xs px-2 py-1 rounded z-10">
+                          NetflixGC
+                        </div>
+                      )}
+
+                      {/* 底部渐变 */}
+                      <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-black via-black/60 to-transparent" />
                     </div>
-
-                    {/* 豆瓣标签 */}
-                    {movie.fromDouban && (
-                      <div className="absolute top-2 left-2 bg-green-600 text-white text-xs px-2 py-1 rounded">
-                        豆瓣
-                      </div>
-                    )}
-                  </div>
-                </Link>
-
-                {/* 信息 */}
-                <div className="p-4">
-                  <h3 className="text-white font-medium text-base truncate mb-1">
-                    {movie.title}
-                  </h3>
-
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-gray-500 text-sm">{movie.year}</span>
-                    {movie.rating > 0 && (
-                      <div className="flex items-center gap-1">
-                        <Star className="w-4 h-4 text-yellow-400" fill="currentColor" />
-                        <span className="text-yellow-400 text-sm font-medium">
-                          {movie.rating.toFixed(1)}
-                        </span>
-                      </div>
-                    )}
-                    <span className="text-gray-600 text-xs">{movie.type}</span>
-                  </div>
-
-                  {/* 简介 */}
-                  {movie.description && (
-                    <p className="text-gray-400 text-xs line-clamp-2 mb-3">
-                      {movie.description}
-                    </p>
-                  )}
-
-                  {/* 演员 */}
-                  {movie.actors.length > 0 && (
-                    <p className="text-gray-500 text-xs mb-3">
-                      主演：{movie.actors.slice(0, 3).join('、')}
-                    </p>
-                  )}
-
-                  {/* 播放按钮 */}
-                  <Link
-                    href={`/play?source=0&url=${encodeURIComponent(getPlayLink(movie))}`}
-                    className="flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm py-2 px-4 rounded transition-colors"
-                  >
-                    <span>立即播放</span>
-                    <ExternalLink className="w-4 h-4" />
                   </Link>
 
-                  {/* 数据来源 */}
-                  <div className="mt-2 flex items-center gap-2 text-xs text-gray-600">
-                    <span>来源：{movie.sourceName}</span>
-                    {movie.fromDouban && <span>• 信息：豆瓣</span>}
+                  {/* 底部信息 */}
+                  <div className="absolute inset-x-0 bottom-0 p-4">
+                    <h3 className="text-white font-medium text-base truncate mb-1">
+                      {movie.title}
+                    </h3>
+                    <div className="flex items-center gap-3">
+                      <span className="text-gray-400 text-sm">{movie.year}</span>
+                      {movie.rating > 0 && (
+                        <div className="flex items-center gap-1">
+                          <Star className="w-4 h-4 text-yellow-400" fill="currentColor" />
+                          <span className="text-yellow-400 text-sm font-medium">
+                            {movie.rating.toFixed(1)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </motion.div>
+                </motion.div>
+              </TiltCard>
             ))}
           </div>
         ) : (
@@ -249,5 +283,22 @@ export default function SearchPage() {
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * 搜索页面（带 Suspense）
+ */
+export default function SearchPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+          <Loader2 className="w-12 h-12 text-red-500 animate-spin" />
+        </div>
+      }
+    >
+      <SearchContent />
+    </Suspense>
   );
 }

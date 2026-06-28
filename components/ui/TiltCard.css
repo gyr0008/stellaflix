@@ -1,0 +1,280 @@
+/**
+ * TiltCard - 3D 倾斜发光卡片样式
+ *
+ * 借鉴 React Bits 的 ProfileCard 样式
+ * 适配电影海报展示场景
+ *
+ * 核心效果：
+ * - 3D 倾斜效果
+ * - 鼠标跟随发光
+ * - 光泽动画
+ */
+
+/* ==================== CSS 变量 ==================== */
+
+:root {
+  --tc-pointer-x: 50%;
+  --tc-pointer-y: 50%;
+  --tc-pointer-from-center: 0;
+  --tc-pointer-from-top: 0.5;
+  --tc-pointer-from-left: 0.5;
+  --tc-card-opacity: 0;
+  --tc-rotate-x: 0deg;
+  --tc-rotate-y: 0deg;
+  --tc-background-x: 50%;
+  --tc-background-y: 50%;
+  --tc-inner-gradient: linear-gradient(145deg, rgba(229, 9, 20, 0.15) 0%, rgba(0, 0, 0, 0.9) 100%);
+  --tc-behind-glow-color: rgba(229, 9, 20, 0.67);
+  --tc-behind-glow-size: 50%;
+  --tc-card-radius: 16px;
+
+  /* 光泽颜色 */
+  --tc-sunpillar-1: hsl(2, 100%, 73%);
+  --tc-sunpillar-2: hsl(53, 100%, 69%);
+  --tc-sunpillar-3: hsl(93, 100%, 69%);
+  --tc-sunpillar-4: hsl(176, 100%, 76%);
+  --tc-sunpillar-5: hsl(228, 100%, 74%);
+  --tc-sunpillar-6: hsl(283, 100%, 73%);
+}
+
+/* ==================== 卡片容器 ==================== */
+
+.tc-card-wrapper {
+  perspective: 800px;
+  transform: translate3d(0, 0, 0.1px);
+  position: relative;
+  touch-action: none;
+  cursor: pointer;
+  width: 100%;
+}
+
+/* ==================== 背后发光 ==================== */
+
+.tc-behind {
+  position: absolute;
+  inset: -20%;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at var(--tc-pointer-x) var(--tc-pointer-y),
+    var(--tc-behind-glow-color) 0%,
+    transparent var(--tc-behind-glow-size)
+  );
+  filter: blur(40px) saturate(1.2);
+  opacity: calc(0.9 * var(--tc-card-opacity));
+  transition: opacity 300ms ease;
+}
+
+.tc-card-wrapper:hover,
+.tc-card-wrapper.tc-active {
+  --tc-card-opacity: 1;
+}
+
+/* ==================== 卡片主体 ==================== */
+
+.tc-card {
+  width: 100%;
+  aspect-ratio: 0.667; /* 2:3 电影海报比例 */
+  display: grid;
+  border-radius: var(--tc-card-radius);
+  position: relative;
+  background: rgba(0, 0, 0, 0.9);
+  backface-visibility: hidden;
+  overflow: hidden;
+  box-shadow:
+    rgba(0, 0, 0, 0.6) calc((var(--tc-pointer-from-left) * 10px) - 3px)
+    calc((var(--tc-pointer-from-top) * 20px) - 6px) 20px -5px,
+    0 0 30px rgba(229, 9, 20, 0.1);
+  transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.6s ease;
+  transform: translateZ(0) rotateX(0deg) rotateY(0deg);
+}
+
+.tc-card:hover,
+.tc-card.tc-active {
+  transition: none;
+  transform: translateZ(0) rotateX(var(--tc-rotate-y)) rotateY(var(--tc-rotate-x));
+  box-shadow:
+    rgba(0, 0, 0, 0.8) calc((var(--tc-pointer-from-left) * 15px) - 3px)
+    calc((var(--tc-pointer-from-top) * 25px) - 6px) 30px -5px,
+    0 0 50px rgba(229, 9, 20, 0.2);
+}
+
+.tc-card-shell.tc-entering .tc-card {
+  transition: transform 180ms ease-out;
+}
+
+.tc-card-shell {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  pointer-events: auto; /* 允许鼠标事件 */
+}
+
+.tc-card * {
+  border-radius: var(--tc-card-radius);
+  /* 不再禁用 pointer-events，允许链接点击 */
+}
+
+/* ==================== 内部容器 ==================== */
+
+.tc-inside {
+  position: absolute;
+  inset: 0;
+  background-image: var(--tc-inner-gradient);
+  background-color: rgba(0, 0, 0, 0.9);
+  transform: none;
+}
+
+/* ==================== 光泽效果 ==================== */
+
+.tc-shine {
+  position: absolute;
+  inset: 0;
+  mask-image: linear-gradient(
+    135deg,
+    rgba(0, 0, 0, 0.3) 0%,
+    rgba(0, 0, 0, 0.1) 30%,
+    transparent 50%,
+    rgba(0, 0, 0, 0.1) 70%,
+    rgba(0, 0, 0, 0.3) 100%
+  );
+  mask-mode: luminance;
+  mask-repeat: no-repeat;
+  mask-size: 200% 200%;
+  mask-position: top calc(200% - (var(--tc-background-y) * 5)) left calc(100% - var(--tc-background-x));
+  transition: filter 0.8s ease, opacity 0.8s ease;
+  filter: brightness(0.5) contrast(1.2) saturate(0.3) opacity(0.4);
+  animation: tc-holo-bg 12s linear infinite;
+  animation-play-state: running;
+  mix-blend-mode: color-dodge;
+  overflow: hidden;
+  z-index: 3;
+  background: transparent;
+  background-size: cover;
+  background-position: center;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      var(--tc-sunpillar-1) 5%,
+      var(--tc-sunpillar-2) 10%,
+      var(--tc-sunpillar-3) 15%,
+      var(--tc-sunpillar-4) 20%,
+      var(--tc-sunpillar-5) 25%,
+      var(--tc-sunpillar-6) 30%,
+      var(--tc-sunpillar-1) 35%
+    ),
+    repeating-linear-gradient(
+      -45deg,
+      #0e152e 0%,
+      hsl(180, 10%, 60%) 3.8%,
+      hsl(180, 29%, 66%) 4.5%,
+      hsl(180, 10%, 60%) 5.2%,
+      #0e152e 10%,
+      #0e152e 12%
+    ),
+    radial-gradient(
+      farthest-corner circle at var(--tc-pointer-x) var(--tc-pointer-y),
+      hsla(0, 0%, 0%, 0.1) 12%,
+      hsla(0, 0%, 0%, 0.15) 20%,
+      hsla(0, 0%, 0%, 0.25) 120%
+    );
+  background-position:
+    0 var(--tc-background-y),
+    var(--tc-background-x) var(--tc-background-y),
+    center;
+  background-blend-mode: color, hard-light;
+  background-size:
+    500% 500%,
+    300% 300%,
+    200% 200%;
+  background-repeat: repeat;
+}
+
+.tc-card:hover .tc-shine,
+.tc-card.tc-active .tc-shine {
+  filter: brightness(0.7) contrast(1.4) saturate(0.5);
+  animation-play-state: paused;
+  opacity: 0.7;
+}
+
+/* ==================== 眩光效果 ==================== */
+
+.tc-glare {
+  position: absolute;
+  inset: 0;
+  transform: translate3d(0, 0, 1.1px);
+  overflow: hidden;
+  background-image: radial-gradient(
+    farthest-corner circle at var(--tc-pointer-x) var(--tc-pointer-y),
+    hsla(0, 0%, 100%, 0.15) 0%,
+    hsla(0, 0%, 100%, 0.05) 20%,
+    transparent 60%
+  );
+  mix-blend-mode: overlay;
+  filter: brightness(1) contrast(1.2);
+  z-index: 4;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.tc-card:hover .tc-glare,
+.tc-card.tc-active .tc-glare {
+  opacity: 1;
+}
+
+/* ==================== 内容容器 ==================== */
+
+.tc-content {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 5;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.tc-content img,
+.tc-content video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+/* ==================== 动画 ==================== */
+
+@keyframes tc-holo-bg {
+  0% {
+    background-position:
+      0 var(--tc-background-y),
+      0 0,
+      center;
+  }
+
+  100% {
+    background-position:
+      0 var(--tc-background-y),
+      90% 90%,
+      center;
+  }
+}
+
+/* ==================== 响应式 ==================== */
+
+@media (max-width: 768px) {
+  .tc-card-wrapper {
+    perspective: 600px;
+  }
+
+  .tc-behind {
+    filter: blur(30px) saturate(1.1);
+  }
+}
+
+@media (max-width: 480px) {
+  .tc-card {
+    --tc-card-radius: 12px;
+  }
+}

@@ -47,7 +47,7 @@ export async function GET(
     url = movie.video_url;
   }
 
-  // 3. Try video_sources table
+  // 3. Try video_sources table (simplified)
   if (!url) {
     const { data: sources } = await supabase
       .from("video_sources")
@@ -59,34 +59,7 @@ export async function GET(
       .single();
 
     if (sources?.url) {
-      // Check if it's a direct video URL
-      if (/\.(mp4|m3u8|webm)(\?|$)/i.test(sources.url)) {
-        url = sources.url;
-      } else {
-        // Try to resolve the video source URL
-        try {
-          const resolveRes = await fetch(
-            `${request.nextUrl.origin}/api/video-sources/resolve`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ url: sources.url }),
-            }
-          );
-
-          if (resolveRes.ok) {
-            const { video_url } = await resolveRes.json();
-            url = video_url;
-          }
-        } catch {
-          // Resolution failed
-        }
-
-        // If resolution failed, use the original URL directly
-        if (!url) {
-          url = sources.url;
-        }
-      }
+      url = sources.url;
     }
   }
 

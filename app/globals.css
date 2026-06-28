@@ -1,29 +1,185 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: #000000;
+  --background: #181818;
   --foreground: #ffffff;
+  --accent: #e50914;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-accent: var(--accent);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-plus-jakarta), system-ui, sans-serif;
+  font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* 现代科技感动画 */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(229, 9, 20, 0.3); }
+  50% { box-shadow: 0 0 40px rgba(229, 9, 20, 0.5); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* 滚动指示器动画 */
+@keyframes scroll-down {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(200%); }
+}
+
+.animate-scroll-down {
+  animation: scroll-down 1.5s ease-in-out infinite;
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* ==================== 发光效果动画 ==================== */
+
+/* 脉冲发光 - 慢速 */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.8; transform: scale(1.05); }
+}
+
+/* 脉冲发光 - 快速 */
+@keyframes pulse-fast {
+  0%, 100% { opacity: 0.4; transform: scale(1); }
+  50% { opacity: 0.9; transform: scale(1.02); }
+}
+
+/* 霓虹闪烁 */
+@keyframes neon-flicker {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% { opacity: 1; }
+  20%, 24%, 55% { opacity: 0.6; }
+}
+
+/* 霓虹脉冲 */
+@keyframes neon-pulse {
+  0%, 100% { opacity: 1; filter: brightness(1); }
+  50% { opacity: 0.8; filter: brightness(1.2); }
+}
+
+/* 边框流动 */
+@keyframes border-flow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* 发光旋转 */
+@keyframes glow-rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 应用动画类 */
+.animate-pulse-slow {
+  animation: pulse-slow 3s ease-in-out infinite;
+}
+
+.animate-pulse-fast {
+  animation: pulse-fast 1s ease-in-out infinite;
+}
+
+.animate-neon-flicker {
+  animation: neon-flicker 3s ease-in-out infinite;
+}
+
+.animate-neon-pulse {
+  animation: neon-pulse 2s ease-in-out infinite;
+}
+
+.animate-border-flow {
+  background-size: 200% 200%;
+  animation: border-flow 3s ease infinite;
+}
+
+.animate-glow-rotate {
+  animation: glow-rotate 3s linear infinite;
+}
+
+.animate-glow {
+  animation: glow 2s ease-in-out infinite;
+}
+
+/* 科技感光效 */
+.glass-effect {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* 渐变边框效果 */
+.gradient-border {
+  position: relative;
+}
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(229, 9, 20, 0.5), transparent, rgba(229, 9, 20, 0.5));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.gradient-border:hover::before {
+  opacity: 1;
 }
 
 /* 横向滚动行：隐藏滚动条 */
-.scroll-row {
+.scroll-row,
+.scrollbar-hide {
   overflow-x: auto;
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
 }
-.scroll-row::-webkit-scrollbar {
+.scroll-row::-webkit-scrollbar,
+.scrollbar-hide::-webkit-scrollbar {
   display: none; /* Chrome/Safari */
+}
+
+/* 粒子浮动动画 */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0) translateX(0);
+    opacity: 0.3;
+  }
+  25% {
+    transform: translateY(-20px) translateX(10px);
+    opacity: 0.6;
+  }
+  50% {
+    transform: translateY(-10px) translateX(-5px);
+    opacity: 0.4;
+  }
+  75% {
+    transform: translateY(-30px) translateX(15px);
+    opacity: 0.7;
+  }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
 }
 
 /* 自定义滚动条（非滚动行区域） */
