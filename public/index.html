@@ -13663,6 +13663,30 @@ function makeShelfManager() {
   }
 
   function currentItems() {
+    // ---- 影视态：返回心动/片单/收藏/历史四分类卡（数据来自 SFV.model）----
+    if (typeof global.StellaflixVideo !== 'undefined' && global.StellaflixVideo.state && global.StellaflixVideo.state.isVideo()) {
+      var SM = global.StellaflixVideo.model;
+      var vItems = [];
+      if (SM) {
+      var flagMap = [
+        { flag:'liked',    title:'心动',  tag:'心动' },
+        { flag:'playlist', title:'片单',  tag:'片单' },
+        { flag:'faved',    title:'收藏',  tag:'收藏' },
+          { flag:'history',  title:'历史',  tag:'历史' },
+        ];
+        flagMap.forEach(function(entry){
+          var keys = (entry.flag === 'history') ? (SM.getHistory() || []) : (SM.getKeysByFlag(entry.flag) || []);
+          var count = keys.length;
+          if (entry.flag === 'history') {
+            vItems.push({ type:'videoCategory', flag:entry.flag, title:entry.title, sub: count ? (count + ' 条观看记录') : '还没有观看记录', tag:entry.tag, cover:'', videoCount:count });
+          } else {
+            vItems.push({ type:'videoCategory', flag:entry.flag, title:entry.title, sub: count ? (count + ' 部影片') : '暂无内容', tag:entry.tag, cover:'', videoCount:count });
+          }
+        });
+      }
+      if (vItems.length) return vItems;
+    }
+    // ---- 音乐态（原有逻辑不变）----
     if ((hasAnyPlatformLogin() || hasQishuiImportedPlaylists()) && (userPlaylists.length || myPodcastCollections.length)) {
       var source = activePlaylists();
       var items = source.map(function(pl){
@@ -13737,6 +13761,78 @@ function makeShelfManager() {
     grad.addColorStop(0, 'rgba(255,255,255,0.10)');
     grad.addColorStop(1, 'rgba(255,255,255,0.018)');
     ctx.fillStyle = grad; ctx.fill();
+
+    // ---- 影视态分类卡特殊绘制 ----
+    if (item.type === 'videoCategory') {
+      // 选中描边（复用音乐逻辑）
+      if (card.selected) {
+        ctx.save();
+        makeRoundRect(ctx, pad + 2, pad + 2, W - pad*2 - 4, H - pad*2 - 4, 30);
+        ctx.shadowColor = shelfAccentRgba(0.58); ctx.shadowBlur = 18;
+        ctx.strokeStyle = shelfAccentRgba(0.72); ctx.lineWidth = 2.2; ctx.stroke();
+        ctx.restore();
+      }
+      // 图标区（左侧方块）—— 用渐变色块代替封面
+      var iconSize = H - pad*2 - 8;
+      var icx = pad + 6, icy = pad + 4;
+      makeRoundRect(ctx, icx, icy, iconSize, iconSize, 26);
+      var iconGrad = ctx.createLinearGradient(icx, icy, icx + iconSize, icy + iconSize);
+      // 每个分类用不同色调
+      var flagHue = ({ liked:220, playlist:180, favorite:340, history:30 })[item.flag] || 200;
+      iconGrad.addColorStop(0, 'hsla(' + flagHue + ',70%,55%,0.85)');
+      iconGrad.addColorStop(1, 'hsla(' + flagHue + ',60%,35%,0.70)');
+      ctx.fillStyle = iconGrad; ctx.fill();
+      // 分类图标文字
+      ctx.font = '700 22px Inter, "Microsoft YaHei", Arial';
+      ctx.fillStyle = 'rgba(255,255,255,0.92)';
+      var iconLabel = ({ liked:'♡', playlist:'📋', favorite:'★', history:'🕐' })[item.flag] || '?';
+      ctx.fillText(iconLabel, icx + iconSize/2 - 12, icy + iconSize/2 + 8);
+
+      // 文本区
+      var vtx = pad + iconSize + 32;
+      ctx.font = '700 17px Inter, Arial';
+      ctx.fillStyle = shelfAccentRgba(0.82);
+      ctx.fillText(item.tag || '', vtx, pad + 36);
+
+      ctx.font = '700 30px Inter, Arial';
+      ctx.fillStyle = 'rgba(255,255,255,0.96)';
+      wrapText(ctx, item.title || '', vtx, pad + 78, W - vtx - pad - 14, 36, 2);
+
+      ctx.font = '400 17px Inter, Arial';
+      ctx.fillStyle = 'rgba(255,255,255,0.52)';
+      wrapText(ctx, item.sub || '', vtx, pad + 156, W - vtx - pad - 14, 24, 2);
+
+      // 静态装饰线（替代音乐律动条）
+      ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 3.5;
+      ctx.beginPath(); ctx.moveTo(vtx, H - pad - 22); ctx.lineTo(vtx + 200, H - pad - 22); ctx.stroke();
+
+      // 中心卡操作按钮
+      if (card.isCenter) {
+        var vactY = H - pad - 78;
+        // 浏览按钮
+        makeRoundRect(ctx, vtx, vactY, 138, 38, 18);
+        var vplayGrad = ctx.createLinearGradient(vtx, vactY, vtx + 138, vactY + 38);
+        vplayGrad.addColorStop(0, 'rgba(255,255,255,0.88)');
+        vplayGrad.addColorStop(0.55, shelfAccentRgba(0.94));
+        vplayGrad.addColorStop(1, shelfAccentRgba(0.58));
+        ctx.fillStyle = vplayGrad; ctx.fill();
+        ctx.strokeStyle = shelfAccentRgba(0.44); ctx.lineWidth = 1.1; ctx.stroke();
+        ctx.font = '800 14px Inter, "Microsoft YaHei", Arial';
+        ctx.fillStyle = readableInkForHex(shelfAccentHex());
+        ctx.fillText('◈ 浏览', vtx + 36, vactY + 24);
+      }
+
+      // DOF
+      var vdof = card.dofBlur || 0;
+      if (vdof > 0.12) {
+        makeRoundRect(ctx, pad, pad, W - pad*2, H - pad*2, 32);
+        ctx.fillStyle = 'rgba(0,0,0,' + Math.min(0.28, vdof * 0.18).toFixed(3) + ')'; ctx.fill();
+      }
+      card.texture.needsUpdate = true;
+      return; // ← 影视卡提前退出，不执行下面的音乐卡绘制
+    }
+
+    // ---- 音乐卡原有绘制（不变）----
 
     if (isNow) {
       ctx.strokeStyle = shelfAccentRgba(0.72);
@@ -13845,11 +13941,13 @@ function makeShelfManager() {
     var geo = new THREE.PlaneGeometry(2.05, 1.025, 1, 1);
     var mesh = new THREE.Mesh(geo, mat);
     mesh.renderOrder = 50 + i;
-    mesh.userData.action = item.type === 'playlist'
+    mesh.userData.action = item.type === 'videoCategory'
+      ? { kind:'openVideoCategory', flag: item.flag, title: item.title }
+      : (item.type === 'playlist'
       ? { kind:'loadPlaylist', playlistId: item.playlistId, title: item.title }
       : (item.type === 'podcastCollection'
         ? { kind:'loadPlaylist', playlistId: 'podcast:' + item.podcastKey, title: item.title }
-        : (item.type === 'queue' ? { kind:'playQueue', index: item.queueIndex } : { kind:'empty' }));
+        : (item.type === 'queue' ? { kind:'playQueue', index: item.queueIndex } : { kind:'empty' })));
     group.add(mesh);
     var card = { canvas: cv, ctx: ctx, texture: tx, mesh: mesh, item: item, index: i, isCenter: false, selected: i === selectedIdx, floatMix: 0, fxPulse: 0, dofBlur: 0, dofBucket: -1, drawKey: '' };
     return card;
@@ -14440,6 +14538,13 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
       if (!action) return;
       var card = cards.find(function(c) { return c.mesh.userData.action === action; });
       pulseCard(card, action.kind === 'loadPlaylist' ? 1.0 : 0.70);
+      if (action.kind === 'openVideoCategory') {
+        // 影视态分类卡 → 打开 SFV.online 对应分类浏览
+        if (typeof global.StellaflixVideo !== 'undefined' && global.StellaflixVideo.online) {
+          global.StellaflixVideo.openBrowse(action.flag);
+        }
+        return;
+      }
       if (action.kind === 'playQueue') {
         playQueueAt(action.index);
       } else if (action.kind === 'loadPlaylist') {
@@ -14463,6 +14568,13 @@ void main(){ vec4 t = texture2D(uDotTex, gl_PointCoord); if (t.a < 0.02) discard
       // queue 类型 → 直接播放, 不需要内容框
       if (action.kind === 'playQueue') {
         playQueueAt(action.index);
+        return;
+      }
+      if (action.kind === 'openVideoCategory') {
+        // 影视态分类卡 → 打开 SFV.online 对应分类
+        if (typeof global.StellaflixVideo !== 'undefined' && global.StellaflixVideo.online) {
+          global.StellaflixVideo.openBrowse(action.flag);
+        }
         return;
       }
       if (action.kind === 'loadPlaylist') {

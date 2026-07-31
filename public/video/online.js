@@ -105,10 +105,15 @@
     (doc.body || doc.documentElement).appendChild(overlay);
 
     // 切回音乐态自动隐藏，避免残留（spacechange 由 state.js 在 window 上派发）
+    // 同时通知 3D 歌单架重建（影视态↔音乐态切换时卡片内容完全不同）
     if (global.addEventListener) {
       global.addEventListener(SFV.state && SFV.state.EVENT ? SFV.state.EVENT : 'spacechange', function (ev) {
         var mode = ev && ev.detail ? ev.detail.spaceMode : (isVideoSpace() ? 'video' : 'music');
         if (mode !== 'video' && isOpen()) close();
+        // 通知 3D 歌单架立即重建（不等签名轮询 0.8s）
+        if (typeof global.scheduleShelfRebuild === 'function') {
+          try { global.scheduleShelfRebuild('video-space-change', true); } catch (e) {}
+        }
       });
     }
   }
@@ -466,5 +471,6 @@
     openLocal: openLocal,
     openUrlPrompt: openUrlPrompt,
     openSources: openSources,
+    openBrowse: openCategory, // 3D 歌单架调用别名
   };
 })(typeof window !== 'undefined' ? window : this);
