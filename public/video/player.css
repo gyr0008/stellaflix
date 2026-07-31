@@ -1,0 +1,102 @@
+/*
+ * Stellaflix 影视模块 — 播放器样式 (Step 3, 方案 B 全屏弹层)
+ */
+
+/* ===== S4 共存：进入影视态时让 #canvas-container 的 1450ms 过渡瞬切 =====
+   消除双态切换的拖影；同时压过 render-deep-sleep / shape-workshop-mode 的
+   opacity / filter 规则（见 index.html:126 / :1296）。 */
+body.video-space-active #canvas-container {
+  transition: none !important;
+}
+
+/* ===== 全屏覆盖层（方案 B）=====
+   极高 z-index 盖在所有既有层之上（包括 #canvas-container z:1、idle-guide z:2、
+   #empty-home z:4、fx-panel 等），使粒子在视觉上让位。 */
+#sfv-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  background: #000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  font-family: var(--font-sans, system-ui, -apple-system, "Segoe UI", sans-serif);
+  color: #fff;
+}
+#sfv-overlay.sfv-show { display: flex; }
+
+/* 视频本体：默认「留黑边完整显示」(object-fit:contain)；
+   后续若需「填满裁切」可在 Step 4 提供切换并改为 cover。 */
+#sfv-overlay video.sfv-video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  background: #000;
+}
+
+/* ===== 控制条 ===== */
+#sfv-controls {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 16px 20px 22px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.78), rgba(0, 0, 0, 0));
+  transition: opacity 0.35s ease;
+}
+/* 沉浸态：控件自动隐藏 */
+#sfv-overlay.sfv-idle #sfv-controls {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sfv-btn {
+  flex: 0 0 auto;
+  min-width: 38px;
+  height: 38px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 15px;
+  line-height: 38px;
+  text-align: center;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s ease;
+}
+.sfv-btn:hover { background: rgba(255, 255, 255, 0.22); }
+.sfv-btn-close { background: rgba(255, 70, 90, 0.28); }
+.sfv-btn-close:hover { background: rgba(255, 70, 90, 0.45); }
+
+.sfv-progress {
+  position: relative;
+  flex: 1 1 auto;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.22);
+  cursor: pointer;
+}
+.sfv-progress-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #ff5367, #7ad7c2);
+}
+
+.sfv-time {
+  flex: 0 0 auto;
+  min-width: 92px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.82);
+  text-align: center;
+}
