@@ -79,7 +79,7 @@
 tag     v1.1.2-baseline
 ```
 
-**该目录已确认为唯一开发主线**（来源：用户从 GitHub 下载的源码包）。`AGENTS.md` 中记载的 `E:\桌面\播放器软件\Mineradio\resources\app` 路径当前不可访问，**该记载已失效**，须在后续更新 `AGENTS.md` 时修正。
+**该目录已确认为唯一开发主线**（来源：用户从 GitHub 下载的源码包）。`AGENTS.md` 中记载的 `E:\桌面\播放器软件\Stellaflix\resources\app` 路径当前不可访问，**该记载已失效**，须在后续更新 `AGENTS.md` 时修正。
 
 回退手段：
 

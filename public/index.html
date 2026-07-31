@@ -3,8 +3,31 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mineradio</title>
+<title>Stellaflix</title>
 <meta name="referrer" content="no-referrer">
+<script>
+(function migrateLegacyMineradioStorage(){
+  try {
+    if (typeof localStorage === 'undefined' || !localStorage) return;
+    var prefix = 'mineradio-';
+    var targetPrefix = 'stellaflix-';
+    var migrated = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var key = localStorage.key(i);
+      if (key && key.indexOf(prefix) === 0) {
+        var target = targetPrefix + key.slice(prefix.length);
+        if (localStorage.getItem(target) == null) {
+          localStorage.setItem(target, localStorage.getItem(key));
+          migrated.push(target);
+        }
+      }
+    }
+    if (migrated.length) {
+      try { console.info('[Stellaflix] migrated ' + migrated.length + ' legacy Mineradio storage keys'); } catch (e) {}
+    }
+  } catch (e) { /* non-fatal: storage may be unavailable */ }
+})();
+</script>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Inter:wght@200;300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700;900&family=UnifrakturCook:wght@700&display=swap" rel="stylesheet">
 <script src="vendor/three.r128.min.js"></script>
 <script src="vendor/music-tempo.min.js"></script>
@@ -13,7 +36,7 @@
 <script src="equalizer-core.js"></script>
 <script>
 try {
-  document.documentElement.classList.add(localStorage.getItem('mineradio-diy-player-mode-v1') === '1' ? 'diy-mode-preload' : 'simple-mode-preload');
+  document.documentElement.classList.add(localStorage.getItem('stellaflix-diy-player-mode-v1') === '1' ? 'diy-mode-preload' : 'simple-mode-preload');
 } catch (e) {
   document.documentElement.classList.add('simple-mode-preload');
 }
@@ -2157,7 +2180,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
 
   <!-- 主内容 -->
   <div class="splash-content">
-    <div class="splash-wordmark" id="splash-wordmark" aria-label="Mineradio">
+    <div class="splash-wordmark" id="splash-wordmark" aria-label="Stellaflix">
       <span class="splash-word-mine">Mine</span>
       <span class="splash-word-radio" aria-label="radio">rad<span class="splash-word-i" aria-hidden="true"></span><span class="splash-word-o">o</span></span>
     </div>
@@ -2201,7 +2224,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
 </div>
 
 <!-- 空场 Home -->
-<section id="empty-home" aria-label="Mineradio home">
+<section id="empty-home" aria-label="Stellaflix home">
   <div class="empty-home-shell">
     <div class="home-hero">
       <div class="home-hero-inner home-poster-inner">
@@ -2302,7 +2325,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
 <!-- 控制台 (右侧贴边自动显示, 无关闭按钮) -->
 <div id="fx-panel">
   <div class="fx-head">
-    <div><div class="fx-title">视觉控制台</div><div class="fx-sub">MINERADIO VISUALS · 鼠标移开自动隐藏</div></div>
+    <div><div class="fx-title">视觉控制台</div><div class="fx-sub">STELLAFLIX VISUALS · 鼠标移开自动隐藏</div></div>
   </div>
 
   <div class="fx-section-label preset-grid-label">形态预设</div>
@@ -2823,7 +2846,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
       <button id="login-provider-kugou-music" class="kugouMusic" type="button" onclick="setLoginProvider('kugouMusic')">酷狗音乐</button>
     </div>
     <div class="login-intro">
-      <div class="login-intro-kicker">Mineradio</div>
+      <div class="login-intro-kicker">Stellaflix</div>
       <div class="login-intro-title">音乐播放器，也是一座视觉舞台</div>
       <div class="login-intro-body">搜索或导入一首歌即可播放；登录后会同步歌单、红心和播客，让封面、歌词和粒子跟着音乐动起来。</div>
     </div>
@@ -2976,7 +2999,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
     <div class="update-panel-inner">
       <div class="update-panel-head">
         <div>
-          <div class="update-kicker">MINERADIO</div>
+          <div class="update-kicker">STELLAFLIX</div>
           <div id="update-modal-title" class="update-title">New release</div>
           <div id="update-modal-version" class="update-version">v1.0.10</div>
         </div>
@@ -3081,24 +3104,24 @@ var AUDIO_FADE_IN_MS = 460;
 var AUDIO_FADE_OUT_MS = 420;
 var AUDIO_SILENCE_GAIN = 0.0001;
 var userPlaylists = [], qqPlaylists = [], kugouPlaylists = [], kugouMusicPlaylists = [], qishuiImportedPlaylists = [], myPodcastCollections = [], myPodcastItems = {}, playlistCoverCache = {};
-var CUSTOM_COVER_STORE_KEY = 'mineradio-custom-covers';
-var CUSTOM_LYRIC_STORE_KEY = 'mineradio-custom-lyrics-v1';
-var CUSTOM_LYRIC_PREF_STORE_KEY = 'mineradio-custom-lyric-prefs-v1';
-var LYRIC_LAYOUT_STORE_KEY = 'mineradio-lyric-layout-v1';
+var CUSTOM_COVER_STORE_KEY = 'stellaflix-custom-covers';
+var CUSTOM_LYRIC_STORE_KEY = 'stellaflix-custom-lyrics-v1';
+var CUSTOM_LYRIC_PREF_STORE_KEY = 'stellaflix-custom-lyric-prefs-v1';
+var LYRIC_LAYOUT_STORE_KEY = 'stellaflix-lyric-layout-v1';
 var VISUAL_PRESET_SCHEMA = 'skull-preset-v2';
-var PLAYBACK_QUALITY_STORE_KEY = 'mineradio-playback-quality-v1';
-var UPLOAD_TIP_STORE_KEY = 'mineradio-upload-tip-seen';
-var DIY_MODE_STORE_KEY = 'mineradio-diy-player-mode-v1';
-var PLAYLIST_PANEL_PIN_STORE_KEY = 'mineradio-playlist-panel-pinned-v1';
-var USER_CAPSULE_AUTO_HIDE_STORE_KEY = 'mineradio-user-capsule-auto-hide-v1';
-var FX_FAB_AUTO_HIDE_STORE_KEY = 'mineradio-fx-fab-auto-hide-v1';
-var CONTROLS_AUTO_HIDE_STORE_KEY = 'mineradio-controls-auto-hide-v1';
-var FREE_CAMERA_STORE_KEY = 'mineradio-free-camera-v1';
-var HOTKEY_SETTINGS_STORE_KEY = 'mineradio-hotkey-settings-v1';
-var VISUAL_GUIDE_SEEN_STORE_KEY = 'mineradio-visual-guide-seen-v2';
-var LOCAL_BEATMAP_STORE_KEY = 'mineradio-local-beatmaps-v1';
-var LOCAL_BEAT_PREF_STORE_KEY = 'mineradio-local-beatmap-prefs-v1';
-var QISHUI_IMPORTED_PLAYLIST_STORE_KEY = 'mineradio-qishui-imported-playlists-v1';
+var PLAYBACK_QUALITY_STORE_KEY = 'stellaflix-playback-quality-v1';
+var UPLOAD_TIP_STORE_KEY = 'stellaflix-upload-tip-seen';
+var DIY_MODE_STORE_KEY = 'stellaflix-diy-player-mode-v1';
+var PLAYLIST_PANEL_PIN_STORE_KEY = 'stellaflix-playlist-panel-pinned-v1';
+var USER_CAPSULE_AUTO_HIDE_STORE_KEY = 'stellaflix-user-capsule-auto-hide-v1';
+var FX_FAB_AUTO_HIDE_STORE_KEY = 'stellaflix-fx-fab-auto-hide-v1';
+var CONTROLS_AUTO_HIDE_STORE_KEY = 'stellaflix-controls-auto-hide-v1';
+var FREE_CAMERA_STORE_KEY = 'stellaflix-free-camera-v1';
+var HOTKEY_SETTINGS_STORE_KEY = 'stellaflix-hotkey-settings-v1';
+var VISUAL_GUIDE_SEEN_STORE_KEY = 'stellaflix-visual-guide-seen-v2';
+var LOCAL_BEATMAP_STORE_KEY = 'stellaflix-local-beatmaps-v1';
+var LOCAL_BEAT_PREF_STORE_KEY = 'stellaflix-local-beatmap-prefs-v1';
+var QISHUI_IMPORTED_PLAYLIST_STORE_KEY = 'stellaflix-qishui-imported-playlists-v1';
 var LOCAL_BEAT_COMBOS = ['', 'downbeat', 'push', 'drop', 'rebound', 'accent'];
 var HOTKEY_ACTIONS = [
   { key:'togglePlay', label:'播放 / 暂停', category:'播放', local:'Space', global:'Ctrl+Alt+Space' },
@@ -3136,10 +3159,10 @@ var homeDiscoverState = { loading: false, loaded: false, loggedIn: false, mode: 
 var homeDiscoverToken = 0;
 var homeVisualPresetActive = false;
 var homeVisualPrevPreset = 0;
-var HOME_LISTEN_STATS_KEY = 'mineradio-listen-stats-v1';
-var HOME_POSTER_STORE_KEY = 'mineradio-home-personal-poster-v1';
+var HOME_LISTEN_STATS_KEY = 'stellaflix-listen-stats-v1';
+var HOME_POSTER_STORE_KEY = 'stellaflix-home-personal-poster-v1';
 var homePosterState = readHomePosterState();
-var PLAYLIST_DETAIL_SORT_STORE_KEY = 'mineradio-playlist-detail-sort-v1';
+var PLAYLIST_DETAIL_SORT_STORE_KEY = 'stellaflix-playlist-detail-sort-v1';
 var PLAYLIST_DETAIL_SORT_OPTIONS = [
   { key: 'saved', label: '收藏时间' },
   { key: 'artist', label: '歌手名' },
@@ -3151,7 +3174,7 @@ var playlistPlatformPlayCountState = {
   kugou: { loaded: false, loading: false, error: '', counts: {}, promise: null },
   kugouMusic: { loaded: false, loading: false, error: '', counts: {}, promise: null },
 };
-var HOME_WEATHER_CITY_KEY = 'mineradio-weather-city';
+var HOME_WEATHER_CITY_KEY = 'stellaflix-weather-city';
 var homeWeatherRadioState = { loading: false, loaded: false, city: localStorage.getItem(HOME_WEATHER_CITY_KEY) || '上海', weather: null, radio: null, error: '', updatedAt: 0 };
 var homeWeatherToken = 0;
 var homeWeatherLoadTimer = null;
@@ -3238,7 +3261,7 @@ var updatePreviewState = {
     '单实例与快捷方式修复'
   ]
 };
-var EQUALIZER_STORE_KEY = 'mineradio-equalizer-state-v1';
+var EQUALIZER_STORE_KEY = 'stellaflix-equalizer-state-v1';
 var equalizerState = loadEqualizerState();
 var equalizerSaveTimer = 0;
 
@@ -8519,7 +8542,7 @@ function readShapeMaterialImageFile(file) {
   reader.onerror = function(){ showToast('形态素材读取失败'); };
   reader.readAsDataURL(file);
 }
-var CUSTOM_BG_DB_NAME = 'mineradio-custom-background-v1';
+var CUSTOM_BG_DB_NAME = 'stellaflix-custom-background-v1';
 var CUSTOM_BG_STORE = 'media';
 var customBgObjectUrl = '';
 var customBgApplyToken = 0;
@@ -12847,7 +12870,7 @@ function updateLocalBeatModal() {
   var desc = document.getElementById('local-beat-desc');
   if (desc) desc.textContent = mode === 'dj'
     ? '适合 DJ、长混音或鼓点密集的本地音频，会使用更稳定的低频锁拍并进入 DJ 视觉驱动。'
-    : '适合普通歌曲和日常播放，会沿用 Mineradio 电影视角的综合节奏分析。';
+    : '适合普通歌曲和日常播放，会沿用 Stellaflix 电影视角的综合节奏分析。';
   var start = document.getElementById('local-beat-start-btn');
   var cancel = document.getElementById('local-beat-cancel-btn');
   var later = document.getElementById('local-beat-later-btn');
@@ -16657,7 +16680,7 @@ function renderHomeDiscover() {
   var weatherKicker = document.getElementById('home-weather-kicker');
   var weatherMeta = document.getElementById('home-weather-meta');
   if (weatherTitle) weatherTitle.textContent = '我的音乐库';
-  if (weatherKicker) weatherKicker.textContent = 'Mineradio · Your Library';
+  if (weatherKicker) weatherKicker.textContent = 'Stellaflix · Your Library';
   if (sub) {
     if (loggedOutHome) sub.textContent = '登录后会把你的歌单、常听歌手和最近播放放在这里；也可以直接搜索或导入本地音乐。';
     else sub.textContent = '从你的歌单、最近播放和常听歌手开始，天气电台放在需要氛围的时候再开。';
@@ -18428,7 +18451,7 @@ function avatarSrc(url) {
 var searchTimer = null;
 var searchRequestSeq = 0;
 var searchLastResultQuery = '';
-var SEARCH_HISTORY_STORE_KEY = 'mineradio-search-history';
+var SEARCH_HISTORY_STORE_KEY = 'stellaflix-search-history';
 var $input = document.getElementById('search-input');
 var $results = document.getElementById('search-results');
 var $loading = document.getElementById('loading-overlay');
@@ -22217,9 +22240,9 @@ var lyricColorPresets = [
   { name:'酒红', color:'#6d1f35' },
   { name:'墨黑', color:'#111318' },
 ];
-var USER_SHAPE_PRESET_STORE_KEY = 'mineradio-shape-presets-v1';
-var ACTIVE_SHAPE_PRESET_STORE_KEY = 'mineradio-active-shape-preset-v1';
-var USER_SHAPE_PRESET_EXPORT_TYPE = 'mineradio-shape-preset';
+var USER_SHAPE_PRESET_STORE_KEY = 'stellaflix-shape-presets-v1';
+var ACTIVE_SHAPE_PRESET_STORE_KEY = 'stellaflix-active-shape-preset-v1';
+var USER_SHAPE_PRESET_EXPORT_TYPE = 'stellaflix-shape-preset';
 var USER_SHAPE_PRESET_SCHEMA = 1;
 var SHAPE_PRIMITIVE_LIMIT = 12;
 var SHAPE_TOTAL_PARTICLE_LIMIT = 6000;
@@ -22507,7 +22530,7 @@ function shapePresetExportPayload(slot) {
   };
 }
 function safeShapePresetFileName(name) {
-  return String(name || 'Mineradio 形态预设').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 48) + '.mineradio-shape.json';
+  return String(name || 'Stellaflix 形态预设').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 48) + '.stellaflix-shape.json';
 }
 function exportUserShapePreset(index) {
   index = Math.floor(Number(index) || 0);
@@ -22539,7 +22562,7 @@ function normalizeImportedShapePresetPayload(payload, fileName) {
   var rawRecipe = payload.recipe || payload.shapeRecipe || payload;
   var recipe = normalizeShapeRecipe(rawRecipe);
   if (!recipe.primitives.length) return null;
-  var baseName = String(fileName || '').split(/[\\/]/).pop().replace(/\.mineradio-shape\.json$/i, '').replace(/\.json$/i, '');
+  var baseName = String(fileName || '').split(/[\\/]/).pop().replace(/\.stellaflix-shape\.json$/i, '').replace(/\.json$/i, '');
   var name = normalizeShapeRecipeName(payload.name || (rawRecipe && rawRecipe.name) || baseName || recipe.name);
   recipe.name = name;
   return {
@@ -22583,7 +22606,7 @@ function importUserShapePresetFromDialog() {
   }
   var input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.mineradio-shape.json,.json,application/json';
+  input.accept = '.stellaflix-shape.json,.json,application/json';
   input.onchange = function(){
     var file = input.files && input.files[0];
     if (file) readUserShapePresetImportFile(file);
@@ -23308,9 +23331,9 @@ function clearActiveUserShapePreset(opts) {
   saveActiveUserShapeRecipe(null);
   if (!opts.skipRender) syncCustomShapeLayer(true);
 }
-var USER_FX_ARCHIVE_STORE_KEY = 'mineradio-user-fx-archives-v1';
-var USER_FX_ARCHIVE_EXPORT_TYPE = 'mineradio-user-fx-archive';
-var USER_FX_WORK_EXPORT_TYPE = 'mineradio-visual-work';
+var USER_FX_ARCHIVE_STORE_KEY = 'stellaflix-user-fx-archives-v1';
+var USER_FX_ARCHIVE_EXPORT_TYPE = 'stellaflix-user-fx-archive';
+var USER_FX_WORK_EXPORT_TYPE = 'stellaflix-visual-work';
 var USER_FX_ARCHIVE_SCHEMA = 1;
 function defaultUserFxArchiveName(index) {
   return '我的作品 ' + (index + 1);
@@ -23644,7 +23667,7 @@ function fxArchiveCreativeRecipe(snapshot) {
   snapshot = normalizeFxArchiveSnapshot(snapshot);
   if (!snapshot) return null;
   return {
-    type: 'mineradio-visual-recipe',
+    type: 'stellaflix-visual-recipe',
     version: 1,
     material: {
       source: normalizeShapeMaterialMedia(snapshot.shapeMaterialMedia) ? 'uploaded-shape-material' : 'current-cover'
@@ -23822,7 +23845,7 @@ function userFxArchiveExportPayload(slot) {
   };
 }
 function safeArchiveFileName(name) {
-  return String(name || 'Mineradio 视觉作品').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 48) + '.mineradio-visual.json';
+  return String(name || 'Stellaflix 视觉作品').replace(/[\\/:*?"<>|]+/g, '-').slice(0, 48) + '.stellaflix-visual.json';
 }
 function exportUserFxArchive(index) {
   var slot = userFxArchiveAt(index);
@@ -23852,7 +23875,7 @@ function normalizeImportedFxArchivePayload(payload, fileName) {
   if (!payload || typeof payload !== 'object') return null;
   var snapshot = payload.snapshot ? normalizeFxArchiveSnapshot(payload.snapshot) : normalizeFxArchiveSnapshot(payload);
   if (!snapshot) return null;
-  var baseName = String(fileName || '').split(/[\\/]/).pop().replace(/\.mineradio-visual\.json$/i, '').replace(/\.json$/i, '');
+  var baseName = String(fileName || '').split(/[\\/]/).pop().replace(/\.stellaflix-visual\.json$/i, '').replace(/\.json$/i, '');
   return {
     name: normalizeUserFxArchiveName(payload.name || baseName, userFxArchives.length),
     description: normalizeUserFxArchiveDescription(payload.description || payload.desc || ''),
@@ -23886,7 +23909,7 @@ function importUserFxArchiveFromDialog() {
   }
   var input = document.createElement('input');
   input.type = 'file';
-  input.accept = '.mineradio-visual.json,.json,application/json';
+  input.accept = '.stellaflix-visual.json,.json,application/json';
   input.onchange = function(){
     var file = input.files && input.files[0];
     if (file) readUserFxArchiveImportFile(file);
@@ -26115,7 +26138,7 @@ function ensureHotkeyModal() {
   modal.innerHTML =
     '<div class="hotkey-dialog" role="dialog" aria-modal="true" aria-label="热键设置">' +
       '<div class="hotkey-head">' +
-        '<div><div class="hotkey-title">热键设置</div><div class="hotkey-sub">局内热键只在 Mineradio 窗口内生效；全局热键会向系统注册，并检测是否被占用。</div></div>' +
+        '<div><div class="hotkey-title">热键设置</div><div class="hotkey-sub">局内热键只在 Stellaflix 窗口内生效；全局热键会向系统注册，并检测是否被占用。</div></div>' +
         '<button class="hotkey-close" type="button" data-hotkey-close aria-label="关闭">×</button>' +
       '</div>' +
       '<div class="hotkey-toolbar">' +
@@ -26140,7 +26163,7 @@ function ensureHotkeyModal() {
 }
 function hotkeyStatusMarkup(scope, actionKey, binding, duplicate) {
   if (!binding) return '<span class="hotkey-status">未设置</span>';
-  if (duplicate && duplicate[binding] > 1) return '<span class="hotkey-status conflict"><span class="source-icon">!</span>Mineradio 内部重复</span>';
+  if (duplicate && duplicate[binding] > 1) return '<span class="hotkey-status conflict"><span class="source-icon">!</span>Stellaflix 内部重复</span>';
   if (scope === 'local') return '<span class="hotkey-status ok">可用</span>';
   var status = hotkeyGlobalStatus[actionKey];
   if (!status) return '<span class="hotkey-status">待检测</span>';
@@ -26975,7 +26998,7 @@ function syncUpdatePreviewStateClass() {
   if (foot) {
     if (isDownloading) foot.textContent = (updatePreviewState.message || (isPatch ? '正在下载快速补丁' : '正在下载完整安装包')) + (updateProgressDetailText() ? ' · ' + updateProgressDetailText() : '');
     else if (isError) foot.textContent = '下载失败：' + (updatePreviewState.errorReason || updatePreviewState.errorDetail || updatePreviewState.message || '请稍后重试') + (updatePreviewState.failedAttempts && updatePreviewState.failedAttempts.length ? ' · 已尝试 ' + updatePreviewState.failedAttempts.length + ' 条线路' : '');
-    else if (isReady && isPatch) foot.textContent = updatePreviewState.restartRequired ? '快速补丁已应用，重启 Mineradio 后生效。' : '快速补丁已应用。';
+    else if (isReady && isPatch) foot.textContent = updatePreviewState.restartRequired ? '快速补丁已应用，重启 Stellaflix 后生效。' : '快速补丁已应用。';
     else if (isReady) foot.textContent = updatePreviewState.cached ? '已复用上次校验通过的安装包，不会重复下载。' : '安装包已准备好，点击按钮后再打开安装。';
     else if (updatePreviewState.patchAvailable) foot.textContent = '优先使用轻量补丁，只更新缺失或变更的资源文件；不适用时可下载完整安装包。';
     else foot.textContent = updatePreviewState.updateAvailable ? '没有可用快速补丁时会下载完整安装包。' : '当前版本已是最新。';
@@ -27233,7 +27256,7 @@ async function restartForAppliedPatch() {
       return;
     }
   } catch (e) {}
-  showToast('请手动重启 Mineradio 让补丁生效');
+  showToast('请手动重启 Stellaflix 让补丁生效');
 }
 
 async function openDownloadedUpdateInstaller(filePath) {
@@ -28910,7 +28933,7 @@ var visualGuideSteps = [
   {
     target: 'stage',
     kicker: '01 / Welcome',
-    title: 'Mineradio 是用来听歌的视觉播放器',
+    title: 'Stellaflix 是用来听歌的视觉播放器',
     body: '它不是单纯歌单页：搜索或导入一首歌后，封面、歌词、粒子和镜头会跟着音乐一起动。'
   },
   {
@@ -30578,7 +30601,7 @@ function markSplashReadyToEnter() {
   s.classList.add('ready');
   s.setAttribute('role', 'button');
   s.setAttribute('tabindex', '0');
-  s.setAttribute('aria-label', '点击进入 Mineradio');
+  s.setAttribute('aria-label', '点击进入 Stellaflix');
 }
 
 document.addEventListener('DOMContentLoaded', function(){
@@ -30622,7 +30645,7 @@ function currentDesktopSongMeta() {
   var song = playQueue && currentIdx >= 0 ? playQueue[currentIdx] : null;
   song = song || currentLyricSong && currentLyricSong() || {};
   return {
-    title: song.name || song.title || 'Mineradio',
+    title: song.name || song.title || 'Stellaflix',
     artist: song.artist || song.ar || song.author || '',
     cover: (typeof songCoverSrc === 'function' && song) ? (songCoverSrc(song, 360) || song.cover || '') : (song.cover || '')
   };
@@ -30648,7 +30671,7 @@ function currentDesktopLyricSnapshot() {
       progressSpan: 4.8
     };
   }
-  return { text: normalizeDesktopLyricText(currentDesktopSongMeta().title || 'Mineradio'), nextText: '', progress: 0, progressSpan: 4.8 };
+  return { text: normalizeDesktopLyricText(currentDesktopSongMeta().title || 'Stellaflix'), nextText: '', progress: 0, progressSpan: 4.8 };
 }
 function desktopOverlayColorValue(value, fallback) {
   var raw = String(value || '').trim();

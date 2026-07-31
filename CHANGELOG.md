@@ -1,5 +1,13 @@
 # Changelog
 
+## Stellaflix v1.1.2 / 2026-07-30
+
+- 产品正式由 Mineradio 扩展版更名为 **Stellaflix**，应用标识 `appId` 变更为 `com.stellaflix.desktop`，发布仓库迁移至 `gyr0008/stellaflix`。
+- 完成全量改名：安装器、IPC 通道、localStorage 键、更新与缓存目录环境变量、`Mineradio` / `mineradio` 可见文案均迁移为 Stellaflix / stellaflix。
+- 内部实现符号（`MineradioLyricTimeline`、`MineradioEqualizer`、玻璃 SVG 滤镜 id、落雪自定义音源 `mineradio-lx-*` 协议通道）按既定分层保留，以保证既有音乐模块、视觉质感与第三方落雪音源兼容性不受影响。
+- 首次启动自动把旧 `mineradio-*` 本地存储键迁移到 `stellaflix-*`（同名键已存在时跳过），避免既有设置与歌单丢失。
+- 本仓库基于上游原版 [XxHuberrr/Mineradio](https://github.com/XxHuberrr/Mineradio)（GPL-3.0）进行扩展改造，保留原作者署名与原创视觉表达；影视化能力为后续任务。
+
 ## v1.1.2 / 2026-07-26
 
 - 新增十段均衡器，提供原声、低音增强、人声清晰、流行、摇滚、古典六种预设和自定义曲线，并自动保存本机设置。
@@ -54,12 +62,12 @@
 
 ## v1.1.1
 
-- P0 installer safety fix: installation now defaults to the first available non-C drive from `D:\Mineradio` through `Z:\Mineradio`; it falls back to `C:\Mineradio` only when no D-Z drive exists.
+- P0 installer safety fix: installation now defaults to the first available non-C drive from `D:\Stellaflix` through `Z:\Mineradio`; it falls back to `C:\Mineradio` only when no D-Z drive exists.
 - The installer now forces the target path into a dedicated `Mineradio` folder, blocks non-empty non-Mineradio-owned targets, and blocks C drive installs when a D-Z drive is available.
-- Existing registered installs in a dedicated `...\Mineradio` folder are adopted in place so users can run the new setup over their current installation and receive the safe uninstaller.
-- Existing dedicated `...\Mineradio` folders that already contain Mineradio files can be overwritten even if they were created before the new safety marker existed.
+- Existing registered installs in a dedicated `...\Stellaflix` folder are adopted in place so users can run the new setup over their current installation and receive the safe uninstaller.
+- Existing dedicated `...\Stellaflix` folders that already contain Mineradio files can be overwritten even if they were created before the new safety marker existed.
 - The new uninstaller no longer removes the whole installation root or app subfolders recursively; it deletes only known top-level Mineradio/Electron files and leaves unrelated files in place.
-- Legacy uninstallers without the new safety marker are skipped during install; the setup deletes only the old `Uninstall Mineradio.exe` file and registry entry so it cannot indirectly trigger an older unsafe uninstall routine.
+- Legacy uninstallers without the new safety marker are skipped during install; the setup deletes only the old `Uninstall Stellaflix.exe` file and registry entry so it cannot indirectly trigger an older unsafe uninstall routine.
 - Installer/uninstaller safety fixes require the full setup package; quick patch JSON files must not be used as the only delivery path for this issue.
 
 ## v1.1.0
@@ -91,7 +99,7 @@
 ## v1.0.9
 
 - 修复安装包深色界面中部分文字仍为黑色导致看不清的问题，安装器改为浅色高对比界面。
-- 安装包支持用户自由选择安装目录；默认仍优先 `D:\Mineradio`，选择盘根目录时会自动补全 `Mineradio` 文件夹。
+- 安装包支持用户自由选择安装目录；默认仍优先 `D:\Stellaflix`，选择盘根目录时会自动补全 `Mineradio` 文件夹。
 - 修复软件可重复打开的问题，重复启动时会聚焦当前已运行的窗口。
 - 修复软件每次启动都会自动创建/刷新桌面快捷方式的问题。
 

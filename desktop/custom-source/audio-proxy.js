@@ -22,7 +22,7 @@ function openPinnedResponse(url, {
       host: target.url.host,
       accept: '*/*',
       'accept-encoding': 'identity',
-      'user-agent': 'Mineradio-Custom-Source/1.0',
+      'user-agent': 'Stellaflix-Custom-Source/1.0',
     };
     if (/^bytes=\d*-\d*$/i.test(range)) headers.range = range;
     const request = lib.request(target.url, {

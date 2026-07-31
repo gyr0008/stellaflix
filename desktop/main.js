@@ -34,12 +34,12 @@ const WINDOWED_SCALE = 3 / 4;
 const WINDOWED_MARGIN = 32;
 const MIN_WINDOWED_WIDTH = 960;
 const MIN_WINDOWED_HEIGHT = 540;
-const APP_NAME = 'Mineradio';
-const APP_USER_MODEL_ID = 'com.mineradio.desktop';
+const APP_NAME = 'Stellaflix';
+const APP_USER_MODEL_ID = 'com.stellaflix.desktop';
 const APP_ICON_ICO = path.join(__dirname, '..', 'build', 'icon.ico');
-const NETEASE_LOGIN_PARTITION = 'persist:mineradio-netease-login';
+const NETEASE_LOGIN_PARTITION = 'persist:stellaflix-netease-login';
 const NETEASE_LOGIN_URL = 'https://music.163.com/#/login';
-const QQ_LOGIN_PARTITION = 'persist:mineradio-qqmusic-login';
+const QQ_LOGIN_PARTITION = 'persist:stellaflix-qqmusic-login';
 const QQ_LOGIN_URL = 'https://y.qq.com/portal/pop_login.html';
 
 const CHROMIUM_PERFORMANCE_SWITCHES = [
@@ -135,7 +135,7 @@ function sendWindowState(win) {
 
 function sendGlobalHotkeyAction(action) {
   if (!mainWindow || mainWindow.isDestroyed() || !action) return;
-  mainWindow.webContents.send('mineradio-global-hotkey', { action });
+  mainWindow.webContents.send('stellaflix-global-hotkey', { action });
 }
 
 function unregisterMineradioGlobalHotkeys() {
@@ -279,8 +279,8 @@ function getUpdateDownloadDir() {
 
 function shouldEnsureDesktopShortcut() {
   if (process.platform !== 'win32') return false;
-  if (process.env.MINERADIO_NO_DESKTOP_SHORTCUT === '1') return false;
-  return app.isPackaged || process.env.MINERADIO_CREATE_DESKTOP_SHORTCUT === '1';
+  if (process.env.STELLAFLIX_NO_DESKTOP_SHORTCUT === '1') return false;
+  return app.isPackaged || process.env.STELLAFLIX_CREATE_DESKTOP_SHORTCUT === '1';
 }
 
 function ensureDesktopShortcut() {
@@ -292,7 +292,7 @@ function ensureDesktopShortcut() {
       target,
       cwd: path.dirname(target),
       args: '',
-      description: 'Mineradio desktop music player',
+      description: 'Stellaflix desktop music player',
       icon: fs.existsSync(APP_ICON_ICO) ? APP_ICON_ICO : target,
       iconIndex: 0,
       appUserModelId: APP_USER_MODEL_ID,
@@ -876,14 +876,14 @@ function stopDesktopLyricsMousePoller() {
 function broadcastDesktopLyricsLockState() {
   const locked = desktopLyricsState.clickThrough !== false;
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('mineradio-desktop-lyrics-lock-state', { locked });
+    mainWindow.webContents.send('stellaflix-desktop-lyrics-lock-state', { locked });
   }
   sendDesktopLyricsState();
 }
 
 function broadcastDesktopLyricsEnabledState(enabled) {
   if (mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send('mineradio-desktop-lyrics-enabled-state', { enabled: !!enabled });
+    mainWindow.webContents.send('stellaflix-desktop-lyrics-enabled-state', { enabled: !!enabled });
   }
 }
 
@@ -898,7 +898,7 @@ function positionDesktopLyricsWindow(payload = desktopLyricsState, options = {})
 
 function sendDesktopLyricsState() {
   if (!desktopLyricsWindow || desktopLyricsWindow.isDestroyed()) return;
-  desktopLyricsWindow.webContents.send('mineradio-desktop-lyrics-state', desktopLyricsState);
+  desktopLyricsWindow.webContents.send('stellaflix-desktop-lyrics-state', desktopLyricsState);
 }
 
 function createDesktopLyricsWindow(payload = {}) {
@@ -934,7 +934,7 @@ function createDesktopLyricsWindow(payload = {}) {
     focusable: false,
     skipTaskbar: true,
     show: false,
-    title: 'Mineradio Desktop Lyrics',
+    title: 'Stellaflix Desktop Lyrics',
     webPreferences: {
       preload: path.join(__dirname, 'overlay-preload.js'),
       contextIsolation: true,
@@ -1041,7 +1041,7 @@ function positionWallpaperWindow() {
 
 function sendWallpaperState() {
   if (!wallpaperWindow || wallpaperWindow.isDestroyed()) return;
-  wallpaperWindow.webContents.send('mineradio-wallpaper-state', wallpaperState);
+  wallpaperWindow.webContents.send('stellaflix-wallpaper-state', wallpaperState);
 }
 
 function createWallpaperWindow(payload = {}) {
@@ -1063,7 +1063,7 @@ function createWallpaperWindow(payload = {}) {
     focusable: false,
     skipTaskbar: true,
     show: false,
-    title: 'Mineradio Wallpaper',
+    title: 'Stellaflix Wallpaper',
     webPreferences: {
       preload: path.join(__dirname, 'overlay-preload.js'),
       contextIsolation: true,
@@ -1126,16 +1126,16 @@ ipcMain.handle('desktop-window-close', (event) => {
   getSenderWindow(event)?.close();
 });
 
-ipcMain.handle('mineradio-hotkeys-configure-global', (_event, bindings) => {
+ipcMain.handle('stellaflix-hotkeys-configure-global', (_event, bindings) => {
   return configureMineradioGlobalHotkeys(bindings);
 });
 
-ipcMain.handle('mineradio-export-json-file', async (event, payload = {}) => {
+ipcMain.handle('stellaflix-export-json-file', async (event, payload = {}) => {
   try {
     const owner = getSenderWindow(event);
-    const defaultName = String(payload.defaultName || 'mineradio-export.json').replace(/[\\/:*?"<>|]+/g, '-');
+    const defaultName = String(payload.defaultName || 'stellaflix-export.json').replace(/[\\/:*?"<>|]+/g, '-');
     const result = await dialog.showSaveDialog(owner, {
-      title: '导出 Mineradio 存档',
+      title: '导出 Stellaflix 存档',
       defaultPath: defaultName.toLowerCase().endsWith('.json') ? defaultName : `${defaultName}.json`,
       filters: [{ name: 'JSON', extensions: ['json'] }],
     });
@@ -1148,11 +1148,11 @@ ipcMain.handle('mineradio-export-json-file', async (event, payload = {}) => {
   }
 });
 
-ipcMain.handle('mineradio-import-json-file', async (event) => {
+ipcMain.handle('stellaflix-import-json-file', async (event) => {
   try {
     const owner = getSenderWindow(event);
     const result = await dialog.showOpenDialog(owner, {
-      title: '导入 Mineradio 存档',
+      title: '导入 Stellaflix 存档',
       properties: ['openFile'],
       filters: [{ name: 'JSON', extensions: ['json'] }],
     });
@@ -1180,7 +1180,7 @@ function requireCustomSourceManager(event) {
 
 function sendCustomSourceStatus(extra = {}) {
   if (!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.webContents.send('mineradio-custom-source-status', customSourceSnapshot(extra));
+  mainWindow.webContents.send('stellaflix-custom-source-status', customSourceSnapshot(extra));
 }
 
 async function chooseCustomSourceScript(event, title) {
@@ -1198,12 +1198,12 @@ async function chooseCustomSourceScript(event, title) {
   return { sourceFileName: path.basename(filePath), script: fs.readFileSync(filePath, 'utf8') };
 }
 
-ipcMain.handle('mineradio-custom-source-list', event => {
+ipcMain.handle('stellaflix-custom-source-list', event => {
   requireCustomSourceManager(event);
   return customSourceSnapshot();
 });
 
-ipcMain.handle('mineradio-custom-source-import', async event => {
+ipcMain.handle('stellaflix-custom-source-import', async event => {
   const manager = requireCustomSourceManager(event);
   const selected = await chooseCustomSourceScript(event, '导入落雪自定义音源');
   if (!selected) return customSourceSnapshot({ canceled: true });
@@ -1211,7 +1211,7 @@ ipcMain.handle('mineradio-custom-source-import', async event => {
   return customSourceSnapshot();
 });
 
-ipcMain.handle('mineradio-custom-source-replace', async (event, id) => {
+ipcMain.handle('stellaflix-custom-source-replace', async (event, id) => {
   const manager = requireCustomSourceManager(event);
   const selected = await chooseCustomSourceScript(event, '替换落雪自定义音源');
   if (!selected) return customSourceSnapshot({ canceled: true });
@@ -1219,22 +1219,22 @@ ipcMain.handle('mineradio-custom-source-replace', async (event, id) => {
   return customSourceSnapshot();
 });
 
-ipcMain.handle('mineradio-custom-source-activate', async (event, id) => {
+ipcMain.handle('stellaflix-custom-source-activate', async (event, id) => {
   await requireCustomSourceManager(event).activate(String(id || ''));
   return customSourceSnapshot();
 });
 
-ipcMain.handle('mineradio-custom-source-deactivate', async event => {
+ipcMain.handle('stellaflix-custom-source-deactivate', async event => {
   await requireCustomSourceManager(event).deactivate();
   return customSourceSnapshot();
 });
 
-ipcMain.handle('mineradio-custom-source-remove', async (event, id) => {
+ipcMain.handle('stellaflix-custom-source-remove', async (event, id) => {
   await requireCustomSourceManager(event).remove(String(id || ''));
   return customSourceSnapshot();
 });
 
-ipcMain.handle('mineradio-custom-source-set-update-alert', (event, id, enabled) => {
+ipcMain.handle('stellaflix-custom-source-set-update-alert', (event, id, enabled) => {
   requireCustomSourceManager(event).setAllowUpdateAlert(String(id || ''), !!enabled);
   return customSourceSnapshot();
 });
@@ -1255,7 +1255,7 @@ ipcMain.handle('qq-music-clear-login', async () => {
   return clearQQMusicLoginSession();
 });
 
-ipcMain.handle('mineradio-open-update-installer', async (_event, filePath) => {
+ipcMain.handle('stellaflix-open-update-installer', async (_event, filePath) => {
   try {
     const target = path.resolve(String(filePath || ''));
     const updateDir = path.resolve(getUpdateDownloadDir());
@@ -1270,7 +1270,7 @@ ipcMain.handle('mineradio-open-update-installer', async (_event, filePath) => {
   }
 });
 
-ipcMain.handle('mineradio-restart-app', async () => {
+ipcMain.handle('stellaflix-restart-app', async () => {
   try {
     app.relaunch();
     app.exit(0);
@@ -1280,7 +1280,7 @@ ipcMain.handle('mineradio-restart-app', async () => {
   }
 });
 
-ipcMain.handle('mineradio-desktop-lyrics-set-enabled', async (_event, enabled, payload) => {
+ipcMain.handle('stellaflix-desktop-lyrics-set-enabled', async (_event, enabled, payload) => {
   try {
     if (enabled) {
       createDesktopLyricsWindow(payload || {});
@@ -1294,7 +1294,7 @@ ipcMain.handle('mineradio-desktop-lyrics-set-enabled', async (_event, enabled, p
   }
 });
 
-ipcMain.handle('mineradio-desktop-lyrics-update', async (_event, payload) => {
+ipcMain.handle('stellaflix-desktop-lyrics-update', async (_event, payload) => {
   try {
     const nextState = { ...desktopLyricsState, ...(payload || {}) };
     if (nextState.enabled) {
@@ -1311,11 +1311,11 @@ ipcMain.handle('mineradio-desktop-lyrics-update', async (_event, payload) => {
   }
 });
 
-ipcMain.handle('mineradio-desktop-lyrics-set-dragging', async () => {
+ipcMain.handle('stellaflix-desktop-lyrics-set-dragging', async () => {
   return { ok: true };
 });
 
-ipcMain.handle('mineradio-desktop-lyrics-set-pointer-capture', async (_event, active) => {
+ipcMain.handle('stellaflix-desktop-lyrics-set-pointer-capture', async (_event, active) => {
   try {
     desktopLyricsPointerCapture = !!active;
     applyDesktopLyricsMouseBehavior();
@@ -1325,7 +1325,7 @@ ipcMain.handle('mineradio-desktop-lyrics-set-pointer-capture', async (_event, ac
   }
 });
 
-ipcMain.handle('mineradio-desktop-lyrics-set-hot-bounds', async (_event, bounds) => {
+ipcMain.handle('stellaflix-desktop-lyrics-set-hot-bounds', async (_event, bounds) => {
   try {
     const left = clampNumber(bounds && bounds.left, -2000, 4000, 0);
     const top = clampNumber(bounds && bounds.top, -2000, 4000, 0);
@@ -1338,7 +1338,7 @@ ipcMain.handle('mineradio-desktop-lyrics-set-hot-bounds', async (_event, bounds)
   }
 });
 
-ipcMain.handle('mineradio-desktop-lyrics-set-lock-state', async (_event, locked) => {
+ipcMain.handle('stellaflix-desktop-lyrics-set-lock-state', async (_event, locked) => {
   try {
     desktopLyricsState = { ...desktopLyricsState, clickThrough: !!locked };
     if (desktopLyricsState.clickThrough !== false) desktopLyricsPointerCapture = false;
@@ -1350,7 +1350,7 @@ ipcMain.handle('mineradio-desktop-lyrics-set-lock-state', async (_event, locked)
   }
 });
 
-ipcMain.handle('mineradio-desktop-lyrics-move-by', async (_event, dx, dy) => {
+ipcMain.handle('stellaflix-desktop-lyrics-move-by', async (_event, dx, dy) => {
   try {
     if (!desktopLyricsWindow || desktopLyricsWindow.isDestroyed()) return { ok: false, error: 'NO_DESKTOP_LYRICS_WINDOW' };
     if (desktopLyricsState.clickThrough !== false) return { ok: false, error: 'DESKTOP_LYRICS_LOCKED' };
@@ -1368,7 +1368,7 @@ ipcMain.handle('mineradio-desktop-lyrics-move-by', async (_event, dx, dy) => {
   }
 });
 
-ipcMain.handle('mineradio-wallpaper-set-enabled', async (_event, enabled, payload) => {
+ipcMain.handle('stellaflix-wallpaper-set-enabled', async (_event, enabled, payload) => {
   try {
     if (enabled) createWallpaperWindow(payload || {});
     else closeWallpaperWindow();
@@ -1378,7 +1378,7 @@ ipcMain.handle('mineradio-wallpaper-set-enabled', async (_event, enabled, payloa
   }
 });
 
-ipcMain.handle('mineradio-wallpaper-update', async (_event, payload) => {
+ipcMain.handle('stellaflix-wallpaper-update', async (_event, payload) => {
   try {
     wallpaperState = { ...wallpaperState, ...(payload || {}) };
     if (wallpaperState.enabled) {
@@ -1406,7 +1406,7 @@ async function createWindow() {
   process.env.PORT = String(port);
   process.env.COOKIE_FILE = path.join(app.getPath('userData'), '.cookie');
   process.env.QQ_COOKIE_FILE = path.join(app.getPath('userData'), '.qq-cookie');
-  process.env.MINERADIO_UPDATE_DIR = getUpdateDownloadDir();
+  process.env.STELLAFLIX_UPDATE_DIR = getUpdateDownloadDir();
   try {
     const legacyQQCookie = path.join(__dirname, '..', '.qq-cookie');
     if (fs.existsSync(legacyQQCookie)) {

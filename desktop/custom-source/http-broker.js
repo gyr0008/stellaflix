@@ -24,7 +24,7 @@ function headerValue(headers, name) {
 }
 
 function formDataBody(formData) {
-  const boundary = `----mineradio${crypto.randomBytes(12).toString('hex')}`;
+  const boundary = `----stellaflix${crypto.randomBytes(12).toString('hex')}`;
   const chunks = [];
   for (const [key, raw] of Object.entries(formData || {})) {
     const value = Buffer.isBuffer(raw) || raw instanceof Uint8Array ? Buffer.from(raw) : Buffer.from(String(raw ?? ''));

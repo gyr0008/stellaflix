@@ -13,7 +13,7 @@ Mineradio 是 Windows Electron 桌面音乐播放器，核心体验包括搜索�
 - 上游 GitHub 仓库（代码来源）：`https://github.com/XxHuberrr/Mineradio.git`
 - 我们的 GitHub 仓库（发布 / 自动更新目标）：`https://github.com/gyr0008/stellaflix`（当前为空仓，待首次 push；`package.json` 的 `repository` / `build.publish` / `mineradio.update` 均已指向它）
 
-> **路径变更说明（2026-07-31）**：本文档此前记载的 `E:\桌面\播放器软件\Mineradio\...` 系列路径**已失效且不可访问**。当前主线为上方 Desktop 目录，来源是从 GitHub 下载的 v1.1.2 源码包，已用户确认为开发基石。旧的 E 盘运行版、备份区（`E:\桌面\播放器软件\工作区备份`）相关约定一并作废，如需恢复请先确认路径可达。
+> **路径变更说明（2026-07-31）**：本文档此前记载的 `E:\桌面\播放器软件\Stellaflix\...` 系列路径**已失效且不可访问**。当前主线为上方 Desktop 目录，来源是从 GitHub 下载的 v1.1.2 源码包，已用户确认为开发基石。旧的 E 盘运行版、备份区（`E:\桌面\播放器软件\工作区备份`）相关约定一并作废，如需恢复请先确认路径可达。
 
 ## Start Every New Thread Here
 
@@ -87,7 +87,7 @@ npm run test:custom-source
    - `dist/Mineradio-x.y.z-Setup.exe`
    - `dist/Mineradio-x.y.z-Setup.exe.blockmap`
    - `dist/latest.yml`
-   - 需要的 `Mineradio-旧版本-x.y.z.json` 轻量补丁
+   - 需要的 `Stellaflix-旧版本-x.y.z.json` 轻量补丁
 7. 0.9 系列补丁跳过；1.0.x 系列可按需生成跨小版本补丁。
 
 ### GPLv3 分发义务（强制，不可省略）

@@ -12,50 +12,50 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   clearNeteaseMusicLogin: () => ipcRenderer.invoke('netease-music-clear-login'),
   openQQMusicLogin: () => ipcRenderer.invoke('qq-music-open-login'),
   clearQQMusicLogin: () => ipcRenderer.invoke('qq-music-clear-login'),
-  openUpdateInstaller: (filePath) => ipcRenderer.invoke('mineradio-open-update-installer', filePath),
-  restartApp: () => ipcRenderer.invoke('mineradio-restart-app'),
-  configureGlobalHotkeys: (bindings) => ipcRenderer.invoke('mineradio-hotkeys-configure-global', bindings || []),
-  exportJsonFile: (payload) => ipcRenderer.invoke('mineradio-export-json-file', payload || {}),
-  importJsonFile: () => ipcRenderer.invoke('mineradio-import-json-file'),
-  listCustomSources: () => ipcRenderer.invoke('mineradio-custom-source-list'),
-  importCustomSource: () => ipcRenderer.invoke('mineradio-custom-source-import'),
-  replaceCustomSource: (id) => ipcRenderer.invoke('mineradio-custom-source-replace', String(id || '')),
-  activateCustomSource: (id) => ipcRenderer.invoke('mineradio-custom-source-activate', String(id || '')),
-  deactivateCustomSource: () => ipcRenderer.invoke('mineradio-custom-source-deactivate'),
-  removeCustomSource: (id) => ipcRenderer.invoke('mineradio-custom-source-remove', String(id || '')),
+  openUpdateInstaller: (filePath) => ipcRenderer.invoke('stellaflix-open-update-installer', filePath),
+  restartApp: () => ipcRenderer.invoke('stellaflix-restart-app'),
+  configureGlobalHotkeys: (bindings) => ipcRenderer.invoke('stellaflix-hotkeys-configure-global', bindings || []),
+  exportJsonFile: (payload) => ipcRenderer.invoke('stellaflix-export-json-file', payload || {}),
+  importJsonFile: () => ipcRenderer.invoke('stellaflix-import-json-file'),
+  listCustomSources: () => ipcRenderer.invoke('stellaflix-custom-source-list'),
+  importCustomSource: () => ipcRenderer.invoke('stellaflix-custom-source-import'),
+  replaceCustomSource: (id) => ipcRenderer.invoke('stellaflix-custom-source-replace', String(id || '')),
+  activateCustomSource: (id) => ipcRenderer.invoke('stellaflix-custom-source-activate', String(id || '')),
+  deactivateCustomSource: () => ipcRenderer.invoke('stellaflix-custom-source-deactivate'),
+  removeCustomSource: (id) => ipcRenderer.invoke('stellaflix-custom-source-remove', String(id || '')),
   setCustomSourceUpdateAlert: (id, enabled) => ipcRenderer.invoke(
-    'mineradio-custom-source-set-update-alert',
+    'stellaflix-custom-source-set-update-alert',
     String(id || ''),
     !!enabled,
   ),
   onCustomSourceStatus: (callback) => {
     if (typeof callback !== 'function') return () => {};
     const listener = (_event, payload) => callback(payload || {});
-    ipcRenderer.on('mineradio-custom-source-status', listener);
-    return () => ipcRenderer.removeListener('mineradio-custom-source-status', listener);
+    ipcRenderer.on('stellaflix-custom-source-status', listener);
+    return () => ipcRenderer.removeListener('stellaflix-custom-source-status', listener);
   },
   onGlobalHotkey: (callback) => {
     if (typeof callback !== 'function') return () => {};
     const listener = (_event, payload) => callback(payload || {});
-    ipcRenderer.on('mineradio-global-hotkey', listener);
-    return () => ipcRenderer.removeListener('mineradio-global-hotkey', listener);
+    ipcRenderer.on('stellaflix-global-hotkey', listener);
+    return () => ipcRenderer.removeListener('stellaflix-global-hotkey', listener);
   },
-  setDesktopLyricsEnabled: (enabled, payload) => ipcRenderer.invoke('mineradio-desktop-lyrics-set-enabled', !!enabled, payload || {}),
-  updateDesktopLyrics: (payload) => ipcRenderer.invoke('mineradio-desktop-lyrics-update', payload || {}),
+  setDesktopLyricsEnabled: (enabled, payload) => ipcRenderer.invoke('stellaflix-desktop-lyrics-set-enabled', !!enabled, payload || {}),
+  updateDesktopLyrics: (payload) => ipcRenderer.invoke('stellaflix-desktop-lyrics-update', payload || {}),
   onDesktopLyricsLockState: (callback) => {
     if (typeof callback !== 'function') return () => {};
     const listener = (_event, payload) => callback(payload || {});
-    ipcRenderer.on('mineradio-desktop-lyrics-lock-state', listener);
-    return () => ipcRenderer.removeListener('mineradio-desktop-lyrics-lock-state', listener);
+    ipcRenderer.on('stellaflix-desktop-lyrics-lock-state', listener);
+    return () => ipcRenderer.removeListener('stellaflix-desktop-lyrics-lock-state', listener);
   },
   onDesktopLyricsEnabledState: (callback) => {
     if (typeof callback !== 'function') return () => {};
     const listener = (_event, payload) => callback(payload || {});
-    ipcRenderer.on('mineradio-desktop-lyrics-enabled-state', listener);
-    return () => ipcRenderer.removeListener('mineradio-desktop-lyrics-enabled-state', listener);
+    ipcRenderer.on('stellaflix-desktop-lyrics-enabled-state', listener);
+    return () => ipcRenderer.removeListener('stellaflix-desktop-lyrics-enabled-state', listener);
   },
-  setWallpaperMode: (enabled, payload) => ipcRenderer.invoke('mineradio-wallpaper-set-enabled', !!enabled, payload || {}),
-  updateWallpaperMode: (payload) => ipcRenderer.invoke('mineradio-wallpaper-update', payload || {}),
+  setWallpaperMode: (enabled, payload) => ipcRenderer.invoke('stellaflix-wallpaper-set-enabled', !!enabled, payload || {}),
+  updateWallpaperMode: (payload) => ipcRenderer.invoke('stellaflix-wallpaper-update', payload || {}),
   onStateChange: (callback) => {
     const listener = (_event, state) => callback(state);
     ipcRenderer.on('desktop-window-state', listener);

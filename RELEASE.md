@@ -40,7 +40,7 @@ git diff --check
 npm run build:win
 ```
 
-构建产物位于 `dist/`。正式给普通用户分发时，以 `Mineradio-1.1.2-Setup.exe` 这类完整安装包为准，不要让普通用户下载 `Source code`、`.blockmap`、`latest.yml` 或 `win-unpacked`。
+构建产物位于 `dist/`。正式给普通用户分发时，以 `Stellaflix-1.1.2-Setup.exe` 这类完整安装包为准，不要让普通用户下载 `Source code`、`.blockmap`、`latest.yml` 或 `win-unpacked`。
 
 ## GitHub Release 建议文案
 
@@ -61,12 +61,12 @@ Release 正文建议包含：
 - 支持用户自行导入可信的落雪 API 2.0.0 自定义音源脚本，作为官方播放地址技术故障时的可选回退；仓库不内置或推荐第三方脚本。
 - 大歌单读取上限提高到 5000 首，并修复主页歌单数量和 3D 歌单架排序问题。
 - 本版本不包含二创作者个人实验形态。
-- 下载时请只下载 `Mineradio-1.1.2-Setup.exe`。
+- 下载时请只下载 `Stellaflix-1.1.2-Setup.exe`。
 
 建议上传资产：
 
-- `dist/Mineradio-1.1.2-Setup.exe`
-- `dist/Mineradio-1.1.2-Setup.exe.blockmap`
+- `dist/Stellaflix-1.1.2-Setup.exe`
+- `dist/Stellaflix-1.1.2-Setup.exe.blockmap`
 - `dist/latest.yml`
 
 不要上传：
@@ -83,6 +83,6 @@ Release 正文建议包含：
 npm run build:win
 ```
 
-然后使用 `dist/Mineradio-1.1.2-Setup.exe` 安装，或直接运行 `dist/win-unpacked/Mineradio.exe` 做本地验证。
+然后使用 `dist/Stellaflix-1.1.2-Setup.exe` 安装，或直接运行 `dist/win-unpacked/Stellaflix.exe` 做本地验证。
 
 如果要替换本机正在用的安装版，建议通过安装包覆盖安装，而不是手动复制零散文件，避免 `resources/app`、桌面快捷方式和卸载信息不一致。

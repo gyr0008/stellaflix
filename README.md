@@ -24,7 +24,7 @@ Mineradio 扩展版是一款 Windows 桌面沉浸式音乐播放器。原版 Min
 请下载文件名类似下面的安装包：
 
 ```text
-Mineradio-1.1.2-Setup.exe
+Stellaflix-1.1.2-Setup.exe
 ```
 
 不要下载这些文件：
@@ -34,7 +34,7 @@ Mineradio-1.1.2-Setup.exe
 - `latest.yml`：这是更新配置文件，不是安装包。
 - `win-unpacked`：这是打包目录，不建议当作正式安装包分发。
 
-安装包会创建桌面快捷方式。直接运行打包目录里的 `Mineradio.exe` 时，应用也会在首次启动时尝试补创建桌面快捷方式。
+安装包会创建桌面快捷方式。直接运行打包目录里的 `Stellaflix.exe` 时，应用也会在首次启动时尝试补创建桌面快捷方式。
 
 ## 当前公开扩展
 

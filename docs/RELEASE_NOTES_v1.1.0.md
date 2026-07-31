@@ -6,13 +6,13 @@
 
 - `v1.0.10` 及更早旧安装包不再建议继续安装或传播，请先隔离旧 `.exe` 安装包。
 - 本次不提供从 `v1.0.10` 到 `v1.1.0` 的软件内本地更新，不提供快速补丁。
-- 请手动下载 `Mineradio-1.1.0-Setup.exe`，卸载旧版本后进行纯净安装。
+- 请手动下载 `Stellaflix-1.1.0-Setup.exe`，卸载旧版本后进行纯净安装。
 - 本次 Release 不上传 `latest.yml`，也不作为旧版软件内更新通道的 latest。
 
 ## 下载
 
-- Windows 安装包：`Mineradio-1.1.0-Setup.exe`
-- 校验文件：`Mineradio-1.1.0-SHA256SUMS.txt`
+- Windows 安装包：`Stellaflix-1.1.0-Setup.exe`
+- 校验文件：`Stellaflix-1.1.0-SHA256SUMS.txt`
 
 ## 主要更新
 
@@ -33,7 +33,7 @@
 1. 不要继续运行或转发旧安装包。
 2. 先卸载旧版 Mineradio。
 3. 隔离旧 `.exe` 安装包和旧打包目录。
-4. 下载并安装 `Mineradio-1.1.0-Setup.exe`。
+4. 下载并安装 `Stellaflix-1.1.0-Setup.exe`。
 5. 安装后如需对照校验，请使用 Release 中提供的 SHA256 文件。
 
 > 当前安装包暂未进行代码签名，Windows 可能显示安全提示。

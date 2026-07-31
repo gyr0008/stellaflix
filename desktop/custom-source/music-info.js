@@ -37,7 +37,7 @@ function albumName(song) {
 
 function toLxMusicInfo(song) {
   const source = platformKey(song);
-  if (!source) throw new Error('SOURCE_UNSUPPORTED: Unknown Mineradio provider');
+  if (!source) throw new Error('SOURCE_UNSUPPORTED: Unknown Stellaflix provider');
 
   const albumId = song?.albumMid || song?.album_mid || song?.albumId || song?.album_id || '';
   const name = String(song?.name || song?.title || '');
