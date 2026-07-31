@@ -208,3 +208,86 @@ body.video-space-active #canvas-container {
   from { opacity: 0; transform: translate(-50%, 8px); }
   to   { opacity: 1; transform: translate(-50%, 0); }
 }
+
+/* ==========================================================================
+   视觉控制台「片源」分页（fx-sources.js）
+   index.html:2052 的 .fx-panel-tabs 写死 repeat(5,...)，故影视态需覆盖为 6 列；
+   音乐态本页按钮 display:none，grid 仅剩 5 项，音乐态布局零影响。
+   ========================================================================== */
+.sfv-fx-tab { display: none; }
+body.video-space-active .sfv-fx-tab { display: block; }
+body.video-space-active .fx-panel-tabs {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+body:not(.video-space-active) .sfv-fx-page { display: none !important; }
+
+.sfv-src-notice {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 11px;
+  line-height: 1.65;
+  color: rgba(255, 255, 255, 0.62);
+  background: rgba(214, 122, 92, 0.10);
+  border: 1px solid rgba(214, 122, 92, 0.24);
+}
+.sfv-src-notice strong { color: rgba(255, 196, 168, 0.95); font-weight: 700; }
+
+.sfv-src-form { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
+.sfv-src-name,
+.sfv-src-api {
+  width: 100%;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 9px;
+  font: 400 11px/1 var(--font-sans);
+  color: #fff;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  outline: none;
+  transition: border-color 0.18s, background 0.18s;
+}
+.sfv-src-name:focus,
+.sfv-src-api:focus {
+  background: rgba(255, 255, 255, 0.075);
+  border-color: rgba(var(--fc-accent-rgb), 0.42);
+}
+.sfv-src-form-row { display: flex; align-items: center; gap: 9px; }
+.sfv-src-hint { font-size: 11px; color: rgba(140, 220, 170, 0.9); }
+.sfv-src-hint.bad { color: rgba(255, 150, 140, 0.92); }
+
+.sfv-src-list { display: flex; flex-direction: column; gap: 7px; }
+.sfv-src-empty {
+  padding: 14px 12px;
+  border-radius: 10px;
+  font-size: 11px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.38);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px dashed rgba(255, 255, 255, 0.09);
+}
+.sfv-src-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.032);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+.sfv-src-item-main { flex: 1 1 auto; min-width: 0; }
+.sfv-src-item-name {
+  font: 700 11px/1.35 var(--font-sans);
+  color: rgba(255, 255, 255, 0.9);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sfv-src-item-api {
+  font: 400 10px/1.45 var(--font-mono, monospace);
+  color: rgba(255, 255, 255, 0.34);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sfv-src-item-state { font-size: 10px; line-height: 1.5; color: rgba(255, 255, 255, 0.42); }
+.sfv-src-item-state.ok  { color: rgba(140, 220, 170, 0.92); }
+.sfv-src-item-state.bad { color: rgba(255, 150, 140, 0.92); }
+.sfv-src-item-ops { flex: 0 0 auto; display: flex; gap: 5px; }
+.sfv-src-item-ops .fx-mini-btn { padding: 0 8px; height: 24px; font-size: 10px; }
