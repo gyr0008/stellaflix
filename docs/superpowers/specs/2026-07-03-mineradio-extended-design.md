@@ -4,7 +4,7 @@
 
 新建一个独立 GitHub 仓库，专门承载长期二创、扩展和改编版本。
 
-第一阶段仓库名使用 `Mineradio-Extended`，中文名使用 `Mineradio 扩展版`。这个阶段的重点是建立稳定仓库入口和下载入口，让用户不用每次都找新的发布链接。
+第一阶段仓库名使用 `Stellaflix`，中文名使用 `Mineradio 扩展版`。这个阶段的重点是建立稳定仓库入口和下载入口，让用户不用每次都找新的发布链接。
 
 现有 `Mineradio-kugou` 继续作为给原作者提交 PR 的 fork 仓库，不承担长期二创主仓库职责。
 
@@ -12,7 +12,7 @@
 
 ## 定位
 
-`Mineradio-Extended` 是基于 `XxHuberrr/Mineradio` 的非官方改编仓库。
+`Stellaflix` 是基于 `XxHuberrr/Mineradio` 的非官方改编仓库。
 
 这里的“独立仓库”表示它不作为 GitHub UI 里的 fork 仓库继续服务 PR，而是作为用户公开访问的二创主仓库。它仍然必须保留原项目来源、原作者署名、GPL-3.0 授权和修改说明。
 
@@ -28,7 +28,7 @@ README 和 Release 说明必须明确写清楚：
 
 ## 第一阶段包含什么
 
-第一阶段 `Mineradio-Extended` 包含当前已经验证过的酷狗概念版能力：
+第一阶段 `Stellaflix` 包含当前已经验证过的酷狗概念版能力：
 
 - 酷狗概念版扫码登录。
 - 酷狗概念版搜索和播放地址获取。
@@ -56,7 +56,7 @@ README 和 Release 说明必须明确写清楚：
 
 ## 仓库和下载策略
 
-新建独立仓库 `daaimengermengzhu/Mineradio-Extended`。
+新建独立仓库 `gyr0008/stellaflix`。
 
 保留现有仓库 `daaimengermengzhu/Mineradio-kugou`：
 
@@ -66,8 +66,8 @@ README 和 Release 说明必须明确写清楚：
 
 推荐以后公开发给用户的入口：
 
-- 仓库主页：`https://github.com/daaimengermengzhu/Mineradio-Extended`
-- 固定最新版下载页：`https://github.com/daaimengermengzhu/Mineradio-Extended/releases/latest`
+- 仓库主页：`https://github.com/gyr0008/stellaflix`
+- 固定最新版下载页：`https://github.com/gyr0008/stellaflix/releases/latest`
 
 `/releases/latest` 是 GitHub 的固定最新版入口。以后每次发新版本，只要把最新 Release 标记为最新，用户点同一个链接就能到最新下载页。
 
@@ -113,9 +113,9 @@ README 顶部应包含：
 
 ## 风险
 
-新建独立仓库会产生两个公开仓库：`Mineradio-kugou` 和 `Mineradio-Extended`。需要在 README 和 Release 里解释清楚二者区别，避免用户把 PR fork 当成长期二创主仓库。
+新建独立仓库会产生两个公开仓库：`Mineradio-kugou` 和 `Stellaflix`。需要在 README 和 Release 里解释清楚二者区别，避免用户把 PR fork 当成长期二创主仓库。
 
-`Mineradio-kugou` 继续服务上游 PR；`Mineradio-Extended` 承载你的长期二创资产和发布入口。
+`Mineradio-kugou` 继续服务上游 PR；`Stellaflix` 承载你的长期二创资产和发布入口。
 
 原项目 README 已说明 Mineradio 名称、MR Logo、界面视觉设计与原创视觉表达归原作者所有。二创版必须保留清晰署名，不能表现成官方版。
 
