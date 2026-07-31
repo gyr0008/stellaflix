@@ -40,6 +40,8 @@
 <script src="video/model.js"></script>
 <script src="video/bootstrap.js"></script>
 <script src="video/player.js"></script>
+<script src="video/source-adapter.js"></script>
+<script src="video/home.js"></script>
 <script>
 try {
   document.documentElement.classList.add(localStorage.getItem('stellaflix-diy-player-mode-v1') === '1' ? 'diy-mode-preload' : 'simple-mode-preload');
@@ -16677,6 +16679,8 @@ function pickHomeLibraryPlaylist(playlists) {
   })[0] || null;
 }
 function renderHomeDiscover() {
+  // 影视态下首页由 public/video/home.js 接管；不早退会被音乐侧事件覆写影视文案。
+  if (window.StellaflixVideo && window.StellaflixVideo.state && window.StellaflixVideo.state.isVideo()) return;
   var sub = document.getElementById('home-subtitle');
   var loggedOutHome = !homeDiscoverState.loggedIn && !hasAnyPlatformLogin();
   var weather = homeWeatherRadioState.weather;

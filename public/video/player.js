@@ -195,17 +195,20 @@
     return true;
   }
 
-  function openUrl(url) {
+  // opts 可选：{ id, title } —— 供 source-adapter 在走 /api/proxy 时把进度键锚定到
+  // 原始 URL，而非代理后的 URL。不传时行为与旧版完全一致（向后兼容）。
+  function openUrl(url, opts) {
     if (!url) return false;
+    opts = opts || {};
     ensureOverlay();
-    var id = 'url:' + url;
+    var id = opts.id || ('url:' + url);
     currentId = id;
     currentUrl = url;
     videoEl.src = url;
     restoreProgress();
     var sp = getSettings().speed;
     if (sp) videoEl.playbackRate = sp;
-    SFV.model.addToLibrary({ id: id, title: url, source: 'url' });
+    SFV.model.addToLibrary({ id: id, title: opts.title || url, source: 'url' });
     SFV.state.setSpace('video');
     overlay.classList.add('sfv-show');
     emitRenderPause(true);
