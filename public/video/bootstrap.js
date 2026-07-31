@@ -1,0 +1,19 @@
+/*
+ * Stellaflix 影视模块 — 引导 (Step 2)
+ * 桥接钩子：DOM 就绪后初始化状态机并绑定分发层。不含任何影视业务逻辑。
+ */
+(function (global) {
+  'use strict';
+  var SFV = (global.StellaflixVideo = global.StellaflixVideo || {});
+
+  function boot() {
+    if (SFV.state) SFV.state.init();
+    if (SFV.dispatch) SFV.dispatch.bind();
+  }
+
+  if (global.document && global.document.readyState === 'loading') {
+    global.document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})(typeof window !== 'undefined' ? window : this);
