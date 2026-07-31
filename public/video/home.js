@@ -53,52 +53,33 @@
     return best;
   }
 
-  // ---- 6 张卡的影视态定义（顺序对应 DOM 中 6 张 .home-card）----
+  // ---- 恢复用户既定四卡（按 VIDEO_MODULE_PLAN.md §七）：心动 / 片单 / 收藏 / 历史 ----
+  // 顺序对应 DOM 中前 4 张 .home-card；卡片 5/6 在影视态隐藏（见 render）。
+  // 本地影片 / 网络地址 / 片源管理 入口迁移至 SFV.online 浏览层，首页不再承载（#19）。
   function cardDefs() {
-    var lib = (SFV.model && SFV.model.getLibrary()) || [];
-    var recent = latestProgress();
-    var speed = 1;
-    try {
-      var s = JSON.parse(global.localStorage.getItem('stellaflix-video-settings') || '{}');
-      if (s && s.speed) speed = s.speed;
-    } catch (e) {}
+    var M = SFV.model || {};
+    var count = function (arr) { return (arr && arr.length) || 0; };
+    var likedN = M.getKeysByFlag ? count(M.getKeysByFlag('liked')) : 0;
+    var listN = M.getKeysByFlag ? count(M.getKeysByFlag('inList')) : 0;
+    var favN = M.getKeysByFlag ? count(M.getKeysByFlag('faved')) : 0;
+    var histN = M.getHistory ? count(M.getHistory()) : 0;
 
     return [
       {
-        label: 'Local', title: '打开本地影片', sub: '从磁盘选择视频文件播放',
-        action: function () { if (SFV.player) SFV.player.openFilePicker(); },
+        label: '心动', title: '心动', sub: likedN ? ('已心动 ' + likedN + ' 部') : '在详情页点亮 ♥ 加入',
+        action: function () { if (SFV.online) SFV.online.openCategory('liked'); },
       },
       {
-        label: 'Link', title: '打开网络地址', sub: '粘贴 mp4 / m3u8 直链，跨域自动走本地代理',
-        action: function () { toggleUrlBar(); },
+        label: '片单', title: '片单', sub: listN ? ('片单 ' + listN + ' 部') : '想看的全放进来',
+        action: function () { if (SFV.online) SFV.online.openCategory('inList'); },
       },
       {
-        label: 'Continue',
-        title: recent ? '继续观看' : '继续观看',
-        sub: recent
-          ? (recent.item.title || '未命名') + ' · 已看到 ' + fmtTime(recent.progress.position)
-          : '看过的影片会出现在这里',
-        action: function () {
-          var r = latestProgress();
-          if (!r) { toast('还没有观看记录'); return; }
-          resumeItem(r.item);
-        },
+        label: '收藏', title: '收藏', sub: favN ? ('已收藏 ' + favN + ' 部') : '好片收藏以备回看',
+        action: function () { if (SFV.online) SFV.online.openCategory('faved'); },
       },
       {
-        label: 'Library', title: '我的片库',
-        sub: lib.length ? ('已收录 ' + lib.length + ' 个条目') : '打开过的影片会自动收录',
-        action: function () { scrollToRail(); },
-      },
-      {
-        label: 'Speed', title: '播放倍速', sub: '当前 ' + speed + 'x，点击切换',
-        action: function () {
-          if (SFV.player) { SFV.player.cycleSpeed(); render(); }
-        },
-      },
-      {
-        label: 'Notice', title: '仅本机播放',
-        sub: 'Stellaflix 不提供、不存储任何影视资源',
-        action: function () { toast('本软件不内置任何片源，仅播放你自己提供的文件或地址'); },
+        label: '历史', title: '历史', sub: histN ? ('最近观看 ' + histN + ' 部') : '看过的会记在这里',
+        action: function () { if (SFV.online) SFV.online.openCategory('history'); },
       },
     ];
   }
@@ -287,17 +268,28 @@
     bindRailCapture();
     var cards = $all('#empty-home .home-grid .home-card');
     var defs = cardDefs();
-    for (var i = 0; i < cards.length && i < defs.length; i++) setCardText(cards[i], defs[i]);
+    for (var i = 0; i < cards.length; i++) {
+      if (i < defs.length) {
+        setCardText(cards[i], defs[i]);
+        cards[i].style.display = '';
+      } else {
+        // 影视态仅保留前四卡（心动/片单/收藏/历史），多余卡位隐藏，避免露出空语义
+        cards[i].style.display = 'none';
+      }
+    }
     var hero = $('#empty-home .home-poster-title');
     if (hero) hero.textContent = '我的影视空间';
     var quote = d() && d().getElementById ? d().getElementById('home-poster-quote') : null;
-    if (quote) quote.textContent = '播放你自己的影片 —— 本软件不提供任何在线片源。';
+    if (quote) quote.textContent = '导入你自己的片源，搜索 / 播放 / 收藏都在这里完成 —— Stellaflix 不存储任何视频资源。';
     renderRail();
   }
 
   // 切回音乐态：交还给音乐侧权威渲染函数，避免我们残留文案。
   function restoreMusic() {
     if (urlBar && urlBar.parentNode) { urlBar.parentNode.removeChild(urlBar); urlBar = null; }
+    // 还原被影视态隐藏的卡片 5/6，交还音乐态六卡布局
+    var cards = $all('#empty-home .home-grid .home-card');
+    for (var i = 0; i < cards.length; i++) cards[i].style.display = '';
     if (typeof global.renderHomeDiscover === 'function') {
       try { global.renderHomeDiscover(); } catch (e) {}
     }

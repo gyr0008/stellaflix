@@ -71,9 +71,9 @@
 
   /**
    * 归一化任意来源。
-   * @param {File|Blob|string|{url:string,title?:string}} input
+   * @param {File|Blob|string|{url:string,title?:string,id?:string}} input
    * @returns {{ok:boolean, kind:string, playUrl:string|null, rawUrl:string|null,
-   *            needsProxy:boolean, title:string, file:File|null,
+   *            needsProxy:boolean, title:string, file:File|null, id:string|null,
    *            requiresHlsLib:boolean, reason:string|null}}
    */
   function resolve(input) {
@@ -85,6 +85,7 @@
       needsProxy: false,
       title: '',
       file: null,
+      id: null,
       requiresHlsLib: false,
       reason: null,
     };
@@ -101,13 +102,16 @@
       out.file = input;
       out.title = input.name || 'local-video';
       out.rawUrl = input.path || null;
+      out.id = input.id || null;
       return out;
     }
 
-    // ---- 2) 对象形式 { url, title } ----
+    // ---- 2) 对象形式 { url, title, id } ----
     var title = '';
+    var explicitId = null;
     if (typeof input === 'object') {
       title = input.title || '';
+      explicitId = input.id || null;
       input = input.url;
       if (!input) {
         out.reason = 'empty-url';
@@ -150,6 +154,9 @@
     out.needsProxy = !sameOrigin(u);
     out.playUrl = out.needsProxy ? toProxyUrl(u.href) : u.href;
     out.title = title || basename(u.pathname) || u.hostname;
+    // 在线剧集用显式 id 锚定进度（站点:vod:集数），避免签名 URL 变动导致进度键漂移；
+    // 缺省回落 url: 原始地址。
+    out.id = explicitId || ('url:' + u.href);
 
     // ---- 4) HLS 识别 ----
     if (HLS_EXT.test(u.pathname) || HLS_EXT.test(u.href)) {
@@ -192,10 +199,13 @@
       if (global.console) global.console.warn('[SFV source] 当前环境不原生支持 HLS，需后续接入 hls.js:', r.rawUrl);
     }
     if (r.kind === 'local' && r.file) {
+      // 本地文件沿用 file: 进度键（若存在），否则由 openFile 内部决定
       return SFV.player.openFile(r.file);
     }
-    // 传 id/title 覆盖，保证进度键锚定原始 URL 而非代理 URL
-    return SFV.player.openUrl(r.playUrl, { id: 'url:' + r.rawUrl, title: r.title });
+    // 传 id/title 覆盖，保证进度键锚定：在线剧集用显式 id（站点:vod:集数），
+    // 直链回落 url: 原始地址（而非代理 URL）。
+    var pid = r.id || ('url:' + r.rawUrl);
+    return SFV.player.openUrl(r.playUrl, { id: pid, title: r.title });
   }
 
   SFV.source = {

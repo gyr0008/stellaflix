@@ -208,7 +208,11 @@
     restoreProgress();
     var sp = getSettings().speed;
     if (sp) videoEl.playbackRate = sp;
-    SFV.model.addToLibrary({ id: id, title: opts.title || url, source: 'url' });
+    // 仅本地/直链进「片库」（本地文件标识 file: 与直链 url:）；在线剧集复合键
+    // （站点:vod:集数）不入库，改由 online.js 记录「历史/心动/收藏/片单」四类模型。
+    if (id.indexOf('file:') === 0 || id.indexOf('url:') === 0) {
+      SFV.model.addToLibrary({ id: id, title: opts.title || url, source: 'url' });
+    }
     SFV.state.setSpace('video');
     overlay.classList.add('sfv-show');
     emitRenderPause(true);

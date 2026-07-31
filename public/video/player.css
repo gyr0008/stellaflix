@@ -290,4 +290,114 @@ body:not(.video-space-active) .sfv-fx-page { display: none !important; }
 .sfv-src-item-state.ok  { color: rgba(140, 220, 170, 0.92); }
 .sfv-src-item-state.bad { color: rgba(255, 150, 140, 0.92); }
 .sfv-src-item-ops { flex: 0 0 auto; display: flex; gap: 5px; }
+
+/* ================================================================
+ * 在线浏览层（聚合搜索 / 详情剧集 / 四类列表） — Step 4
+ * 玻璃拟态，沿用 --fc-accent-rgb；仅显式 .sfv-show 时显示，默认隐藏，
+ * 不污染音乐态 DOM（创建在 body 下，且默认 display:none）。
+ * z-index 低于播放器弹层（2147483000），播放时先关闭本层。
+ * ================================================================ */
+.sfv-browse {
+  position: fixed; inset: 0;
+  z-index: 2147482000;
+  display: none;
+  flex-direction: column;
+  padding: 18px 22px 22px;
+  background: rgba(8, 10, 16, 0.82);
+  backdrop-filter: blur(26px) saturate(140%);
+  -webkit-backdrop-filter: blur(26px) saturate(140%);
+  color: rgba(255, 255, 255, 0.92);
+  font: 13px/1.5 var(--font-sans, system-ui, sans-serif);
+}
+.sfv-browse.sfv-show { display: flex; animation: sfv-browse-in .26s cubic-bezier(.16,1,.3,1); }
+@keyframes sfv-browse-in { from { opacity: 0; transform: translateY(12px) scale(.99); } to { opacity: 1; transform: none; } }
+
+.sfv-browse-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.sfv-browse-back {
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12);
+  color: #fff; border-radius: 10px; width: 34px; height: 34px; font-size: 16px; cursor: pointer;
+}
+.sfv-browse-back:hover { background: rgba(255,255,255,.12); }
+.sfv-browse-title { font-size: 17px; font-weight: 800; letter-spacing: .3px; flex: 1 1 auto; }
+.sfv-browse-acts { display: flex; gap: 8px; }
+.sfv-browse-act {
+  background: rgba(var(--fc-accent-rgb), .14); border: 1px solid rgba(var(--fc-accent-rgb), .36);
+  color: #fff; border-radius: 10px; height: 32px; padding: 0 12px; font-size: 12px; cursor: pointer;
+}
+.sfv-browse-act:hover { background: rgba(var(--fc-accent-rgb), .26); }
+
+.sfv-browse-search { display: flex; gap: 8px; margin-bottom: 10px; }
+.sfv-browse-search-input {
+  flex: 1 1 auto; height: 38px; padding: 0 14px; border-radius: 12px;
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.12);
+  color: #fff; font-size: 14px; outline: none;
+}
+.sfv-browse-search-input:focus { border-color: rgba(var(--fc-accent-rgb), .5); }
+.sfv-browse-search-btn {
+  height: 38px; padding: 0 18px; border-radius: 12px; border: none; cursor: pointer;
+  background: rgba(var(--fc-accent-rgb), .9); color: #04121a; font-weight: 800; font-size: 13px;
+}
+
+.sfv-browse-note {
+  font-size: 12px; color: rgba(255,255,255,.55); margin: 4px 2px 10px;
+  padding: 8px 12px; border-radius: 10px; background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.07);
+}
+.sfv-browse-sub { font-size: 12px; color: rgba(255,255,255,.5); margin: 6px 2px; }
+
+.sfv-browse-body { flex: 1 1 auto; overflow-y: auto; padding-right: 4px; }
+.sfv-browse-body::-webkit-scrollbar { width: 6px; }
+.sfv-browse-body::-webkit-scrollbar-thumb { background: rgba(var(--fc-accent-rgb), .3); border-radius: 6px; }
+
+.sfv-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)); gap: 14px;
+}
+.sfv-card {
+  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.09);
+  border-radius: 14px; overflow: hidden; cursor: pointer; text-align: left;
+  color: inherit; padding: 0; transition: transform .16s ease, border-color .16s ease;
+}
+.sfv-card:hover { transform: translateY(-3px); border-color: rgba(var(--fc-accent-rgb), .5); }
+.sfv-card-cover {
+  height: 176px; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, rgba(var(--fc-accent-rgb),.18), rgba(255,255,255,.04));
+  font-size: 34px;
+}
+.sfv-card-img { width: 100%; height: 100%; object-fit: cover; }
+.sfv-card-name {
+  font-size: 12.5px; font-weight: 700; padding: 8px 10px 2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sfv-card-sub { font-size: 11px; color: rgba(255,255,255,.5); padding: 0 10px 10px; }
+
+.sfv-detail-head { display: flex; gap: 16px; margin-bottom: 14px; }
+.sfv-detail-cover {
+  width: 132px; height: 176px; flex: 0 0 auto; border-radius: 12px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center; font-size: 32px;
+  background: linear-gradient(135deg, rgba(var(--fc-accent-rgb),.2), rgba(255,255,255,.04));
+}
+.sfv-detail-img { width: 100%; height: 100%; object-fit: cover; }
+.sfv-detail-info { flex: 1 1 auto; min-width: 0; }
+.sfv-detail-title { font-size: 19px; font-weight: 800; margin-bottom: 6px; }
+.sfv-detail-year { font-size: 12px; color: rgba(255,255,255,.55); margin-bottom: 12px; }
+.sfv-detail-flags { display: flex; gap: 8px; flex-wrap: wrap; }
+.sfv-flag-btn {
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14);
+  color: #fff; border-radius: 10px; height: 32px; padding: 0 14px; font-size: 12px; cursor: pointer;
+}
+.sfv-flag-btn.on { background: rgba(var(--fc-accent-rgb), .9); color: #04121a; border-color: transparent; font-weight: 800; }
+
+.sfv-ep-group { margin-bottom: 16px; }
+.sfv-ep-from { font-size: 13px; font-weight: 700; color: rgba(255,255,255,.78); margin-bottom: 8px; }
+.sfv-ep-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.sfv-ep {
+  background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.1);
+  color: #fff; border-radius: 9px; height: 34px; font-size: 12px; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 8px;
+}
+.sfv-ep:hover { background: rgba(var(--fc-accent-rgb), .26); }
+.sfv-ep-done { border-color: rgba(var(--fc-accent-rgb), .5); color: rgba(var(--fc-accent-rgb), 1); }
+
+/* 浏览层内的网络地址输入条（复用 .sfv-urlbar 基础样式） */
+.sfv-browse-urlbar { margin: 10px 2px; }
 .sfv-src-item-ops .fx-mini-btn { padding: 0 8px; height: 24px; font-size: 10px; }
