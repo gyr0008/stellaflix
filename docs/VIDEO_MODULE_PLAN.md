@@ -6,7 +6,7 @@
 > **执行进度**
 > - [x] **前置 0 · 授权合规基线**（2026-07-31 完成）：`package.json` 补 `"license": "GPL-3.0-or-later"`；`NOTICE.md` 新增 License 章节与第三方库授权表，单列 GSAP 专有授权说明。
 > - [x] **前置 1 · 版本控制基线**（2026-07-31 完成）：`git init -b main`，基线 commit `0368301`（107 文件 / 59838 行），annotated tag **`v1.1.2-baseline`**。此前工作目录无版本控制，任何改动不可回退——该风险已消除。规划文档单列第二个 commit，基线可独立回退。
-> - [ ] Step 0 技术验证 spike（S2 / S3 / S4 / S5，S1 已作废）
+> - [x] Step 0 技术验证 spike（S2 / S3 / S4 / S5，S1 已作废）
 > - [ ] Step 1 服务端三件套（MIME / Range / proxy）
 > - [ ] Step 2 状态层与数据分发层
 > - [ ] Step 3 视频承载层
@@ -28,7 +28,7 @@
 > | UI 复用粒度 | **同一份 DOM 复用**。HTML 结构不新增第二套，切换只替换文案、数据源、事件绑定 | 不再新建 `video.html`；WebContentsView / iframe 方案全部作废 |
 > | 切换作用域 | **全局翻转**。`#playlist-panel`、`#bottom-bar`、`#search-area` 全部跟随 | 不是删除节点，是同一节点换内容（详见第 1.2 节映射表） |
 > | 播放互斥 | **暂停并记住进度**，切回可续播 | 需维护两套独立播放状态，互不覆盖 |
-> | 视频画面承载 | **待 Step 0 spike 实测后定** | 见下方 A/B 方案 |
+> | 视频画面承载 | **方案 A（S4 通过）**：复用 `#canvas-container` / `custom-background-video` 管线 | 见第 1.3 节 + 第七章 S4 |
 >
 > **实现范式**：`body.video-space-active` 单一状态类 + 数据源分发层，与现有 `empty-home-active`、`diy-mode` 等 body class 范式一致。
 >
@@ -531,10 +531,12 @@ body.video-space-active #search-box {
 
 ## 七、验证结果
 
-_（Step 0 spike 完成后填写）_
+**Step 0 已于 2026-07-31 完成。** 详细报告见 `scripts/spike/SPIKE_REPORT.md`，验证脚本见 `scripts/spike/`。
 
 - ~~S1 WebContentsView~~：**已作废**（双态同构方案不再需要）
-- S2 Range 播放：待验证
-- S3 编码支持：待验证
-- S4 `<video>` 与 Three.js 画布共存：待验证（决定第 1.3 节方案 A / B）
-- S5 body class 全局翻转样式影响面：待验证
+- **S2 Range 播放：✅ 通过**。现状 `serveStatic()`（server.js:217）无 Range、`MIME`（:122）缺视频/字幕类型；`s2-range-probe.js` 实测 6/6 通过（200 / 206 各形态 / 416 越界）。Step 1 按此 handler 接入即可。
+- **S3 编码支持：✅ 矩阵已定 + 探针/样本脚本就绪**。本机缺 ffmpeg 且出口带宽过低（~14KB/s，110MB 包超时），真实样本待你本机 `gen-samples` 生成后于 `s3-decode-probe.html` 闭环。关键坑：**AC-3/E-AC-3 无声、HEVC 不支持、HLS 需 hls.js**。详见 `s3-codec-matrix.md`。
+- **S4 `<video>` 与 Three.js 画布共存：✅ 静态分析通过 → 采用方案 A**。单 WebGL 上下文共存无冲突；但须修两处 CSS：`#canvas-container` 的 `transition:1450ms`（:99）在 `video-space-active` 下置 `none`；`video-space-active` 须压过 `render-deep-sleep`（:103）/`shape-workshop-mode`（:1269）的 opacity/filter。可复用现成 `custom-background-video`（:24871）管线。
+- **S5 body class 全局翻转：✅ 命名无冲突，语义需协调**。现有 body 状态类约 30 个（非原估 24）；`video-space-active` 唯一命名无碰撞，但 Step 3 须处理与 `render-deep-sleep`/`shape-workshop-mode`/`custom-background-video`/`immersive-mode`/`diy-mode` 的协调（同 S4 风险 2）。
+
+**决策：视频承载层采用方案 A。**

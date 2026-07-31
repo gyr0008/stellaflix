@@ -19,7 +19,7 @@ Mineradio 扩展版是一款 Windows 桌面沉浸式音乐播放器。原版 Min
 
 普通用户请进入最新版 Release，只下载安装包：
 
-[下载 Mineradio 扩展版最新版](https://github.com/daaimengermengzhu/Mineradio-Extended/releases/latest)
+[下载 Mineradio 扩展版最新版](https://github.com/gyr0008/stellaflix/releases/latest)
 
 请下载文件名类似下面的安装包：
 

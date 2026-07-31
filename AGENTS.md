@@ -10,7 +10,8 @@ Mineradio 是 Windows Electron 桌面音乐播放器，核心体验包括搜索�
 - 版本控制：`git`，分支 `main`，基线 tag **`v1.1.2-baseline`**（2026-07-31 建立）
 - 当前源码版本：`v1.1.2`
 - 授权：`GPL-3.0-or-later`（继承自上游，`package.json` / `LICENSE` / `README` 三处一致）
-- 上游 GitHub 仓库：`https://github.com/XxHuberrr/Mineradio.git`
+- 上游 GitHub 仓库（代码来源）：`https://github.com/XxHuberrr/Mineradio.git`
+- 我们的 GitHub 仓库（发布 / 自动更新目标）：`https://github.com/gyr0008/stellaflix`（当前为空仓，待首次 push；`package.json` 的 `repository` / `build.publish` / `mineradio.update` 均已指向它）
 
 > **路径变更说明（2026-07-31）**：本文档此前记载的 `E:\桌面\播放器软件\Mineradio\...` 系列路径**已失效且不可访问**。当前主线为上方 Desktop 目录，来源是从 GitHub 下载的 v1.1.2 源码包，已用户确认为开发基石。旧的 E 盘运行版、备份区（`E:\桌面\播放器软件\工作区备份`）相关约定一并作废，如需恢复请先确认路径可达。
 

@@ -9,7 +9,7 @@
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/daaimengermengzhu/Mineradio-Extended.git"
+    "url": "https://github.com/gyr0008/stellaflix.git"
   },
   "scripts": {
     "start": "electron .",
@@ -73,16 +73,16 @@
     "publish": [
       {
         "provider": "github",
-        "owner": "daaimengermengzhu",
-        "repo": "Mineradio-Extended"
+        "owner": "gyr0008",
+        "repo": "stellaflix"
       }
     ]
   },
   "mineradio": {
     "update": {
       "provider": "github",
-      "owner": "daaimengermengzhu",
-      "repo": "Mineradio-Extended",
+      "owner": "gyr0008",
+      "repo": "stellaflix",
       "preview": true,
       "preferMirrors": true,
       "mirrors": [

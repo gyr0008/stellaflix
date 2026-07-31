@@ -19,7 +19,7 @@
 提交或打包前至少确认：
 
 - `package.json` 和 `package-lock.json` 版本号一致。
-- `mineradio.update.owner/repo` 指向 `daaimengermengzhu/Mineradio-Extended`。
+- `mineradio.update.owner/repo` 指向 `gyr0008/stellaflix`。
 - `.cookie`、`.qq-cookie`、`.kugou-cookie`、`.kugou-music-cookie`、汽水本地凭证、`node_modules/`、旧 `dist/` 没有进入 Git。
 - README、CHANGELOG、使用教程和 Release 正文没有把个人实验形态写成公开功能。
 - README 中普通用户下载入口指向 GitHub latest release。
