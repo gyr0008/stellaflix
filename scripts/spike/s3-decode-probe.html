@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>S3 编解码真实解码探针</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 24px; color: #222; }
+  h1 { font-size: 18px; }
+  #drop { border: 2px dashed #999; border-radius: 10px; padding: 18px; margin: 12px 0; }
+  table { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 13px; }
+  th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+  th { background: #f4f4f4; }
+  .ok { color: #137a2e; font-weight: 600; }
+  .bad { color: #b3261e; font-weight: 600; }
+  .warn { color: #9a6b00; font-weight: 600; }
+  button { padding: 6px 12px; }
+  pre { background: #f6f6f6; padding: 10px; overflow: auto; max-height: 240px; }
+</style>
+</head>
+<body>
+  <h1>S3 · 编解码真实解码探针</h1>
+  <p>选择一个或多个样本视频（由 <code>gen-samples</code> 生成，或任意影视片段）。本页在真实
+     Chromium/Electron 中实际解码，给出 <code>canplay</code>（能播）/ <code>error</code>（不能播）结果，
+     并补充 <code>canPlayType</code> 与 <code>MediaSource.isTypeSupported</code> 的声明级判断。</p>
+  <div id="drop">
+    <input id="file" type="file" multiple accept="video/*,audio/*" />
+    <p style="color:#666;margin:8px 0 0">选择后即可看到逐文件解码结论。</p>
+  </div>
+  <button id="export">导出 JSON 结果</button>
+  <table id="tbl">
+    <thead><tr><th>#</th><th>文件</th><th>大小</th><th>canPlayType</th><th>MediaSource.isTypeSupported</th><th>实际解码</th><th>错误/备注</th></tr></thead>
+    <tbody></tbody>
+  </table>
+  <pre id="out"></pre>
+
+<script>
+const results = [];
+const tbody = document.querySelector('#tbl tbody');
+const out = document.getElementById('out');
+
+const MIME_GUESS = {
+  mp4: 'video/mp4; codecs="avc1.640028, mp4a.40.2"',
+  mkv: 'video/x-matroska',
+  webm: 'video/webm; codecs="vp9, opus"',
+  ts: 'video/mp2t',
+  m3u8: 'application/vnd.apple.mpegurl',
+  mov: 'video/quicktime',
+};
+
+function guessMime(name) {
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  return MIME_GUESS[ext] || '';
+}
+
+function probe(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement('video');
+    v.preload = 'metadata';
+    v.muted = true;
+    v.src = url;
+    const mime = guessMime(file.name);
+    const canPlay = mime ? v.canPlayType(mime) : 'n/a';
+    let mse = 'n/a';
+    try { mse = (window.MediaSource && MediaSource.isTypeSupported(mime)) ? 'supported' : 'unsupported'; } catch (e) { mse = 'err:' + e.message; }
+
+    const done = (actual, note) => {
+      const row = { file: file.name, size: file.size, canPlayType: canPlay, mse, actual, note };
+      results.push(row);
+      const tr = document.createElement('tr');
+      const cls = actual === 'OK' ? 'ok' : actual === 'ERROR' ? 'bad' : 'warn';
+      tr.innerHTML = `<td>${results.length}</td><td>${file.name}</td><td>${file.size}</td>` +
+        `<td>${canPlay || '-'}</td><td>${mse}</td><td class="${cls}">${actual}</td><td>${note || ''}</td>`;
+      tbody.appendChild(tr);
+      out.textContent = JSON.stringify(results, null, 2);
+      URL.revokeObjectURL(url);
+      resolve();
+    };
+
+    const to = setTimeout(() => done('TIMEOUT', '8s 内无 canplay/error'), 8000);
+    v.addEventListener('canplay', () => { clearTimeout(to); done('OK', `${v.videoWidth}x${v.videoHeight} @${Math.round(v.duration)}s`); }, { once: true });
+    v.addEventListener('loadedmetadata', () => { /* wait for canplay too */ });
+    v.addEventListener('error', () => { clearTimeout(to); done('ERROR', (v.error && v.error.message) || 'decode failed'); }, { once: true });
+  });
+}
+
+document.getElementById('file').addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []);
+  for (const f of files) await probe(f);
+});
+
+document.getElementById('export').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 's3-decode-results.json';
+  a.click();
+});
+</script>
+</body>
+</html>
