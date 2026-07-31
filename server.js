@@ -128,6 +128,24 @@ const MIME = {
   '.jpg':  'image/jpeg',
   '.ico':  'image/x-icon',
   '.svg':  'image/svg+xml',
+  // ---- 影视 / 音频媒体类型（Step 1 新增）----
+  '.mp4':  'video/mp4',
+  '.webm': 'video/webm',
+  '.ogv':  'video/ogg',
+  '.mov':  'video/quicktime',
+  '.m4v':  'video/mp4',
+  '.m3u8': 'application/vnd.apple.mpegurl',
+  '.ts':   'video/MP2T',
+  '.m4s':  'video/iso-segment',
+  '.vtt':  'text/vtt',
+  '.srt':  'text/plain',
+  '.aac':  'audio/aac',
+  '.m4a':  'audio/mp4',
+  '.mp3':  'audio/mpeg',
+  '.oga':  'audio/ogg',
+  '.ogg':  'audio/ogg',
+  '.flac': 'audio/flac',
+  '.wav':  'audio/wave',
 };
 
 // ---------- Cookie 持久化 ----------
@@ -221,6 +239,62 @@ function serveStatic(res, filePath) {
     res.writeHead(200, { 'Content-Type': MIME[ext] || 'text/plain' });
     res.end(data);
   });
+}
+
+// 支持 Range 的静态文件服务（视频拖进度依赖此项，Step 1 新增）
+function serveStaticFile(req, res, filePath) {
+  const ext = path.extname(filePath);
+  fs.stat(filePath, (err, stat) => {
+    if (err || !stat.isFile()) { res.writeHead(404); res.end('Not Found'); return; }
+    const total = stat.size;
+    const contentType = MIME[ext] || 'application/octet-stream';
+    const range = req.headers.range;
+    if (range) {
+      const m = /bytes=(\d*)-(\d*)/.exec(range);
+      const start = m && m[1] ? parseInt(m[1], 10) : 0;
+      let end = m && m[2] ? parseInt(m[2], 10) : total - 1;
+      if (isNaN(start) || isNaN(end) || start > end || end >= total) {
+        res.writeHead(416, { 'Content-Range': `bytes */${total}` });
+        res.end();
+        return;
+      }
+      res.writeHead(206, {
+        'Content-Type': contentType,
+        'Content-Range': `bytes ${start}-${end}/${total}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': end - start + 1,
+      });
+      fs.createReadStream(filePath, { start, end }).pipe(res);
+    } else {
+      res.writeHead(200, {
+        'Content-Type': contentType,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': total,
+      });
+      fs.createReadStream(filePath).pipe(res);
+    }
+  });
+}
+
+// 基础 SSRF 防护：禁止私网 / 环回 / 链路本地地址（Step 1 新增）
+function isPrivateIPv4(ip) {
+  const p = String(ip).split('.').map(Number);
+  if (p.length !== 4 || p.some(n => isNaN(n))) return true;
+  if (p[0] === 10) return true;
+  if (p[0] === 127) return true;
+  if (p[0] === 0) return true;
+  if (p[0] === 169 && p[1] === 254) return true;
+  if (p[0] === 172 && p[1] >= 16 && p[1] <= 31) return true;
+  if (p[0] === 192 && p[1] === 168) return true;
+  return false;
+}
+function isPrivateHost(hostname) {
+  if (!hostname) return true;
+  const h = String(hostname).toLowerCase().trim();
+  if (h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local')) return true;
+  if (h === '::1' || h.startsWith('[::1]') || h.startsWith('fe80') || h.startsWith('fc') || h.startsWith('fd')) return true;
+  if (/^\d{1,3}(\.\d{1,3}){3}$/.test(h)) return isPrivateIPv4(h);
+  return false; // 域名放行（影视源为公网自定义域名）
 }
 function sendJSON(res, data, status) {
   res.writeHead(status || 200, {
@@ -7763,6 +7837,37 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // ---------- 视频 / 通用代理 (支持 Range + SSRF 基础防护) ----------
+  if (pn === '/api/proxy') {
+    try {
+      const target = url.searchParams.get('url');
+      if (!target) { res.writeHead(400); res.end('Missing url'); return; }
+      let parsed;
+      try { parsed = new URL(target); } catch (e) { res.writeHead(400); res.end('Bad url'); return; }
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') { res.writeHead(403); res.end('Forbidden scheme'); return; }
+      if (isPrivateHost(parsed.hostname)) { res.writeHead(403); res.end('Forbidden host'); return; }
+      const range = req.headers.range || '';
+      const headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36',
+        'Referer': parsed.origin + '/',
+      };
+      if (range) headers['Range'] = range;
+      const up = await fetch(target, { headers });
+      const out = {
+        'Content-Type': up.headers.get('content-type') || 'application/octet-stream',
+        'Access-Control-Allow-Origin': '*',
+        'Accept-Ranges': 'bytes',
+      };
+      const cl = up.headers.get('content-length'); if (cl) out['Content-Length'] = cl;
+      const cr = up.headers.get('content-range'); if (cr) out['Content-Range'] = cr;
+      res.writeHead(up.status, out);
+      const reader = up.body.getReader();
+      while (true) { const c = await reader.read(); if (c.done) break; res.write(c.value); }
+      res.end();
+    } catch (err) { console.error('[Proxy]', err); res.writeHead(502); res.end(); }
+    return;
+  }
+
   // ---------- 静态资源 ----------
   if (pn === '/favicon.ico') {
     serveStatic(res, path.join(__dirname, 'build', 'icon.ico'));
@@ -7771,7 +7876,7 @@ const server = http.createServer(async (req, res) => {
 
   let filePath = pn === '/' ? '/index.html' : pn;
   filePath = path.join(__dirname, 'public', filePath);
-  serveStatic(res, filePath);
+  serveStaticFile(req, res, filePath);
 });
 
 server.listen(PORT, HOST, () => {

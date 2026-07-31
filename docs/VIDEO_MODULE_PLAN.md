@@ -7,7 +7,7 @@
 > - [x] **前置 0 · 授权合规基线**（2026-07-31 完成）：`package.json` 补 `"license": "GPL-3.0-or-later"`；`NOTICE.md` 新增 License 章节与第三方库授权表，单列 GSAP 专有授权说明。
 > - [x] **前置 1 · 版本控制基线**（2026-07-31 完成）：`git init -b main`，基线 commit `0368301`（107 文件 / 59838 行），annotated tag **`v1.1.2-baseline`**。此前工作目录无版本控制，任何改动不可回退——该风险已消除。规划文档单列第二个 commit，基线可独立回退。
 > - [x] Step 0 技术验证 spike（S2 / S3 / S4 / S5，S1 已作废）
-> - [ ] Step 1 服务端三件套（MIME / Range / proxy）
+> - [x] Step 1 服务端三件套（MIME / Range / proxy）
 > - [ ] Step 2 状态层与数据分发层
 > - [ ] Step 3 视频承载层
 > - [ ] Step 4 切换入口与全局翻转
