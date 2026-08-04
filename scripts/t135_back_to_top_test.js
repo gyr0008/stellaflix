@@ -1,7 +1,7 @@
 /*
  * T135 回到顶部按钮 — 逻辑回归测试（无 jsdom，最小化 DOM 桩）
- * 验证：仅电影/动漫分页在「影视态 + 浏览层打开 + 滚动超阈值」时显示，
- *       点击平滑回顶后隐藏，切到其它 tab / 关层 / 切回音乐态均隐藏。
+ * 验证：仅电影/动漫分页在「影视态 + 浏览层打开」时固定常驻显示（不依赖滚动阈值），
+ *       切到其它 tab / 关层 / 切回音乐态均隐藏；点击平滑回顶后仍保持显示。
  */
 const fs = require('fs');
 const vm = require('vm');
@@ -76,22 +76,23 @@ console.log('\n=== T135 回到顶部按钮逻辑 ===\n');
 // S1: 初始 + 层未打开 → 隐藏
 ok(!vis(), 'S1 层未打开时默认隐藏');
 
-// S2: 打开层 + 电影分页 + 顶部 → 隐藏
+// S2: 打开层 + 电影分页 + 顶部 → 固定显示（无阈值）
 overlay.classList.add('sfv-show');
 SFV.backToTop.update();
-ok(!vis(), 'S2 电影分页顶部(scrollTop=0)隐藏');
+ok(vis(), 'S2 电影分页顶部(scrollTop=0)固定显示');
 
-// S3: 向下滚动超阈值 → 显示
+// S3: 向下滚动仍显示（常驻）
 scrollTo(400);
-ok(vis(), 'S3 电影分页滚动 400px 后显示');
+ok(vis(), 'S3 电影分页滚动 400px 后仍显示');
 
-// S4: 点击回顶 → 隐藏
+// S4: 点击回顶 → 仍固定显示（不再隐藏）
 btn()._listeners.click[0]({ preventDefault() {} });
-ok(!vis() && scrollEl.scrollTop === 0, 'S4 点击后平滑回顶并隐藏');
+ok(vis() && scrollEl.scrollTop === 0, 'S4 点击后平滑回顶仍固定显示');
 
-// S4b: 阈值边界（SCROLL_THRESHOLD=160）锁定，防止回退
-scrollTo(100); ok(!vis(), 'S4b 滚动 100px(<160) 隐藏');
-scrollTo(161); ok(vis(), 'S4b 滚动 161px(>160) 显示');
+// S4b: 固定常驻（无阈值），任意滚动位置均可见
+scrollTo(0);   ok(vis(), 'S4b 顶部(0px)固定显示');
+scrollTo(100); ok(vis(), 'S4b 滚动 100px 固定显示');
+scrollTo(161); ok(vis(), 'S4b 滚动 161px 固定显示');
 
 // S5: 滚动后切到「首页」(非 media) → 隐藏
 scrollTo(400);

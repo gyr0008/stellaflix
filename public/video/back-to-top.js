@@ -2,14 +2,14 @@
  * Stellaflix 影视模块 — 回到顶部悬浮按钮 (T135)
  *
  * 仅作用于「电影(movie)」「动漫(anime)」两个影视分页：
- *   - 内容区(.sfv-browse-body)向下滚动超过阈值后，右下角浮出玻璃质感圆钮；
- *   - 点击平滑滚动回顶部；回到顶部附近自动隐藏。
+ *   - 进入电影/动漫分页即固定显示在内容区右下角（不依赖滚动阈值），点击平滑滚动回顶部；
+ *   - 离开这两个分页（切其它 tab / 关闭层 / 切回音乐态）即隐藏。
  *
  * 设计要点：
  *   - 单一共享按钮挂 document.body（不被 host.innerHTML 清空），电影/动漫
  *     两页位置 / 样式 / 交互完全一致（同一模块、同一 DOM、同一逻辑）。
- *   - 显示判定 = 影视态 + 浏览层打开 + 当前 router 页为 movie/anime + 滚动
- *     距离超阈值；任一不满足即隐藏（含切到其它 tab、关闭层、切回音乐态）。
+ *   - 显示判定 = 影视态 + 浏览层打开 + 当前 router 页为 movie/anime；
+ *     满足即固定常驻显示，任一不满足即隐藏（含切到其它 tab、关闭层、切回音乐态）。
  *   - 双态隔离：非 video-space-active 由 CSS display:none 兜底，绝不污染音乐态。
  */
 (function (global) {
@@ -17,7 +17,7 @@
   var SFV = (global.StellaflixVideo = global.StellaflixVideo || {});
   if (SFV.backToTop) return; // 幂等：脚本重复加载不重复初始化
 
-  var SCROLL_THRESHOLD = 160; // 滚动超过该像素值后浮出按钮（用户要求下调，更早出现）
+  // 固定常驻显示：进入 movie/anime 分页即显示在右下角，不再依赖滚动阈值。
   var btn = null;
   var scrollEl = null;
   var ticking = false;
@@ -46,7 +46,7 @@
 
   function update() {
     if (!btn || !scrollEl) return;
-    if (isMediaPage() && scrollEl.scrollTop > SCROLL_THRESHOLD) show();
+    if (isMediaPage()) show();
     else hide();
   }
 
@@ -136,7 +136,6 @@
 
   SFV.backToTop = {
     init: init,
-    update: update,
-    SCROLL_THRESHOLD: SCROLL_THRESHOLD
+    update: update
   };
 })(typeof window !== 'undefined' ? window : this);
