@@ -17,7 +17,7 @@
   var SFV = (global.StellaflixVideo = global.StellaflixVideo || {});
   if (SFV.backToTop) return; // 幂等：脚本重复加载不重复初始化
 
-  var SCROLL_THRESHOLD = 320; // 滚动超过该像素值后浮出按钮
+  var SCROLL_THRESHOLD = 160; // 滚动超过该像素值后浮出按钮（用户要求下调，更早出现）
   var btn = null;
   var scrollEl = null;
   var ticking = false;

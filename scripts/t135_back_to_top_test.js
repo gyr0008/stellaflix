@@ -89,6 +89,10 @@ ok(vis(), 'S3 电影分页滚动 400px 后显示');
 btn()._listeners.click[0]({ preventDefault() {} });
 ok(!vis() && scrollEl.scrollTop === 0, 'S4 点击后平滑回顶并隐藏');
 
+// S4b: 阈值边界（SCROLL_THRESHOLD=160）锁定，防止回退
+scrollTo(100); ok(!vis(), 'S4b 滚动 100px(<160) 隐藏');
+scrollTo(161); ok(vis(), 'S4b 滚动 161px(>160) 显示');
+
 // S5: 滚动后切到「首页」(非 media) → 隐藏
 scrollTo(400);
 ok(vis(), 'S5a 电影分页滚动后显示');
