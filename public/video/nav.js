@@ -141,14 +141,17 @@
     var x = e.clientX, y = e.clientY;
     var W = window.innerWidth;
     var nav = document.getElementById('sfv-nav');
-    var inNav = false;
-    if (nav) {
-      var r = nav.getBoundingClientRect();
-      inNav = x >= r.left - 24 && x <= r.right + 24 && y >= r.top - 20 && y <= r.bottom + 20;
+    var btn = document.getElementById('sfv-nav-hide-btn');
+    function inRect(r, padX, padY) {
+      return x >= r.left - padX && x <= r.right + padX &&
+             y >= r.top - padY && y <= r.bottom + padY;
     }
+    var inHit = false;
+    if (nav) inHit = inHit || inRect(nav.getBoundingClientRect(), 24, 20);
+    if (btn) inHit = inHit || inRect(btn.getBoundingClientRect(), 18, 18);
     var navWidth = Math.min(520, W * 0.58);
     var nearTopCenter = y < 120 && Math.abs(x - W / 2) < (navWidth / 2 + 40);
-    document.body.classList.toggle('sfv-nav-peek', inNav || nearTopCenter);
+    document.body.classList.toggle('sfv-nav-peek', inHit || nearTopCenter);
   }
 
   function autoMount() {
