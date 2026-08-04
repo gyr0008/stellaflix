@@ -91,6 +91,19 @@ body.video-space-active #search-input {
 body.video-space-active:not(.desktop-shell) #top-right {
   top: 31px;
 }
+/* T134i：桌面外壳模式下影视顶栏下移到 top:34px，与音乐态搜索栏
+   (body.desktop-shell #search-area.peek{top:34px}, index.html:138) 顶边对齐，
+   消除「影视比音乐高 10px」的错位。高度保持 58px 不变（两者本就等高），
+   仅下移位置。普通模式顶栏仍 top:24px（已与音乐态 24px 一致）。
+   作用域限定 .desktop-shell，普通窗口不受影响。 */
+body.video-space-active.desktop-shell #sfv-nav {
+  top: 34px;
+}
+/* T134i：桌面外壳页模式下内容让位同步 +10px（34+58+20=112），
+   保持与音乐态一致的 20px 顶栏-内容间隙。普通模式仍是 102px。 */
+body.video-space-active.desktop-shell .sfv-browse--page .sfv-browse-body {
+  padding-top: 112px;
+}
 /* 导航项：纯文字 + 底部下划线，不用圆角胶囊 */
 .sfv-nav-item {
   position: relative;
