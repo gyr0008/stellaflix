@@ -108,7 +108,7 @@
     "rcedit": "^5.0.2",
     "vite": "^8.2.0"
   },
-  "directories": {
+  "npmDirectories": {
     "doc": "docs",
     "test": "tests"
   },

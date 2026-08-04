@@ -39,7 +39,7 @@ jobs:
           # 显式关闭 implicit publish；曾经因 GH_TOKEN 权限不足导致整个 build
           # exit 1，注入逻辑根本没跑到。build 失败可独立重试，不影响凭证注入。
           ELECTRON_BUILDER_PUBLISH: never
-        run: npm run build:win
+        run: npm run build:win -- --publish=never
 
       - name: Upload build artifacts (兜底)
         if: always()
