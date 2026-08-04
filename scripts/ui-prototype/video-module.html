@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Stellaflix · 影视模块 UI 原型</title>
+<style>
+  :root{
+    --bg-0:#07080c; --bg-1:#0c0e15; --bg-2:#11141d;
+    --gold:#f4d28a; --gold-bright:#f5c542; --gold-rgb:244,210,138;
+    --text-0:rgba(255,255,255,.94); --text-1:rgba(255,255,255,.62); --text-2:rgba(255,255,255,.40);
+    --glass:rgba(255,255,255,.045); --glass-2:rgba(255,255,255,.07);
+    --border:rgba(255,255,255,.10); --border-gold:rgba(var(--gold-rgb),.34);
+    --radius:16px; --radius-sm:11px;
+    --shadow:0 18px 50px rgba(0,0,0,.55);
+    --ease:cubic-bezier(.16,1,.3,1);
+    --font:"PingFang SC","Microsoft YaHei",-apple-system,system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:var(--font); color:var(--text-0);
+    background:
+      radial-gradient(120% 80% at 12% -10%, rgba(var(--gold-rgb),.10), transparent 55%),
+      radial-gradient(90% 70% at 100% 0%, rgba(122,215,194,.06), transparent 50%),
+      var(--bg-0);
+    overflow:hidden;
+  }
+  /* ---------- 顶栏 ---------- */
+  .topbar{
+    position:fixed; top:0; left:0; right:0; height:60px; z-index:50;
+    display:flex; align-items:center; gap:18px; padding:0 26px;
+    background:linear-gradient(to bottom, rgba(8,9,13,.92), rgba(8,9,13,.55));
+    backdrop-filter:blur(18px) saturate(140%); border-bottom:1px solid var(--border);
+  }
+  .brand{display:flex; align-items:center; gap:10px; font-weight:800; font-size:18px; letter-spacing:.4px}
+  .brand .dot{
+    width:22px; height:22px; border-radius:7px;
+    background:conic-gradient(from 210deg, var(--gold), #ff5367, #7ad7c2, var(--gold));
+    box-shadow:0 0 18px rgba(var(--gold-rgb),.5);
+  }
+  .brand b{background:linear-gradient(90deg,#fff,var(--gold)); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .nav{display:flex; gap:6px; margin-left:8px}
+  .nav button{
+    border:0; background:transparent; color:var(--text-1); font:600 13.5px/1 var(--font);
+    padding:9px 16px; border-radius:10px; cursor:pointer; transition:.18s;
+  }
+  .nav button:hover{color:var(--text-0); background:var(--glass)}
+  .nav button.on{color:#0a0c12; background:linear-gradient(135deg,var(--gold),var(--gold-bright)); box-shadow:0 6px 18px rgba(var(--gold-rgb),.32)}
+  .spacer{flex:1}
+  .ghost-btn{
+    border:1px solid var(--border); background:var(--glass); color:var(--text-1);
+    font:600 12.5px/1 var(--font); padding:9px 15px; border-radius:20px; cursor:pointer; transition:.18s;
+  }
+  .ghost-btn:hover{color:var(--text-0); border-color:rgba(255,255,255,.24); background:var(--glass-2)}
+  /* ---------- 主区域 ---------- */
+  .stage{position:fixed; top:60px; left:0; right:0; bottom:0; overflow-y:auto; padding:26px 30px 60px}
+  .stage::-webkit-scrollbar{width:8px}
+  .stage::-webkit-scrollbar-thumb{background:rgba(var(--gold-rgb),.28); border-radius:8px}
+  .view{display:none; animation:vf .4s var(--ease)}
+  .view.is-active{display:block}
+  @keyframes vf{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:none}}
+  .sec-title{font-size:15px; font-weight:700; color:var(--text-1); margin:6px 2px 14px; letter-spacing:.3px}
+  .sec-title b{color:var(--text-0)}
+
+  /* ---------- 首页：四卡 ---------- */
+  .cat-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:18px; margin-bottom:30px}
+  .cat-card{
+    position:relative; border-radius:var(--radius); overflow:hidden; cursor:pointer;
+    background:var(--glass); border:1px solid var(--border); min-height:188px;
+    display:flex; flex-direction:column; justify-content:flex-end; padding:16px;
+    transition:transform .22s var(--ease), border-color .22s;
+  }
+  .cat-card:hover{transform:translateY(-4px); border-color:var(--border-gold)}
+  .cat-card .glow{position:absolute; inset:0; opacity:.9; transition:.3s}
+  .cat-card:hover .glow{opacity:1; transform:scale(1.04)}
+  .cat-card .mini-wall{position:absolute; right:0; top:0; bottom:0; width:54%; display:grid; grid-template-columns:repeat(2,1fr); grid-auto-rows:1fr; gap:3px; opacity:.5; filter:saturate(.9)}
+  .cat-card .mini-wall i{display:block; border-radius:6px}
+  .cat-card .label{position:relative; font-size:17px; font-weight:800; letter-spacing:.4px}
+  .cat-card .count{position:relative; font-size:12px; color:var(--text-1); margin-top:3px}
+  .cat-card .emoji{position:absolute; left:16px; top:14px; font-size:22px; filter:drop-shadow(0 2px 6px rgba(0,0,0,.5))}
+
+  /* 继续观看 rail */
+  .rail{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:16px; margin-bottom:8px}
+  .poster{
+    position:relative; border-radius:var(--radius-sm); overflow:hidden; cursor:pointer;
+    aspect-ratio:2/3; background:linear-gradient(160deg,#23252e,#14151b);
+    transition:transform .2s var(--ease), box-shadow .2s;
+  }
+  .poster:hover{transform:translateY(-5px); box-shadow:var(--shadow)}
+  .poster .art{position:absolute; inset:0; transition:transform .4s var(--ease)}
+  .poster:hover .art{transform:scale(1.06)}
+  .poster .name{position:absolute; left:0; right:0; bottom:0; padding:22px 10px 9px; font-size:12.5px; font-weight:700; line-height:1.3;
+    background:linear-gradient(to top, rgba(0,0,0,.86), rgba(0,0,0,0)); z-index:2}
+  .poster .meta{position:absolute; left:8px; top:8px; z-index:2; font-size:10.5px; font-weight:700; color:#0a0c12;
+    background:var(--gold); padding:2px 7px; border-radius:999px}
+  .poster .bar{position:absolute; left:0; bottom:0; height:3px; background:linear-gradient(90deg,var(--gold),#ff5367); z-index:3}
+
+  /* TMDB 署名 */
+  .attrib{margin-top:34px; padding-top:16px; border-top:1px solid var(--border);
+    font-size:11px; line-height:1.6; color:var(--text-2); max-width:620px; letter-spacing:.2px}
+  .attrib b{color:var(--text-1); font-weight:600}
+
+  /* 空态导入入口 */
+  .empty-cta{
+    margin:8px 0 26px; padding:26px 28px; border-radius:var(--radius);
+    border:1px dashed var(--border-gold); background:linear-gradient(160deg, rgba(var(--gold-rgb),.07), transparent 70%);
+    display:flex; align-items:center; gap:20px;
+  }
+  .empty-cta .ic{width:54px; height:54px; flex:0 0 auto; border-radius:14px; display:grid; place-items:center; font-size:26px;
+    background:rgba(var(--gold-rgb),.14); border:1px solid var(--border-gold)}
+  .empty-cta .tx{flex:1}
+  .empty-cta .tx h3{font-size:15px; margin-bottom:4px}
+  .empty-cta .tx p{font-size:12.5px; color:var(--text-1); line-height:1.55}
+  .import-btn{
+    flex:0 0 auto; border:0; cursor:pointer; font:800 14px/1 var(--font); color:#0a0c12;
+    padding:14px 26px; border-radius:12px; background:linear-gradient(135deg,var(--gold),var(--gold-bright));
+    box-shadow:0 10px 26px rgba(var(--gold-rgb),.34); transition:.18s;
+  }
+  .import-btn:hover{transform:translateY(-2px); filter:brightness(1.05)}
+
+  /* ---------- 浏览 / 搜索 ---------- */
+  .search-row{display:flex; gap:10px; margin-bottom:14px}
+  .search-box{flex:1; display:flex; align-items:center; gap:10px; height:46px; padding:0 16px;
+    border-radius:14px; background:var(--glass); border:1px solid var(--border); transition:.18s}
+  .search-box:focus-within{border-color:var(--border-gold); background:var(--glass-2)}
+  .search-box input{flex:1; border:0; background:transparent; color:var(--text-0); font:14px/1 var(--font); outline:none}
+  .search-box .go{border:0; cursor:pointer; color:#0a0c12; font-weight:800; font-size:13px; padding:9px 18px; border-radius:10px;
+    background:linear-gradient(135deg,var(--gold),var(--gold-bright))}
+  .chips{display:flex; gap:8px; margin-bottom:18px; flex-wrap:wrap}
+  .chip{border:1px solid var(--border); background:var(--glass); color:var(--text-1); font:600 12px/1 var(--font);
+    padding:8px 14px; border-radius:999px; cursor:pointer; transition:.16s}
+  .chip:hover{color:var(--text-0); border-color:rgba(255,255,255,.22)}
+  .chip.on{color:#0a0c12; background:var(--gold); border-color:transparent; font-weight:800}
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:18px}
+  .cell{animation:vf .35s var(--ease) backwards}
+  .cell .src-tag{position:absolute; right:8px; top:8px; z-index:3; font-size:10px; font-weight:700; color:#9fc0ff;
+    background:rgba(20,30,55,.8); border:1px solid rgba(120,180,255,.4); padding:2px 7px; border-radius:999px}
+
+  /* ---------- 详情页 ---------- */
+  .detail{display:grid; grid-template-columns:240px 1fr; gap:30px; align-items:start}
+  .detail .hero{position:relative; aspect-ratio:2/3; border-radius:18px; overflow:hidden; box-shadow:var(--shadow)}
+  .detail .hero .art{position:absolute; inset:0}
+  .detail .info h1{font-size:30px; font-weight:800; letter-spacing:.3px; line-height:1.2}
+  .detail .info .yr{font-size:15px; color:var(--text-1); font-weight:400; margin-left:10px}
+  .detail .info .rate{display:inline-flex; align-items:center; gap:6px; margin:14px 0 18px; font-size:14px; font-weight:700; color:var(--gold-bright)}
+  .detail .info .rate .star{font-size:16px}
+  .flags{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px}
+  .flag{border:1px solid var(--border); background:var(--glass); color:var(--text-1); font:600 13px/1 var(--font);
+    padding:11px 18px; border-radius:11px; cursor:pointer; transition:.16s; display:flex; align-items:center; gap:7px}
+  .flag:hover{color:var(--text-0); border-color:rgba(255,255,255,.24)}
+  .flag.on{color:#0a0c12; background:linear-gradient(135deg,var(--gold),var(--gold-bright)); border-color:transparent; font-weight:800}
+  .overview{font-size:13.5px; line-height:1.75; color:rgba(255,255,255,.74); max-width:640px; max-height:150px; overflow:auto;
+    padding-right:8px; -webkit-mask-image:linear-gradient(to bottom,#000 76%,transparent); mask-image:linear-gradient(to bottom,#000 76%,transparent)}
+  .overview::-webkit-scrollbar{width:6px}
+  .overview::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18); border-radius:6px}
+  .ep-h{font-size:14px; font-weight:700; margin:22px 0 12px; color:var(--text-1)}
+  .ep-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(104px,1fr)); gap:9px; max-width:720px}
+  .ep{background:var(--glass); border:1px solid var(--border); color:var(--text-0); border-radius:10px; height:38px; font-size:12.5px;
+    cursor:pointer; transition:.15s; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:0 10px}
+  .ep:hover{background:rgba(var(--gold-rgb),.18); border-color:var(--border-gold)}
+  .ep.done{border-color:var(--border-gold); color:var(--gold)}
+  .back{display:inline-flex; align-items:center; gap:7px; margin-bottom:18px; border:1px solid var(--border); background:var(--glass);
+    color:var(--text-1); font:600 13px/1 var(--font); padding:9px 16px; border-radius:20px; cursor:pointer; transition:.16s}
+  .back:hover{color:var(--text-0); border-color:rgba(255,255,255,.24)}
+  .attrib.big{margin-top:30px; max-width:720px}
+
+  @media (max-width:760px){
+    .cat-grid{grid-template-columns:repeat(2,1fr)}
+    .detail{grid-template-columns:1fr}
+    .detail .hero{max-width:200px}
+  }
+</style>
+</head>
+<body>
+  <!-- 顶栏 -->
+  <header class="topbar">
+    <div class="brand"><span class="dot"></span><b>Stellaflix</b></div>
+    <nav class="nav">
+      <button data-go="home" class="on">首页</button>
+      <button data-go="browse">搜索</button>
+    </nav>
+    <div class="spacer"></div>
+    <button class="ghost-btn" id="backMusic">← 返回音乐</button>
+  </header>
+
+  <main class="stage">
+    <!-- ========== 首页 ========== -->
+    <section class="view is-active" id="view-home">
+      <div class="sec-title"><b>影视空间</b> · 你的私人片库</div>
+
+      <!-- 空态导入入口（演示：未导入片源时显示） -->
+      <div class="empty-cta" id="emptyCta">
+        <div class="ic">➕</div>
+        <div class="tx">
+          <h3>还没有导入片源</h3>
+          <p>Stellaflix 不预置任何视频站点。点击右侧按钮，添加 CMS10 片源或导入 Kazumi 规则，即可开始搜索与播放。</p>
+        </div>
+        <button class="import-btn" data-go="browse">导入片源</button>
+      </div>
+
+      <div class="sec-title">分类入口</div>
+      <div class="cat-grid" id="catGrid"></div>
+
+      <div class="sec-title">最近观看</div>
+      <div class="rail" id="homeRail"></div>
+
+      <div class="attrib">
+        <b>This product uses the TMDB API but is not endorsed or certified by TMDB.</b><br>
+        影片海报与简介由 TMDB 提供 · Stellaflix 不存储任何视频资源，所有内容由用户手动导入的片源提供。
+      </div>
+    </section>
+
+    <!-- ========== 浏览 / 搜索 ========== -->
+    <section class="view" id="view-browse">
+      <div class="search-row">
+        <div class="search-box">
+          <span style="opacity:.5">🔍</span>
+          <input id="searchInput" placeholder="搜索影片、剧集、番剧…（如：一念永恒）">
+          <button class="go" id="searchGo">搜索</button>
+        </div>
+      </div>
+      <div class="chips">
+        <span class="chip on">全部</span>
+        <span class="chip">电影</span>
+        <span class="chip">剧集</span>
+        <span class="chip">番剧</span>
+        <span class="chip">4K</span>
+      </div>
+      <div class="sec-title">搜索结果 · <b id="browseCount">12</b> 部</div>
+      <div class="grid" id="browseGrid"></div>
+      <div class="attrib">
+        <b>This product uses the TMDB API but is not endorsed or certified by TMDB.</b><br>
+        海报与元数据来自 TMDB · 实际播放地址由你导入的 CMS10 片源 / Kazumi 规则提供。
+      </div>
+    </section>
+
+    <!-- ========== 详情页 ========== -->
+    <section class="view" id="view-detail">
+      <button class="back" data-go="browse">← 返回</button>
+      <div class="detail">
+        <div class="hero"><div class="art" id="dArt"></div></div>
+        <div class="info">
+          <h1 id="dTitle">进击的巨人<span class="yr" id="dYear">2013</span></h1>
+          <div class="rate"><span class="star">★</span><span id="dRate">8.7</span> / 10 · TMDB</div>
+          <div class="flags">
+            <button class="flag" data-flag="liked">♥ 心动</button>
+            <button class="flag" data-flag="faved">★ 片单</button>
+            <button class="flag" data-flag="inList">📥 收藏</button>
+            <button class="flag" data-flag="history">🕘 历史</button>
+            <button class="flag" style="border-color:rgba(var(--gold-rgb),.4);color:var(--gold)">▶ 立即播放</button>
+          </div>
+          <div class="overview" id="dOverview">
+            人类曾被迫退守由三重巨大城墙包围的领域，以抵御吞噬人类的巨人。少年艾伦·耶格尔在城墙被超大型巨人破坏、母亲惨遭吞噬后，立誓将巨人逐出这个世界。他加入调查兵团，与挚友三笠、阿明一同，逐步揭开城墙内外被掩盖的真相——关于巨人的起源、世界的格局，以及自由的代价。
+          </div>
+          <div class="ep-h">剧集 · 第 1 季（共 25 话）</div>
+          <div class="ep-grid" id="dEps"></div>
+          <div class="attrib big">
+            <b>This product uses the TMDB API but is not endorsed or certified by TMDB.</b><br>
+            影片海报与简介由 TMDB 提供 · Stellaflix 不存储任何视频资源。
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+<script>
+  // ---- 假数据（用渐变块模拟 TMDB 海报，保证原型离线也好看）----
+  const HUE = [18,210,142,268,330,45,190,300,95,160,12,240];
+  function art(i, w, h){
+    const a = HUE[i % HUE.length], b = (a + 38) % 360;
+    return `background:
+      radial-gradient(120% 80% at 30% 0%, hsla(${a},70%,55%,.55), transparent 60%),
+      linear-gradient(155deg, hsl(${a},45%,28%), hsl(${b},50%,14%));`;
+  }
+  const MOVIES = [
+    {t:"一念永恒", y:2020, r:8.4, src:"cms"},
+    {t:"进击的巨人", y:2013, r:8.7, src:"cms"},
+    {t:"咒术回战", y:2020, r:8.5, src:"kazumi"},
+    {t:"鬼灭之刃", y:2019, r:8.3, src:"cms"},
+    {t:"葬送的芙莉莲", y:2023, r:8.9, src:"cms"},
+    {t:"间谍过家家", y:2022, r:8.6, src:"kazumi"},
+    {t:"电锯人", y:2022, r:8.2, src:"cms"},
+    {t:"紫罗兰永恒花园", y:2018, r:8.8, src:"cms"},
+    {t:"铃芽之旅", y:2022, r:7.9, src:"cms"},
+    {t:"你的名字", y:2016, r:8.9, src:"cms"},
+    {t:"命运/零之使魔", y:2011, r:7.7, src:"kazumi"},
+    {t:"天气之子", y:2019, r:8.1, src:"cms"},
+  ];
+  const CATS = [
+    {emoji:"♥", label:"心动", count:"12 部", hue:330},
+    {emoji:"★", label:"片单", count:"34 部", hue:45},
+    {emoji:"📥", label:"收藏", count:"8 部", hue:210},
+    {emoji:"🕘", label:"历史", count:"21 部", hue:160},
+  ];
+
+  // ---- 渲染 ----
+  const catGrid = document.getElementById('catGrid');
+  CATS.forEach((c, i) => {
+    const el = document.createElement('div'); el.className = 'cat-card';
+    el.innerHTML = `
+      <div class="glow" style="background:radial-gradient(120% 90% at 20% 0%, hsla(${c.hue},75%,55%,.28), transparent 60%)"></div>
+      <div class="mini-wall">${[0,1,2,3].map(k=>`<i style="${art(i*3+k)}"></i>`).join('')}</div>
+      <span class="emoji">${c.emoji}</span>
+      <div class="label">${c.label}</div>
+      <div class="count">${c.count}</div>`;
+    el.onclick = () => go('browse');
+    catGrid.appendChild(el);
+  });
+
+  const homeRail = document.getElementById('homeRail');
+  MOVIES.slice(0,6).forEach((m,i) => homeRail.appendChild(makePoster(m,i)));
+
+  const browseGrid = document.getElementById('browseGrid');
+  MOVIES.forEach((m,i) => {
+    const cell = makePoster(m,i);
+    if(m.src === 'kazumi'){
+      const tag = document.createElement('span'); tag.className='src-tag'; tag.textContent='规则';
+      cell.appendChild(tag);
+    }
+    browseGrid.appendChild(cell);
+  });
+  document.getElementById('browseCount').textContent = MOVIES.length;
+
+  const dEps = document.getElementById('dEps');
+  for(let i=1;i<=25;i++){ const e=document.createElement('button'); e.className='ep'+(i<=3?' done':''); e.textContent='第 '+i+' 话'; dEps.appendChild(e); }
+
+  function makePoster(m, i){
+    const p = document.createElement('div'); p.className='cell poster';
+    p.style.animationDelay = (i*0.03)+'s';
+    p.innerHTML = `<div class="art" style="${art(i)}"></div>
+      <span class="meta">★ ${m.r}</span>
+      <div class="name">${m.t}<br><span style="opacity:.6;font-weight:400;font-size:11px">${m.y}</span></div>
+      ${m.src==='cms'?'<div class="bar" style="width:64%"></div>':''}`;
+    p.onclick = () => openDetail(m,i);
+    return p;
+  }
+
+  // ---- 导航 ----
+  function go(view){
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('is-active'));
+    document.getElementById('view-'+view).classList.add('is-active');
+    document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on', b.dataset.go===view));
+    document.querySelector('.stage').scrollTop = 0;
+  }
+  document.querySelectorAll('[data-go]').forEach(b=> b.onclick = () => go(b.dataset.go));
+  function openDetail(m,i){
+    document.getElementById('dTitle').firstChild.textContent = m.t;
+    document.getElementById('dYear').textContent = m.y;
+    document.getElementById('dRate').textContent = m.r;
+    document.getElementById('dArt').setAttribute('style', art(i));
+    go('detail');
+  }
+  // 心动等 flag 切换
+  document.querySelectorAll('.flag[data-flag]').forEach(f=> f.onclick=()=> f.classList.toggle('on'));
+  document.getElementById('backMusic').onclick = ()=> alert('原型演示：实际会切回音乐态（保留 3D 歌单架）。');
+  // 搜索（仅前端过滤演示）
+  function doSearch(){
+    const q = document.getElementById('searchInput').value.trim();
+    const list = q ? MOVIES.filter(m=>m.t.includes(q)) : MOVIES;
+    browseGrid.innerHTML = '';
+    list.forEach((m,i)=>{ const c=makePoster(m,i); if(m.src==='kazumi'){const t=document.createElement('span');t.className='src-tag';t.textContent='规则';c.appendChild(t);} browseGrid.appendChild(c); });
+    document.getElementById('browseCount').textContent = list.length;
+    go('browse');
+  }
+  document.getElementById('searchGo').onclick = doSearch;
+  document.getElementById('searchInput').addEventListener('keydown', e=>{ if(e.key==='Enter') doSearch(); });
+</script>
+</body>
+</html>

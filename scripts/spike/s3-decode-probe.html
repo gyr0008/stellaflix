@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8" />
+<title>S3 编解码真实解码探针（含 AC-3 静音检测）</title>
+<style>
+  body { font-family: system-ui, sans-serif; margin: 24px; color: #222; }
+  h1 { font-size: 18px; }
+  #drop { border: 2px dashed #999; border-radius: 10px; padding: 18px; margin: 12px 0; }
+  table { border-collapse: collapse; width: 100%; margin-top: 12px; font-size: 12.5px; }
+  th, td { border: 1px solid #ddd; padding: 6px 8px; text-align: left; }
+  th { background: #f4f4f4; }
+  .ok { color: #137a2e; font-weight: 600; }
+  .bad { color: #b3261e; font-weight: 600; }
+  .warn { color: #9a6b00; font-weight: 600; }
+  button { padding: 6px 12px; }
+  pre { background: #f6f6f6; padding: 10px; overflow: auto; max-height: 240px; }
+  .tip { color:#555; font-size:12px; }
+</style>
+</head>
+<body>
+  <h1>S3 · 编解码真实解码探针（AC-3 静音检测版）</h1>
+  <p>选择一个或多个<b>任意本地影视文件</b>（mkv / mp4 含 AC-3 音轨的片段最佳；<b>无需 ffmpeg 生成样本</b>）。
+     本页在真实 Chromium/Electron 中实际解码，并<b>用 Web Audio 实测音频 RMS</b> 判断「画面能放但声音静音」这一 AC-3 典型失败。</p>
+  <div id="drop">
+    <input id="file" type="file" multiple accept="video/*,audio/*" />
+    <p class="tip" style="margin:8px 0 0">选择文件后，页面会自动播放约 2.5s 并测量音量。请确认系统未静音以便听到对照。</p>
+  </div>
+  <button id="export">导出 JSON 结果</button>
+  <table id="tbl">
+    <thead><tr>
+      <th>#</th><th>文件</th><th>大小</th>
+      <th>canPlayType(画面)</th><th>AC-3</th><th>E-AC-3</th>
+      <th>画面</th><th>音轨数</th><th>声音 RMS</th><th>结论</th><th>备注</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+  <pre id="out"></pre>
+
+<script>
+const results = [];
+const tbody = document.querySelector('#tbl tbody');
+const out = document.getElementById('out');
+
+const MIME_GUESS = {
+  mp4: 'video/mp4; codecs="avc1.640028, mp4a.40.2"',
+  mkv: 'video/x-matroska',
+  webm: 'video/webm; codecs="vp9, opus"',
+  ts: 'video/mp2t',
+  m3u8: 'application/vnd.apple.mpegurl',
+  mov: 'video/quicktime',
+};
+
+function guessMime(name) {
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  return MIME_GUESS[ext] || '';
+}
+
+function probe(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement('video');
+    v.preload = 'auto';
+    v.muted = false; v.volume = 1; v.loop = false;
+    v.src = url;
+
+    const mime = guessMime(file.name);
+    const canPlayVideo = mime ? v.canPlayType(mime) : 'n/a';
+    let ac3cp = 'n/a', eac3cp = 'n/a';
+    try { ac3cp = v.canPlayType('audio/mp4; codecs="ac-3"'); } catch (e) {}
+    try { eac3cp = v.canPlayType('audio/mp4; codecs="ec-3"'); } catch (e) {}
+
+    let videoOk = false, videoErr = '';
+    v.addEventListener('canplay', () => { videoOk = true; }, { once: true });
+    v.addEventListener('error', () => { videoErr = (v.error && v.error.message) || 'decode failed'; }, { once: true });
+
+    v.addEventListener('loadedmetadata', async () => {
+      const hasAudio = !!(v.audioTracks && v.audioTracks.length > 0);
+      let rmsMax = 0, audioNote = '', playErr = '';
+      try { await v.play(); } catch (e) { playErr = e.message; }
+
+      if (!hasAudio) {
+        audioNote = '文件无音轨（无法判定 AC-3）';
+      } else if (playErr) {
+        audioNote = '播放被拒（' + playErr + '），请手动点一下页面再选文件';
+      } else {
+        try {
+          const AC = window.AudioContext || window.webkitAudioContext;
+          const ac = new AC();
+          const srcNode = ac.createMediaElementSource(v);
+          const an = ac.createAnalyser(); an.fftSize = 2048;
+          srcNode.connect(an);
+          srcNode.connect(ac.destination); // 同时送到扬声器，便于人工对照
+          const buf = new Float32Array(an.fftSize);
+          const measureMs = Math.min(2500, Math.max(800, (v.duration || 3) * 1000));
+          await new Promise((r) => {
+            const iv = setInterval(() => {
+              an.getFloatTimeDomainData(buf);
+              let s = 0;
+              for (let i = 0; i < buf.length; i++) s += buf[i] * buf[i];
+              const rms = Math.sqrt(s / buf.length);
+              if (rms > rmsMax) rmsMax = rms;
+            }, 120);
+            setTimeout(() => { clearInterval(iv); r(); }, measureMs);
+          });
+          try { ac.close(); } catch (e) {}
+          audioNote = '有声音 RMS≈' + rmsMax.toFixed(4);
+        } catch (e) {
+          audioNote = '音频分析失败: ' + e.message;
+        }
+      }
+
+      const silent = hasAudio && rmsMax <= 0.001;
+      let verdict, cls;
+      if (videoErr) { verdict = 'ERROR'; cls = 'bad'; }
+      else if (!videoOk) { verdict = 'UNKNOWN'; cls = 'warn'; }
+      else if (silent) { verdict = 'AC-3 疑似无声'; cls = 'bad'; }
+      else if (!hasAudio) { verdict = '无音轨'; cls = 'warn'; }
+      else { verdict = 'OK'; cls = 'ok'; }
+
+      const note = [videoErr ? ('画面错:' + videoErr) : '', audioNote, playErr ? ('播放:' + playErr) : '']
+        .filter(Boolean).join('；');
+      const row = {
+        file: file.name, size: file.size,
+        canPlayTypeVideo: canPlayVideo, ac3: ac3cp, eac3: eac3cp,
+        video: videoOk ? 'OK' : (videoErr ? 'ERR' : '?'),
+        audioTracks: hasAudio ? v.audioTracks.length : 0,
+        rms: Number(rmsMax.toFixed(5)),
+        verdict, note
+      };
+      results.push(row);
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${results.length}</td><td>${file.name}</td><td>${file.size}</td>` +
+        `<td>${canPlayVideo || '-'}</td><td>${ac3cp || '-'}</td><td>${eac3cp || '-'}</td>` +
+        `<td>${row.video}</td><td>${row.audioTracks}</td><td>${row.rms}</td>` +
+        `<td class="${cls}">${verdict}</td><td>${note || ''}</td>`;
+      tbody.appendChild(tr);
+      out.textContent = JSON.stringify(results, null, 2);
+      try { v.pause(); } catch (e) {}
+      URL.revokeObjectURL(url);
+      resolve();
+    }, { once: true });
+
+    // 超时兜底
+    setTimeout(() => {
+      if (!results.some((r) => r.file === file.name)) {
+        const row = { file: file.name, size: file.size, canPlayTypeVideo: canPlayVideo, ac3: ac3cp, eac3: eac3cp, video: videoOk ? 'OK' : (videoErr ? 'ERR' : '?'), audioTracks: '?', rms: '?', verdict: 'TIMEOUT', note: '8s 内无 loadedmetadata' };
+        results.push(row);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${results.length}</td><td>${file.name}</td><td>${file.size}</td>` +
+          `<td>${canPlayVideo || '-'}</td><td>${ac3cp || '-'}</td><td>${eac3cp || '-'}</td>` +
+          `<td>${row.video}</td><td>?</td><td>?</td><td class="warn">TIMEOUT</td><td>8s 内无 loadedmetadata</td>`;
+        tbody.appendChild(tr);
+        out.textContent = JSON.stringify(results, null, 2);
+        URL.revokeObjectURL(url);
+        resolve();
+      }
+    }, 8000);
+  });
+}
+
+document.getElementById('file').addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []);
+  for (const f of files) await probe(f);
+});
+
+document.getElementById('export').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(results, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 's3-decode-results.json';
+  a.click();
+});
+</script>
+</body>
+</html>
