@@ -16606,6 +16606,8 @@ function renderHomePersonalPoster() {
   }
 }
 function setHomePosterImage(src, toastText) {
+  // T134-f Layer3：影视态下禁止音乐侧修改海报图（"用当前封面"等按钮触发）
+  if (document.body && document.body.classList.contains('video-space-active')) return;
   homePosterState.image = String(src || '');
   var saved = saveHomePosterState();
   renderHomePersonalPoster();
@@ -16970,8 +16972,9 @@ function pickHomeLibraryPlaylist(playlists) {
   })[0] || null;
 }
 function renderHomeDiscover() {
-  // 影视态下首页由 public/video/home.js 接管；不早退会被音乐侧事件覆写影视文案。
+  // 影视态下首页由 public/video/home.js 接管；双重守卫（state + body class）防止任何路径绕过
   if (window.StellaflixVideo && window.StellaflixVideo.state && window.StellaflixVideo.state.isVideo()) return;
+  if (document.body && document.body.classList.contains('video-space-active')) return;
   var sub = document.getElementById('home-subtitle');
   var loggedOutHome = !homeDiscoverState.loggedIn && !hasAnyPlatformLogin();
   var weather = homeWeatherRadioState.weather;
@@ -20475,7 +20478,11 @@ async function playQueueAt(idx, opts) {
   safePlaybackStep('quality-ui', updatePlaybackQualityUi);
   safePlaybackStep('cinema-track-profile', function(){ resetCinemaTrackProfile(song); });
   safePlaybackStep('empty-home', function(){ if (!opts.preserveHomeState) updateEmptyHomeVisibility(); });
-  safePlaybackStep('home-poster', renderHomePersonalPoster);
+  // T134-f Layer1：包装回调——影视态下彻底拦截音乐态海报/文案覆盖（双重保险：回调入口 + 函数内部守卫）
+  safePlaybackStep('home-poster', function(){
+    if (document.body && document.body.classList.contains('video-space-active')) return;
+    renderHomePersonalPoster();
+  });
   safePlaybackStep('track-ui', function(){
     document.getElementById('hint').classList.add('hidden');
     document.getElementById('thumb-title').textContent = song.name;
