@@ -16670,6 +16670,8 @@ function cancelHomePosterQuoteEdit() {
   if (wrap) wrap.classList.remove('editing');
 }
 function saveHomePosterQuote() {
+  // T134-f Layer5：影视态下禁止音乐态文案保存（防止遗留的保存按钮引用覆盖视频文案）
+  if (document.body && document.body.classList.contains('video-space-active')) return;
   var input = document.getElementById('home-poster-quote-input');
   var next = input ? input.value : '';
   next = String(next || '').trim().slice(0, 80);
@@ -16694,6 +16696,8 @@ function handleHomePosterQuoteKey(e) {
   }
 }
 function resetHomePoster() {
+  // T134-f Layer6：影视态下禁止音乐态重置海报
+  if (document.body && document.body.classList.contains('video-space-active')) return;
   homePosterState = defaultHomePosterState();
   try { localStorage.removeItem(HOME_POSTER_STORE_KEY); } catch (e) {}
   cancelHomePosterQuoteEdit();

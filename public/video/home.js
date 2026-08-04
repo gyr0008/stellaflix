@@ -431,6 +431,41 @@
     if (typeof global.scheduleShelfRebuild === 'function') {
       try { global.scheduleShelfRebuild('sfv-render-video', true); } catch (e) {}
     }
+
+    // T134-f Layer4：requestAnimationFrame 自愈——拦截 render() 之后任何异步路径对海报/文案的覆盖
+    // 原因：safePlaybackStep('home-poster', ...) 在播放状态变化时同步调用 renderHomePersonalPoster，
+    //   它可能在 render() 之后同一微任务或下一帧执行（如切歌事件恰好在 spacechange 后触发）。
+    //   即使前面三层守卫（回调包装 / 函数入口 / renderHomeDiscover）全部生效，此层作为最后保险。
+    var _expectedQuote = (posterStore && posterStore.quote) || '';
+    var _expectedUrl = (posterStore && posterStore.url) || '';
+    var doc = d();
+    (function heal() {
+      var raf = typeof requestAnimationFrame !== 'undefined' ? requestAnimationFrame : function(fn) { return setTimeout(fn, 16); };
+      raf(function () {
+        try {
+          // 二次确认仍在影视态（用户可能已切走）
+          if (!doc || !doc.body || !doc.body.classList.contains('video-space-active')) return;
+          // 检测文案是否被覆盖
+          var q = doc.getElementById('home-poster-quote');
+          if (q && _expectedQuote && q.textContent !== _expectedQuote) {
+            q.textContent = _expectedQuote;
+          }
+          // 检测海报 CSS 变量是否被覆盖（仅当有自定义海报时）
+          if (_expectedUrl) {
+            var m = doc.getElementById('home-poster-media');
+            if (m) {
+              var current = m.style.getPropertyValue('--home-poster-image') || '';
+              // 预期包含用户海报 URL；若被替换为音乐图或其他，恢复
+              if (current.indexOf(_expectedUrl.slice(0, 40)) === -1) {
+                m.style.setProperty('--home-poster-image', 'url("' + escAttr(_expectedUrl) + '")');
+                m.classList.add('sfv-poster-movie', 'has-image');
+                m.classList.remove('sfv-poster-default');
+              }
+            }
+          }
+        } catch (e) { /* 自愈失败静默 */ }
+      });
+    })();
   }
 
   function ensureBackBtn() {
