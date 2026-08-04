@@ -39,7 +39,7 @@ body.video-space-active #canvas-container {
   width: min(520px, 58vw);
   height: 58px;
   margin: 0;
-  padding: 0 20px;
+  padding: 0 40px 0 20px;
   background: linear-gradient(112deg, rgba(60, 64, 68, 0.22), rgba(28, 32, 36, 0.26) 48%, rgba(12, 16, 20, 0.30));
   border: 1px solid var(--glass-border);
   border-radius: 22px;
@@ -50,7 +50,7 @@ body.video-space-active #canvas-container {
   justify-content: space-evenly;
   gap: 0;
   z-index: 2147482100;
-  transition: transform .28s cubic-bezier(.16, 1, .3, 1);
+  transition: transform .28s cubic-bezier(.16, 1, .3, 1), opacity .18s, visibility .18s;
   pointer-events: auto;
 }
 /* 黄金版本 SVG 玻璃滤镜：与音乐态 #search-box 完全一致
@@ -152,6 +152,56 @@ body.video-space-active.desktop-shell .sfv-browse--page .sfv-browse-body {
   transform: translateX(-50%);
 }
 /* T134c：图钉按钮与固定态描边样式已删除（顶栏改为静态常驻，无 toggle 控件） */
+
+/* ===== T136 影视导航栏自动隐藏开关（右侧小箭头按钮）=====
+   样式与交互对齐右上角账号胶囊的 user-capsule-hide-btn */
+.sfv-nav-hide-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  width: 18px;
+  height: 28px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  background: rgba(255, 255, 255, .035);
+  color: rgba(255, 255, 255, .34);
+  font-size: 11px;
+  line-height: 1;
+  opacity: 0;
+  transform: translateY(-50%) translateX(6px) scale(.92);
+  transition: opacity .18s, transform .18s, background .18s, color .18s, border-color .18s;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+#sfv-nav:hover .sfv-nav-hide-btn,
+.sfv-nav-hide-btn.on {
+  opacity: 1;
+  transform: translateY(-50%) translateX(0) scale(1);
+}
+.sfv-nav-hide-btn:hover,
+.sfv-nav-hide-btn.on {
+  border-color: rgba(var(--fc-accent-rgb), .34);
+  background: rgba(var(--fc-accent-rgb), .10);
+  color: #fff;
+}
+/* 自动隐藏：导航栏整体上滑隐藏；鼠标进入顶部中心探测区时滑回 */
+body.sfv-nav-auto-hide #sfv-nav {
+  transform: translate(-50%, calc(-100% - 20px));
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: transform .28s cubic-bezier(.16, 1, .3, 1), opacity .18s, visibility 0s linear .18s;
+}
+body.sfv-nav-auto-hide.sfv-nav-peek #sfv-nav {
+  transform: translate(-50%, 0);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition: transform .28s cubic-bezier(.16, 1, .3, 1), opacity .16s, visibility 0s;
+}
 
 /* ===== T96 影视态胶囊搜索按钮（位于 #top-right 内）=====
    成员顺序：[隐藏钮][搜索][Home][头像]

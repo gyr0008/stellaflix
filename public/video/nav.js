@@ -27,6 +27,21 @@
   var clickBound = false;
   var DEFAULT_KEY = 'home';
 
+  var NAV_AUTO_HIDE_STORE_KEY = 'stellaflix-sfv-nav-auto-hide-v1';
+  var sfvNavAutoHide = readNavAutoHidePreference();
+
+  function readNavAutoHidePreference() {
+    try {
+      var raw = localStorage.getItem(NAV_AUTO_HIDE_STORE_KEY);
+      return raw === '1';
+    } catch (e) {
+      return false;
+    }
+  }
+  function saveNavAutoHidePreference(on) {
+    try { localStorage.setItem(NAV_AUTO_HIDE_STORE_KEY, on ? '1' : '0'); } catch (e) {}
+  }
+
   function buildNav() {
     var nav = document.createElement('nav');
     nav.id = 'sfv-nav';
@@ -41,6 +56,20 @@
       b.textContent = it.label;
       nav.appendChild(b);
     }
+    // T136：右侧自动隐藏/固定切换小箭头按钮
+    var hideBtn = document.createElement('button');
+    hideBtn.type = 'button';
+    hideBtn.id = 'sfv-nav-hide-btn';
+    hideBtn.className = 'sfv-nav-hide-btn';
+    hideBtn.title = '自动隐藏影视导航';
+    hideBtn.setAttribute('aria-label', '自动隐藏影视导航');
+    hideBtn.textContent = '‹';
+    hideBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSfvNavAutoHide();
+    });
+    nav.appendChild(hideBtn);
     return nav;
   }
 
@@ -82,10 +111,52 @@
     clickBound = true;
   }
 
+  function applySfvNavAutoHideState() {
+    document.body.classList.toggle('sfv-nav-auto-hide', !!sfvNavAutoHide);
+    var btn = document.getElementById('sfv-nav-hide-btn');
+    if (btn) {
+      btn.classList.toggle('on', !!sfvNavAutoHide);
+      btn.textContent = sfvNavAutoHide ? '›' : '‹';
+      btn.title = sfvNavAutoHide ? '取消自动隐藏影视导航' : '自动隐藏影视导航';
+    }
+  }
+  function toggleSfvNavAutoHide() {
+    sfvNavAutoHide = !sfvNavAutoHide;
+    saveNavAutoHidePreference(sfvNavAutoHide);
+    applySfvNavAutoHideState();
+    if (typeof showToast === 'function') {
+      showToast(sfvNavAutoHide ? '影视导航已自动隐藏' : '影视导航已固定显示');
+    }
+  }
+  function updateSfvNavAutoHideFromPointer(e) {
+    if (!sfvNavAutoHide) {
+      document.body.classList.remove('sfv-nav-peek');
+      return;
+    }
+    if (typeof immersiveMode !== 'undefined' && immersiveMode) {
+      document.body.classList.remove('sfv-nav-peek');
+      return;
+    }
+    var x = e.clientX, y = e.clientY;
+    var W = window.innerWidth;
+    var nav = document.getElementById('sfv-nav');
+    var inNav = false;
+    if (nav) {
+      var r = nav.getBoundingClientRect();
+      inNav = x >= r.left - 24 && x <= r.right + 24 && y >= r.top - 20 && y <= r.bottom + 20;
+    }
+    var navWidth = Math.min(520, W * 0.58);
+    var nearTopCenter = y < 120 && Math.abs(x - W / 2) < (navWidth / 2 + 40);
+    document.body.classList.toggle('sfv-nav-peek', inNav || nearTopCenter);
+  }
+
   function autoMount() {
     // 始终挂到 body（与 #search-area / #search-box 完全解耦）
     mount(document.body);
+    applySfvNavAutoHideState();
   }
+  window.addEventListener('mousemove', updateSfvNavAutoHideFromPointer);
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', autoMount);
   } else {
