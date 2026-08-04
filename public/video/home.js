@@ -436,28 +436,27 @@
     // 原因：safePlaybackStep('home-poster', ...) 在播放状态变化时同步调用 renderHomePersonalPoster，
     //   它可能在 render() 之后同一微任务或下一帧执行（如切歌事件恰好在 spacechange 后触发）。
     //   即使前面三层守卫（回调包装 / 函数入口 / renderHomeDiscover）全部生效，此层作为最后保险。
-    var _expectedQuote = (posterStore && posterStore.quote) || '';
-    var _expectedUrl = (posterStore && posterStore.url) || '';
+    // T134-f Layer4：raf 自愈（修正 10:52 — 实时读 posterStore，编辑中跳过）
     var doc = d();
     (function heal() {
       var raf = typeof requestAnimationFrame !== 'undefined' ? requestAnimationFrame : function(fn) { return setTimeout(fn, 16); };
       raf(function () {
         try {
-          // 二次确认仍在影视态（用户可能已切走）
           if (!doc || !doc.body || !doc.body.classList.contains('video-space-active')) return;
-          // 检测文案是否被覆盖
-          var q = doc.getElementById('home-poster-quote');
-          if (q && _expectedQuote && q.textContent !== _expectedQuote) {
-            q.textContent = _expectedQuote;
+          var copyEl = doc.querySelector('.home-poster-copy');
+          if (copyEl && copyEl.classList.contains('editing')) return;
+          var liveQuote = (posterStore && posterStore.quote) || '';
+          var liveUrl = (posterStore && posterStore.url) || '';
+          if (liveQuote) {
+            var q = doc.getElementById('home-poster-quote');
+            if (q && q.textContent !== liveQuote) q.textContent = liveQuote;
           }
-          // 检测海报 CSS 变量是否被覆盖（仅当有自定义海报时）
-          if (_expectedUrl) {
+          if (liveUrl) {
             var m = doc.getElementById('home-poster-media');
             if (m) {
               var current = m.style.getPropertyValue('--home-poster-image') || '';
-              // 预期包含用户海报 URL；若被替换为音乐图或其他，恢复
-              if (current.indexOf(_expectedUrl.slice(0, 40)) === -1) {
-                m.style.setProperty('--home-poster-image', 'url("' + escAttr(_expectedUrl) + '")');
+              if (current.indexOf(liveUrl.slice(0, 40)) === -1) {
+                m.style.setProperty('--home-poster-image', 'url("' + escAttr(liveUrl) + '")');
                 m.classList.add('sfv-poster-movie', 'has-image');
                 m.classList.remove('sfv-poster-default');
               }
@@ -752,17 +751,28 @@
   }
 
   // 本地图片上传（FileReader → base64 → stellaflix-video-poster）
+  // 注意：Electron/Chromium 要求 <input type="file"> 必须在 DOM 树中才能 .click() 弹出文件选择框
   function pickLocalVideoPoster() {
     var doc = d();
     if (!doc) return;
     var input = doc.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
+    input.style.position = 'fixed';
+    input.style.left = '-9999px';
+    input.style.opacity = '0';
+    input.setAttribute('aria-hidden', 'true');
+    // 挂载到 DOM（Electron 安全要求），用完后移除
+    var cleanup = function () {
+      try { if (input.parentNode) input.parentNode.removeChild(input); } catch (e) {}
+      input.onchange = null;
+    };
     input.onchange = function () {
       var f = input.files && input.files[0];
-      if (!f) return;
+      if (!f) { cleanup(); return; }
       if (!/^image\//i.test(f.type || '')) {
         if (typeof global.showToast === 'function') global.showToast('请选择图片文件');
+        cleanup();
         return;
       }
       var reader = new FileReader();
@@ -782,21 +792,31 @@
           var cx = cv.getContext('2d');
           cx.drawImage(img, 0, 0, w, h);
           var out = '';
-          try { out = cv.toDataURL('image/webp', 0.82); } catch (e1) {}
+          try { out = cv.toDataURL('image/webp', 0.82); } catch (e1) { console.warn('[SFV-HOME] canvas toDataURL webp failed:', e1.message); }
           if (!/^data:image\/webp/i.test(out)) {
             try { out = cv.toDataURL('image/jpeg', 0.84); } catch (e2) { out = dataUrl; }
           }
           setUserVideoPoster({ url: out, source: 'local', title: '自定义海报' });
           renderVideoPoster();
+          cleanup();
           if (typeof global.showToast === 'function') global.showToast('影视海报已替换为本地图片');
         };
-        img.onerror = function () { if (typeof global.showToast === 'function') global.showToast('图片读取失败'); };
+        img.onerror = function () { if (typeof global.showToast === 'function') global.showToast('图片读取失败'); cleanup(); };
         img.src = dataUrl;
       };
-      reader.onerror = function () { if (typeof global.showToast === 'function') global.showToast('图片读取失败'); };
+      reader.onerror = function () { if (typeof global.showToast === 'function') global.showToast('图片文件读取失败'); cleanup(); };
       reader.readAsDataURL(f);
     };
-    input.click();
+    // 必须先挂载到 DOM 才能触发文件选择框（Chromium/Electron 安全限制）
+    doc.body.appendChild(input);
+    // 延迟 click 确保 DOM 已更新
+    setTimeout(function () {
+      try { input.click(); }
+      catch (e) {
+        console.warn('[SFV-HOME] input.click failed', e ? e.message : '');
+        cleanup();
+      }
+    }, 0);
   }
 
   // ---- T134-f：影视态独立文案（不写入音乐 store，且保存时不污染 #home-poster-media 海报图）----

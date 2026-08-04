@@ -24,6 +24,7 @@
   ];
 
   var mounted = null;        // <nav id="sfv-nav">
+  var hideBtnEl = null;      // 右侧外部自动隐藏开关（#sfv-nav-hide-btn）
   var clickBound = false;
   var DEFAULT_KEY = 'home';
 
@@ -56,21 +57,24 @@
       b.textContent = it.label;
       nav.appendChild(b);
     }
-    // T136：右侧自动隐藏/固定切换小箭头按钮
-    var hideBtn = document.createElement('button');
-    hideBtn.type = 'button';
-    hideBtn.id = 'sfv-nav-hide-btn';
-    hideBtn.className = 'sfv-nav-hide-btn';
-    hideBtn.title = '自动隐藏影视导航';
-    hideBtn.setAttribute('aria-label', '自动隐藏影视导航');
-    hideBtn.textContent = '‹';
-    hideBtn.addEventListener('click', function (e) {
+    return nav;
+  }
+
+  // T136：导航栏右侧外部的小箭头按钮（独立于 #sfv-nav，挂到 body）
+  function buildHideBtn() {
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'sfv-nav-hide-btn';
+    btn.className = 'sfv-nav-hide-btn';
+    btn.title = '自动隐藏影视导航';
+    btn.setAttribute('aria-label', '自动隐藏影视导航');
+    btn.textContent = '‹';
+    btn.addEventListener('click', function (e) {
       e.preventDefault();
       e.stopPropagation();
       toggleSfvNavAutoHide();
     });
-    nav.appendChild(hideBtn);
-    return nav;
+    return btn;
   }
 
   // mount(parent)：挂到 body（默认）或指定父容器。幂等：旧节点先移除。
@@ -80,10 +84,17 @@
     if (mounted && mounted.parentNode) {
       try { mounted.parentNode.removeChild(mounted); } catch (_) {}
     }
+    if (hideBtnEl && hideBtnEl.parentNode) {
+      try { hideBtnEl.parentNode.removeChild(hideBtnEl); } catch (_) {}
+    }
     var nav = buildNav();
+    var btn = buildHideBtn();
     parent.appendChild(nav);
+    parent.appendChild(btn);
     mounted = nav;
+    hideBtnEl = btn;
     paintActive(DEFAULT_KEY);
+    applySfvNavAutoHideState();
     return nav;
   }
 
@@ -113,7 +124,7 @@
 
   function applySfvNavAutoHideState() {
     document.body.classList.toggle('sfv-nav-auto-hide', !!sfvNavAutoHide);
-    var btn = document.getElementById('sfv-nav-hide-btn');
+    var btn = hideBtnEl || document.getElementById('sfv-nav-hide-btn');
     if (btn) {
       btn.classList.toggle('on', !!sfvNavAutoHide);
       btn.textContent = sfvNavAutoHide ? '›' : '‹';
@@ -140,20 +151,22 @@
     var x = e.clientX, y = e.clientY;
     var W = window.innerWidth;
     var nav = document.getElementById('sfv-nav');
-    var inNav = false;
-    if (nav) {
-      var r = nav.getBoundingClientRect();
-      inNav = x >= r.left - 24 && x <= r.right + 24 && y >= r.top - 20 && y <= r.bottom + 20;
+    var btn = hideBtnEl || document.getElementById('sfv-nav-hide-btn');
+    function inRect(r, padX, padY) {
+      return x >= r.left - padX && x <= r.right + padX &&
+             y >= r.top - padY && y <= r.bottom + padY;
     }
+    var inHit = false;
+    if (nav) inHit = inHit || inRect(nav.getBoundingClientRect(), 24, 20);
+    if (btn) inHit = inHit || inRect(btn.getBoundingClientRect(), 18, 18);
     var navWidth = Math.min(520, W * 0.58);
     var nearTopCenter = y < 120 && Math.abs(x - W / 2) < (navWidth / 2 + 40);
-    document.body.classList.toggle('sfv-nav-peek', inNav || nearTopCenter);
+    document.body.classList.toggle('sfv-nav-peek', inHit || nearTopCenter);
   }
 
   function autoMount() {
     // 始终挂到 body（与 #search-area / #search-box 完全解耦）
     mount(document.body);
-    applySfvNavAutoHideState();
   }
   window.addEventListener('mousemove', updateSfvNavAutoHideFromPointer);
 

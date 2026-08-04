@@ -39,7 +39,7 @@ body.video-space-active #canvas-container {
   width: min(520px, 58vw);
   height: 58px;
   margin: 0;
-  padding: 0 40px 0 20px;
+  padding: 0 20px;
   background: linear-gradient(112deg, rgba(60, 64, 68, 0.22), rgba(28, 32, 36, 0.26) 48%, rgba(12, 16, 20, 0.30));
   border: 1px solid var(--glass-border);
   border-radius: 22px;
@@ -153,12 +153,13 @@ body.video-space-active.desktop-shell .sfv-browse--page .sfv-browse-body {
 }
 /* T134c：图钉按钮与固定态描边样式已删除（顶栏改为静态常驻，无 toggle 控件） */
 
-/* ===== T136 影视导航栏自动隐藏开关（右侧小箭头按钮）=====
+/* ===== T136 影视导航栏自动隐藏开关（导航栏右侧外部小箭头按钮）=====
    样式与交互对齐右上角账号胶囊的 user-capsule-hide-btn */
 .sfv-nav-hide-btn {
-  position: absolute;
-  right: 10px;
-  top: 50%;
+  position: fixed;
+  z-index: 2147482098;
+  left: calc(50% + min(260px, 29vw) + 10px);
+  top: 53px;
   width: 18px;
   height: 28px;
   border-radius: 999px;
@@ -176,7 +177,14 @@ body.video-space-active.desktop-shell .sfv-browse--page .sfv-browse-body {
   justify-content: center;
   pointer-events: auto;
 }
-#sfv-nav:hover .sfv-nav-hide-btn,
+body:not(.video-space-active) .sfv-nav-hide-btn {
+  display: none;
+}
+body.video-space-active.desktop-shell .sfv-nav-hide-btn {
+  top: 63px; /* 桌面外壳下 #sfv-nav 中心 = 34 + 29 = 63px */
+}
+#sfv-nav:hover ~ .sfv-nav-hide-btn,
+.sfv-nav-hide-btn:hover,
 .sfv-nav-hide-btn.on {
   opacity: 1;
   transform: translateY(-50%) translateX(0) scale(1);
