@@ -77,6 +77,7 @@ const TS = '1735660800', PATH = '/api/v2/comment/123450001';
   check('X-Timestamp 正确', h['X-Timestamp'] === TS, h['X-Timestamp']);
   const exp = expectedSig(APP_ID, TS, PATH, APP_SECRET);
   check('X-Signature 符合 base64(sha256(AppId+Ts+Path+Secret))', h['X-Signature'] === exp, h['X-Signature'] + ' vs ' + exp);
+  check('X-Auth 头为 "1" (对齐 Kazumi danmaku_client.dart)', h['X-Auth'] === '1', JSON.stringify(h['X-Auth']));
 
   // 3. searchEpisodes → 正确代理 URL + 认证头
   fetchResponder = function () { return { ok: true, status: 200, json: { success: true, episodes: [{ episodeId: 123450001, episodeTitle: '第1话' }] } }; };
@@ -87,6 +88,7 @@ const TS = '1735660800', PATH = '/api/v2/comment/123450001';
   check('代理目标含 anime 参数', decodeURIComponent(lastFetch.url).indexOf('anime=') > -1);
   check('请求带 X-AppId 头', !!lastFetch.headers['X-AppId'], JSON.stringify(lastFetch.headers));
   check('请求带 X-Signature 头', !!lastFetch.headers['X-Signature']);
+  check('请求带 X-Auth 头 (对齐 Kazumi)', lastFetch.headers['X-Auth'] === '1', JSON.stringify(lastFetch.headers));
 
   // 4. getComments → 弹幕映射正确
   fetchResponder = function () { return { ok: true, status: 200, json: { success: true, comments: [

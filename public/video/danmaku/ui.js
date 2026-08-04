@@ -29,6 +29,28 @@
     try { if (global.localStorage) global.localStorage.setItem(key, JSON.stringify(obj)); } catch (e) {}
   }
 
+  // 凭证回填：真相来源 = sources 框架（migrateLegacyCreds 已把旧 CRED_KEY 迁移并删除）。
+  // 优先级：① 运行期生效的 client.getCredentials()（已由 init→migrateLegacyCreds→sources.applyCredentials 喂入）
+  //         ② sources 持久化键（stellaflix-danmaku-source-dandanplay）中的 creds
+  //         ③ 回退 CRED_KEY（仅兼容尚未迁移的极端场景）
+  function readActiveCreds() {
+    var empty = { appId: '', appSecret: '' };
+    try {
+      var c = (SFV.danmaku && SFV.danmaku.client && SFV.danmaku.client.getCredentials)
+        ? SFV.danmaku.client.getCredentials() : null;
+      if (c && (c.appId || c.appSecret)) return { appId: c.appId || '', appSecret: c.appSecret || '' };
+    } catch (e) {}
+    try {
+      if (SFV.danmaku && SFV.danmaku.sources && SFV.danmaku.sources.configKey) {
+        var saved = loadJSON(SFV.danmaku.sources.configKey('dandanplay'), {});
+        if (saved && saved.creds && (saved.creds.appId || saved.creds.appSecret)) {
+          return { appId: saved.creds.appId || '', appSecret: saved.creds.appSecret || '' };
+        }
+      }
+    } catch (e) {}
+    return loadJSON(CRED_KEY, empty);
+  }
+
   function defaults() {
     return {
       enabled: false,
@@ -211,14 +233,14 @@
     // 凭证输入
     var credsSep = el('div', 'sfv-dm-sep', '弹弹play 凭证');
     credsSection.appendChild(credsSep);
-    var creds = loadJSON(CRED_KEY, { appId: '', appSecret: '' });
+    var creds = readActiveCreds();
     var appIdInput = mkText('AppId', creds.appId, '弹弹play AppId', function (v) {
-      creds.appId = v; saveJSON(CRED_KEY, creds); applyCreds(creds);
+      creds.appId = v; applyCreds(creds);
       updateManualSectionVisibility();
     });
     credsSection.appendChild(appIdInput.row);
     var appSecretInput = mkText('AppSecret', creds.appSecret, '弹弹play AppSecret', function (v) {
-      creds.appSecret = v; saveJSON(CRED_KEY, creds); applyCreds(creds);
+      creds.appSecret = v; applyCreds(creds);
       updateManualSectionVisibility();
     });
     credsSection.appendChild(appSecretInput.row);
