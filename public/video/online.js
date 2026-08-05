@@ -1281,42 +1281,6 @@
     }).catch(function () { /* 静默降级：保留 CMS10 原有展示 */ });
   }
 
-  function enrichTmdbDetail(view, info, cover) {
-    if (!view || !view.title || !SFV.tmdb || !SFV.tmdb.hasKey()) return;
-    function apply(m) {
-      if (!m || !info.isConnected) return;
-      // 海报：TMDB 始终优先覆盖
-      if (cover && m.poster) {
-        var prevHtml = cover.innerHTML;
-        var img = el('img', 'sfv-detail-img'); img.src = m.poster; img.alt = view.title || '';
-        img.addEventListener('error', function () {
-          img.remove();
-          if (!prevHtml || prevHtml === '') cover.textContent = '';
-          else cover.innerHTML = prevHtml;
-        });
-        cover.textContent = ''; cover.appendChild(img);
-      }
-      // 简介：始终追加/替换为 TMDB 中文简介
-      if (m.overview) {
-        var ov = info.querySelector('.sfv-detail-overview');
-        if (ov) ov.textContent = m.overview;
-        else info.appendChild(el('div', 'sfv-detail-overview', m.overview));
-      }
-      // 年份补全
-      if (m.year && !info.querySelector('.sfv-detail-year')) {
-        var titleEl = info.querySelector('.sfv-detail-title');
-        if (titleEl) titleEl.insertAdjacentElement('afterend',
-          el('span', 'sfv-detail-year', ' (' + m.year + ')')
-        );
-      }
-      // T147：写回 view.pic/view._tmdb —— 此前只改 DOM 不改 view，
-      // 导致 playEpisode 里 recordHistory({ pic: view.pic = '' }) 永远记空。
-      if (m.poster) view.pic = m.poster;
-      view._tmdb = m;
-    }
-    if (view._tmdb) return apply(view._tmdb);
-    SFV.tmdb.bestMatch(view.title).then(apply).catch(function () {});
-  }
 
   function renderGrid(items, view) {
     bodyEl.innerHTML = '';
@@ -1387,31 +1351,7 @@
     };
     recordMeta({ key: item.key, title: item.title, pic: item.pic, year: item.year, sourceId: view.source.id, vodId: item.key });
     pushView(view);
-    loadKazumiDetail(view);
-  }
-
-  function loadKazumiDetail(view) {
-    if (!SFV.kazumi || !SFV.kazumi.getChapters) {
-      bodyEl.innerHTML = '';
-      setNote('Kazumi 引擎未就绪（请确认已引入 video/kazumi/*.js）。', 'error');
-      return;
-    }
-    renderLoading('加载剧集中…');
-    SFV.kazumi.getChapters(view.ruleName, view.src).then(function (res) {
-      if (!isOpen() || current !== view) return;
-      var plays = res.plays || [];
-      if (!plays.length) {
-        bodyEl.innerHTML = '';
-        setNote('该页面未解析到可播放的剧集（可能页面结构变化、需要登录，或 XPath 规则不匹配）。', 'warn');
-        return;
-      }
-      view.plays = plays;
-      renderDetail(view); // 复用 CMS 详情渲染 + playEpisode（进度键自动锚定）
-    }).catch(function (err) {
-      if (!isOpen() || current !== view) return;
-      bodyEl.innerHTML = '';
-      setNote('章节解析失败：' + (err && err.message ? err.message : '未知错误'), 'error');
-    });
+    renderDetail(view);
   }
 
   // 从四类列表点击元数据进入详情（元数据可能不含完整 variants，需要重新请求）
@@ -1428,10 +1368,10 @@
       if (SFV.player) SFV.player.openFilePicker();
       return;
     }
-    // === Phase 2 v2 还原（2026-08-05）===
-    // 详情页 v2（detail-v2.js，暗色全屏）已上线。url/file 走播放器保留；
-    // 其余入口（搜索结果 / 「接着看」续播 / 跨源修复回退）一律进 v2。
-    // 旧 openDetail / repairFromSearch 路径与米白实现已整段删除（不再需要）。
+    // === Phase 1.5 占位态（2026-08-05 撤回 v2）===
+    // 详情页 v2（detail-v2.js，暗色全屏）已撤回。url/file 走播放器保留；
+    // 其余入口（搜索结果 / 「接着看」续播 / 跨源修复回退）一律走 renderDetail
+    // 的 toast 占位（不再渲染米白页，不再调 detailV2.build）。
     renderDetail(meta);
     return;
   }
@@ -1580,49 +1520,19 @@
   }
 
   function loadDetail(view) {
-    renderLoading('加载详情中…');
-    SFV.sources.detail(view.source, view.vodId, 12000).then(function (res) {
-      if (!isOpen() || current !== view) return;
-      if (!res.ok) {
-        // 主源 + 镜像 + 缓存快照均失败：尝试按标题跨源自动修复一次（排除当前已失效源，防死循环）
-        if (view.meta && !view._repaired) {
-          view._repaired = true;
-          repairFromSearch(view.meta, { excludeSourceId: view.source.id });
-          return;
-        }
-        bodyEl.innerHTML = '';
-        setNote('详情加载失败：' + (res.reason || '未知'), 'error');
-        return;
-      }
-      view.plays = res.plays || [];
-      renderDetail(view);
-    }).catch(function (err) {
-      if (!isOpen() || current !== view) return;
-      bodyEl.innerHTML = '';
-      setNote('详情加载出错：' + (err && err.message ? err.message : '未知'), 'error');
-    });
+    // Phase 1.5 占位态：跳过数据拉取，直接进入 renderDetail（toast 拦截）
+    renderDetail(view);
   }
 
   function renderDetail(view) {
-    // === Phase 2 v2 详情页 (2026-08-05) ===
-    // 米白渲染实现已删除，改由 detail-v2.js 渲染暗色全屏详情页。
-    // 本函数仍是所有进详情路径的唯一汇聚点（被 openDetail / openKazumiDetail /
-    // navigate({mode:'detail'}) / loadDetail / loadKazumiDetail 共享），
-    // 在此处统一转交 detailV2.build 即可覆盖所有进详情路径。
-    if (SFV.detailV2 && typeof SFV.detailV2.build === 'function') {
-      try { SFV.detailV2.build(view); return; }
-      catch (e) { console.error('[detailV2] build failed', e); }
-    }
-    // 兜底：detail-v2 未加载时给出轻提示，避免静默白屏
-    try { toast('详情页加载中…'); } catch (e) { /* 静默降级 */ }
-    return;
-
-  }
-
-  function paintFlag(btn, key, field) {
-    if (!SFV.model) return;
-    var on = !!SFV.model.getFlag(key)[field];
-    btn.classList.toggle('on', on);
+    // Phase 1.5 占位态：详情页 v2 已撤回，所有进详情路径统一 toast 拦截。
+    // 不渲染米白页、不写 bodyEl，避免黑屏/卡屏。等用户拍板下一步方案再接回。
+    setNote('');
+    try {
+      if (SFV.ui && typeof SFV.ui.toast === 'function') {
+        SFV.ui.toast('详情页开发中，敬请期待');
+      }
+    } catch (e) { /* 静默降级 */ }
   }
 
   // ===== 片单浏览：打开 collections 页（router page）=====
@@ -2307,7 +2217,6 @@
     el: el,
     toast: toast,
     setNote: setNote,
-    paintFlag: paintFlag,
     CATEGORY_META: CATEGORY_META,
     setBrowseChrome: setBrowseChrome,
     setTitle: function (t) { if (titleEl) titleEl.textContent = t; }
@@ -2332,8 +2241,8 @@
     reopenCollections: reopenCollections, // 退出具体片单：重渲染片单列表（协同 page-collections.back）
     openCollectionItems: openCollectionItems, // Step 5：片单影片列表
     tryPicBackfill: tryPicBackfill, // T147：home.js 接着看空 pic 后向补图
-    showPickFolderDialog: showPickFolderDialog, // Phase 2 v2 详情页「加片单」入口
-    renderDetail: renderDetail, // Phase 2 v2：所有进详情路径的单一汇聚点（转发 detailV2.build）
+    showPickFolderDialog: showPickFolderDialog, // 「加片单」入口（详情页占位态下未直接调用）
+    renderDetail: renderDetail, // 所有进详情路径的单一汇聚点（Phase 1.5 toast 占位）
   };
 
   // ---------------------------------------------------------------- T102修复：初始化时立即绑定（不依赖 ensure()）

@@ -5,8 +5,8 @@
  * 配模拟 DOM + 模拟网络/XPath，验证：
  *   1. 搜索合并：CMS10 结果 + Kazumi 结果进入同一网格（2 张卡片）
  *   2. Kazumi 卡片带 sfv-card--kazumi 标记
- *   3. 点击 Kazumi 卡片 → openKazumiDetail → 真实调用 bridge.getChapters（经引擎→mock xpath）
- *      → renderDetail 渲染出剧集按钮（sfv-ep）
+ *   3. 点击 Kazumi 卡片 → openKazumiDetail → renderDetail（Phase 1.5 toast 占位，不再抓章节）
+ *      → SFV.ui.toast 弹出「详情页开发中，敬请期待」
  *
  * 不 mock online.js 本身，也尽量不 mock 桥接层（只 mock 最底层网络与 XPath）。
  */
@@ -21,7 +21,7 @@ function FakeNode(tag) {
   this.tagName = tag;
   this._classes = new Set();
   this.children = [];
-  this.style = {};
+  this.style = { setProperty: function () {}, removeProperty: function () {}, getPropertyValue: function () { return ''; } };
   this.attrs = {};
   this._listeners = {};
   this.textContent = '';
@@ -169,10 +169,10 @@ function findAllByClass(node, cls, out) {
 (async function () {
   console.log('=== Phase 2 online.js 接线集成测试 ===\n');
 
-  // 间谍：记录 getChapters 调用
-  const chCalls = [];
-  const origGetCh = SFV.kazumi.getChapters;
-  SFV.kazumi.getChapters = (n, s) => { chCalls.push([n, s]); return origGetCh(n, s); };
+  // 间谍：记录 SFV.ui.toast 调用（详情页占位 toast）
+  const toastCalls = [];
+  const origToast = SFV.ui.toast;
+  SFV.ui.toast = function (msg) { toastCalls.push(msg); if (origToast) origToast(msg); };
 
   // 打开影视浏览层
   SFV.online.open();
@@ -199,16 +199,12 @@ function findAllByClass(node, cls, out) {
     const kz = cards.filter(c => c._classes.has('sfv-card--kazumi'));
     ok(kz.length === 1, '其中 1 张带 Kazumi 标记 (sfv-card--kazumi)');
 
-    // 点击 Kazumi 卡片
+    // 点击 Kazumi 卡片 → openKazumiDetail → renderDetail（Phase 1.5 toast 占位，不再抓章节）
     if (kz.length) {
       kz[0].click();
-      await new Promise(r => setTimeout(r, 80)); // 等 getChapters + renderDetail
-      ok(chCalls.length === 1, '点击 Kazumi 卡片触发了 bridge.getChapters 调用');
-      ok(chCalls.length && chCalls[0][0] === 'TestRule' && chCalls[0][1] === '/detail/777',
-        'getChapters 收到正确参数 (ruleName=TestRule, src=/detail/777)');
-      const eps = findAllByClass(body, 'sfv-ep');
-      ok(eps.length === 2, '详情页渲染出 2 个剧集按钮 (sfv-ep)，实得 ' + eps.length);
-      ok(eps.length && eps[0].textContent.indexOf('第1集') >= 0, '剧集按钮文本正确（第1集）');
+      await new Promise(r => setTimeout(r, 30));
+      ok(toastCalls.some(function (m) { return typeof m === 'string' && m.indexOf('敬请期待') >= 0; }),
+        '点击 Kazumi 卡片触发了详情页占位 toast（详情页开发中，敬请期待）');
     }
   }
 

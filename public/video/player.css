@@ -1286,22 +1286,6 @@ body:not(.video-space-active) .sfv-fx-page { display: none !important; }
    在 DIY 面板内恢复原生取色器的点击能力，供用户直接调色 */
 .sfv-diy-pane .lyric-color-picker { pointer-events: auto; }
 
-.sfv-detail-head { display: flex; gap: 16px; margin-bottom: 14px; }
-.sfv-detail-cover {
-  width: 132px; height: 176px; flex: 0 0 auto; border-radius: 12px; overflow: hidden;
-  display: flex; align-items: center; justify-content: center; font-size: 32px;
-  background: linear-gradient(135deg, rgba(var(--fc-accent-rgb),.2), rgba(255,255,255,.04));
-}
-.sfv-detail-img { width: 100%; height: 100%; object-fit: cover; }
-.sfv-detail-info { flex: 1 1 auto; min-width: 0; }
-.sfv-detail-title { font-size: 19px; font-weight: 800; margin-bottom: 6px; }
-.sfv-detail-year { font-size: 12px; color: rgba(255,255,255,.55); margin-bottom: 12px; }
-.sfv-detail-flags { display: flex; gap: 8px; flex-wrap: wrap; }
-.sfv-flag-btn {
-  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14);
-  color: #fff; border-radius: 10px; height: 32px; padding: 0 14px; font-size: 12px; cursor: pointer;
-}
-.sfv-flag-btn.on { background: rgba(var(--fc-accent-rgb), .9); color: #04121a; border-color: transparent; font-weight: 800; }
 
 /* ===== 追片（互斥单值观看状态，与 Kazumi 一致） ===== */
 /* 顶部 5 状态分区 tab 栏（浅色 body 上，深字 + 青色强调） */
@@ -1374,21 +1358,6 @@ body:not(.video-space-active) .sfv-fx-page { display: none !important; }
 .sfv-track-status-opt.on { background: rgb(var(--fc-accent-rgb)); color: #04121a; border-color: transparent; font-weight: 800; }
 
 /* 详情页「加入我的片单」按钮 */
-.sfv-detail-coll-btn {
-  background: rgba(var(--fc-accent-rgb), .92); border: none;
-  color: #04121a; border-radius: 10px; height: 36px; padding: 0 16px;
-  font-size: 13px; font-weight: 600; cursor: pointer;
-  transition: background .15s ease, transform .15s ease;
-}
-.sfv-detail-coll-btn:hover { background: rgb(var(--fc-accent-rgb)); transform: translateY(-1px); }
-.sfv-detail-overview {
-  margin-top: 12px; font-size: 13px; line-height: 1.65; color: rgba(255,255,255,.72);
-  max-height: 132px; overflow: auto; padding-right: 6px;
-  -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent);
-  mask-image: linear-gradient(to bottom, #000 78%, transparent);
-}
-.sfv-detail-overview::-webkit-scrollbar { width: 6px; }
-.sfv-detail-overview::-webkit-scrollbar-thumb { background: rgba(255,255,255,.18); border-radius: 3px; }
 .sfv-tmdb-attrib {
   margin-top: 14px; font-size: 11px; line-height: 1.5; color: rgba(255,255,255,.4);
   max-width: 540px; letter-spacing: .2px;
@@ -1399,9 +1368,6 @@ body:not(.video-space-active) .sfv-fx-page { display: none !important; }
   color: #f5c542; font-weight: 700; font-size: 11px; letter-spacing: .3px;
 }
 /* TMDB 年份补全（详情页标题旁） */
-.sfv-detail-year {
-  color: rgba(255,255,255,.5); font-weight: 400; font-size: 14px;
-}
 
 .sfv-ep-group { margin-bottom: 16px; }
 .sfv-ep-from { font-size: 13px; font-weight: 700; color: rgba(255,255,255,.78); margin-bottom: 8px; }
@@ -1540,7 +1506,6 @@ body:not(.video-space-active) .sfv-fx-page { display: none !important; }
   content: '🎬';
   font-size: 34px;
 }
-.sfv-detail-cover--broken::after { font-size: 32px; }
 
 /* ===== 第三方解析器 iframe 嵌入播放 =====
    用于 agedm.io 等「播放页本身是解析器 iframe、真实流由解析器客户端解密」的站点。

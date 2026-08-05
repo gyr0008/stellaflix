@@ -97,7 +97,7 @@ assert(onlineJs.indexOf('currentBrowseKind') === -1, 'online.js 无 currentBrows
 // ================================================================
 console.log('\n=== E. SFV.ui 暴露 ===\n');
 assert(onlineJs.indexOf('SFV.ui = {') !== -1, 'online.js 导出 SFV.ui');
-['el:', 'toast:', 'setNote:', 'paintFlag:', 'CATEGORY_META:', 'setBrowseChrome:', 'setTitle:'].forEach(function (k) {
+['el:', 'toast:', 'setNote:', 'CATEGORY_META:', 'setBrowseChrome:', 'setTitle:'].forEach(function (k) {
   assert(onlineJs.indexOf(k) !== -1, 'SFV.ui 含 ' + k.replace(':', ''));
 });
 
