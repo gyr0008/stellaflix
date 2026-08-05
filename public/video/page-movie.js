@@ -206,66 +206,21 @@
   }
 
   function showDetail(it) {
-    var host = gridEl ? gridEl.parentNode : null;
-    if (!host) return;
-    var ui = SFV.ui;
-    detailOpen = true;
-    host.innerHTML = '';
-
-    var back = ui.el('button', 'sfv-detail-back', '\u2190 \u8FD4\u56DE');
-    back.type = 'button';
-    back.addEventListener('click', function () { if (showGridFn) showGridFn(); });
-    host.appendChild(back);
-
-    var wrap = ui.el('div', 'sfv-tmdb-detail');
-    var head = ui.el('div', 'sfv-detail-head');
-    var cover = ui.el('div', 'sfv-detail-cover');
-    if (it.poster) {
-      var img = ui.el('img', 'sfv-detail-img');
-      img.src = it.poster; img.alt = it.title || '';
-      img.addEventListener('error', function () { img.style.display = 'none'; cover.classList.add('sfv-detail-cover--broken'); });
-      cover.appendChild(img);
-    } else {
-      cover.textContent = '\uD83C\uDFA5';
-    }
-    var info = ui.el('div', 'sfv-detail-info');
-    info.appendChild(ui.el('div', 'sfv-detail-title', it.title || '\u672A\u547D\u540D'));
-    if (it.year) info.appendChild(ui.el('div', 'sfv-detail-year', '\u5E74\u4EFD\uFF1A' + it.year));
-    if (it.rating) info.appendChild(ui.el('div', 'sfv-detail-rating', '\u8BC4\u5206\uFF1A\u2605 ' + it.rating.toFixed(1) + ' / 10'));
-    if (it.originalTitle && it.originalTitle !== it.title) {
-      info.appendChild(ui.el('div', 'sfv-detail-orig', '\u539F\u540D\uFF1A' + it.originalTitle));
-    }
-    // 追片状态选择器
-    var flagRow = ui.el('div', 'sfv-detail-flags sfv-track-status');
-    flagRow.appendChild(ui.el('div', 'sfv-track-status-label', '\u8FFD\u7247\u72B6\u6001'));
-    var opts = ui.el('div', 'sfv-track-status-opts');
-    var STATUSES = (SFV.model && SFV.model.TRACK_STATUSES) || [];
-    var LABELS = (SFV.model && SFV.model.TRACK_LABELS) || {};
-    STATUSES.forEach(function (status) {
-      var b = ui.el('button', 'sfv-track-status-opt', LABELS[status] || status);
-      b.type = 'button';
-      b.setAttribute('data-status', status);
-      var key = 'tmdb:' + (currentMediaBase === 'documentary' ? 'tv' : 'movie') + ':' + it.id;
-      paintTrackOpt(b, key, status);
-      b.addEventListener('click', function () {
-        if (!SFV.model) return;
-        var cur = SFV.model.getTrackStatus(key);
-        SFV.model.setTrackStatus(key, (cur === status) ? null : status);
-        var all = opts.querySelectorAll('.sfv-track-status-opt');
-        for (var i = 0; i < all.length; i++) paintTrackOpt(all[i], key, all[i].getAttribute('data-status'));
-      });
-      opts.appendChild(b);
-    });
-    flagRow.appendChild(opts);
-    info.appendChild(flagRow);
-    head.appendChild(cover);
-    head.appendChild(info);
-    wrap.appendChild(head);
-    if (it.overview) wrap.appendChild(ui.el('div', 'sfv-detail-overview', it.overview));
-    else wrap.appendChild(ui.el('div', 'sfv-browse-sub', 'TMDB \u6682\u672A\u63D0\u4F9B\u4E2D\u6587\u7B80\u4ECB\u3002'));
-    wrap.appendChild(ui.el('div', 'sfv-detail-note', '\u672C\u6761\u76EE\u4EC5\u5C55\u793A TMDB \u8D44\u6599\uFF1B\u64AD\u653E\u9700\u5148\u5728\u300C\u7247\u6E90\u300D\u4E2D\u914D\u7F6E\u53EF\u7528\u6E90\uFF0C\u518D\u5230\u641C\u7D22\u4E2D\u6309\u6807\u9898\u67E5\u627E\u3002'));
-    wrap.appendChild(ui.el('div', 'sfv-tmdb-attrib', 'This product uses the TMDB API but is not endorsed or certified by TMDB.'));
-    host.appendChild(wrap);
+    // Phase 2 v2：海报点击进入暗色全屏详情页（renderDetail 单一汇聚点，
+    // 内部转发 SFV.detailV2.build）。movie 项已带 key + id + mediaType，
+    // 可直接复用；detail-v2 用 view.key||id 作为追片键。
+    try {
+      if (SFV.online && typeof SFV.online.renderDetail === 'function') {
+        SFV.online.renderDetail(it);
+        return;
+      }
+    } catch (e) { /* 落到下方兜底，避免崩溃 */ }
+    // 兜底：detail-v2 未就绪时给轻提示，避免静默白屏
+    try {
+      if (SFV.ui && typeof SFV.ui.toast === 'function') {
+        SFV.ui.toast('详情页加载中…');
+      }
+    } catch (e) { /* 静默降级 */ }
   }
 
   /* ---- 页面注册 ---- */

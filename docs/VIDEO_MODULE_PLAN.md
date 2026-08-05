@@ -5,7 +5,7 @@
 >
 > **执行进度**
 > - [x] **前置 0 · 授权合规基线**（2026-07-31 完成）：`package.json` 补 `"license": "GPL-3.0-or-later"`；`NOTICE.md` 新增 License 章节与第三方库授权表，单列 GSAP 专有授权说明。
-> - [x] **前置 1 · 版本控制基线**（2026-07-31 完成）：`git init -b main`，基线 commit `0368301`（107 文件 / 59838 行），annotated tag **`v1.1.2-baseline`**。此前工作目录无版本控制，任何改动不可回退——该风险已消除。规划文档单列第二个 commit，基线可独立回退。
+> - [x] **前置 1 · 版本控制基线**（2026-07-31 完成）：`git init -b main`，基线 commit `5fd04ec`（仓库对象库曾损坏，2026-08-04 重建为此孤儿根；原 `0368301` 已失效），annotated tag **`v1.1.2-baseline`**。此前工作目录无版本控制，任何改动不可回退——该风险已消除。规划文档单列第二个 commit，基线可独立回退。
 > - [x] Step 0 技术验证 spike（S2 / S3 / S4 / S5，S1 已作废）
 > - [x] Step 1 服务端三件套（MIME / Range / proxy）
 > - [x] Step 2 状态层与数据分发层
@@ -13,6 +13,7 @@
 > - [x] Step 3 剩余（2026-07-31 完成）：`video/source-adapter.js` 三源统一 + `video/home.js` 影视态首页与海报墙。测试 `step3b`(50) / `step3c`(41) 全通过。
 > - [ ] Step 3.5 Three.js 渲染循环消费 `sfv:render-pause`（性能收尾，见任务 #17）
 > - [ ] Step 4 切换入口与全局翻转
+> - [x] **影视详情页 v2（2026-08-05 落地 · 取代 Phase 1.5 降级 toast）**：暗色全屏详情页 `public/video/detail-v2.js`；`online.js` 的 `renderDetail(view)` 作为**所有进详情路径的唯一汇聚点**（搜索 / 电影 / 动漫 / 接着看 / 跨源修复），统一转发 `SFV.detailV2.build`。`openDetail` 米白页**保留**用于搜索结果详情 + 跨源失效修复兜底（不删除）。▶ 播放按钮对无源 TMDB 条目保持幂等 no-op，真实播放待源接入。追片六状态弹窗图标取自 Kazumi `public/vendor/fonts/`。
 >
 > **⚠️ 与本文档旧描述的两处实测偏差（以代码为准）**
 > 1. **首页卡片是 6 张不是 4 张**：第七章表格第 3 行原写「四卡」，实测 `index.html:2266-2303` 的 `.home-grid` 内为 **6 张 `.home-card`**。影视态已按 6 张实现。
@@ -85,7 +86,7 @@
 ```
 仓库    C:\Users\Administrator\Desktop\Mineradio-Extended-1.1.2-extended.1
 分支    main
-基线    0368301  chore: 建立项目基线（上游 v1.1.2 源码快照 + 授权声明修正）
+基线    5fd04ec  chore: rebuild repository from intact working tree (history reconstructed, 2026-08-04)
 tag     v1.1.2-baseline
 ```
 

@@ -43,6 +43,8 @@
   var uiMode = 'view';      // 'page' = 五个导航独立页面；'view' = legacy 搜索/分类/规则/详情
   var activePageId = null;  // 当前激活的导航页面 id（供影视分页背景同步）
   var busy = false;
+  var trackMetaInflight = {}; // 追片页缺失 TMDB 元数据时的去重 in-flight 请求表
+  var repairTried = {};       // 来源自动修复去重表：meta.key → { sourceId: true }，防跨源死循环
   var doc = d();            // document 引用（IIFE 级别，供 bindNavItems / bindCapsuleSearchBtn 等函数共用）
 
   function d() { return global.document; }
@@ -898,6 +900,26 @@
 
   // ---------------------------------------------------------------- 视图栈
   function pushView(v) { stack.push(v); render(stack[stack.length - 1]); }
+
+  // T145 修复（P0）：确保浏览层已创建且可见。
+  // 问题：openDetail / openKazumiDetail 直接 pushView，但 pushView 不调 ensure() 也不加
+  //   sfv-show class。从影视态首页直接点"接着看"（浏览层从未打开过）时，overlay 尚未创建，
+  //   pushView→render 访问 bodyEl 等 DOM 静默失败；即便 overlay 已存在，pushView 也不会把
+  //   已关闭的 overlay 重新显示 —— 用户看到"点了没反应"。
+  // 修复：在详情/规则入口统一先 ensureOverlayShown()，确保 overlay 已创建并加 sfv-show，
+  //   且不冲掉 stack（pushView 仍 push 到栈顶），不影响搜索/分类等 open() 路径。
+  function ensureOverlayShown() {
+    ensure();
+    if (!overlay) return;
+    if (!isVideoSpace() && SFV.state && SFV.state.setSpace) {
+      try { SFV.state.setSpace('video'); } catch (e) {}
+    }
+    if (!overlay.classList.contains('sfv-show')) overlay.classList.add('sfv-show');
+    uiMode = 'view';
+    overlay.classList.remove('sfv-browse--page');
+    try { if (typeof unlockBodyScroll === 'function') unlockBodyScroll(); } catch (e) {}
+  }
+
   function goBack() {
     // 全屏覆盖层（片单页）：先询问当前 router 页的 back()，
     // 若页内二级视图已消费返回（如 具体片单 → 片单列表），则停在页内；
@@ -1169,16 +1191,73 @@
   // ---- TMDB 元数据统一层：海报 + 简介（元数据服务，非视频源，不触碰合规红线）----
   // 架构决策：CMS10/规则仅提供播放 URL 与剧集列表；所有视觉元数据（海报/简介/评分）
   // 统一由 TMDB 供给。TMDB 海报优先于 CMS10 自带 pic，失败时降级保留原片源图片。
+
+  // T147：取一个条目的可用 pic —— 优先显式 pic，回落到 _tmdb.poster。
+  // enrichTmdb 只写 _tmdb 不写 it.pic（见 #T147 根因），导致 openDetail → view.pic 为空 →
+  // recordHistory/recordMeta 都记空 → 「接着看」读 history.pic 空 → 无图。
+  // 统一走 resolvePic 后，所有下游读取（view.pic、recordMeta、recordHistory、setMeta cover、embed cover）
+  // 都能拿到 TMDB 海报，搜索结果点击后即正确记录。
+  function resolvePic(it) {
+    if (!it) return '';
+    if (it.pic) return it.pic;
+    if (it._tmdb && it._tmdb.poster) return it._tmdb.poster;
+    return '';
+  }
+
+  // T147：把历史条目里的 "show title · 第N集" 还原成 "show title"，给 TMDB 匹配用。
+  // 历史 title 是 playEpisode 里拼的「view.title + ' · ' + ep.name」，TMDB 不该拿到剧集号。
+  function showTitleOf(item) {
+    if (!item || !item.title) return '';
+    var idx = item.title.indexOf(' · ');
+    return idx > 0 ? item.title.slice(0, idx) : item.title;
+  }
+
+  // T147：会话级 backfill 去重 —— 单次启动内同一 key 只尝试一次 TMDB 补图。
+  // 历史.pic 仍空时下次 home render 会再尝试（接受偶发重试，避免网络抖动一直失败却永不重试）。
+  var _picBackfillTried = {};
+  // T147 后向补图：home.js「接着看」渲染后异步用 TMDB 补空 pic，成功回写 history.pic 并刷新对应 tile。
+  function tryPicBackfill(item, doc) {
+    if (!item || !item.key || !item.title) return;
+    if (item.pic) return; // 已有 pic 不补
+    if (_picBackfillTried[item.key]) return;
+    if (!SFV.tmdb || typeof SFV.tmdb.hasKey !== 'function' || !SFV.tmdb.hasKey()) return;
+    if (typeof SFV.tmdb.bestMatch !== 'function') return;
+    if (!SFV.model || typeof SFV.model.updateHistoryPic !== 'function') return;
+    var title = showTitleOf(item);
+    if (!title) return;
+    _picBackfillTried[item.key] = true;
+    var key = item.key;
+    SFV.tmdb.bestMatch(title).then(function (m) {
+      if (!m || !m.poster) return;
+      // updateHistoryPic 内部会校验 key+pic 非 data: 才写
+      if (!SFV.model.updateHistoryPic(key, m.poster)) return;
+      // 找到对应 DOM tile，刷新背景图（DOM 已渲染，无需整页重渲）
+      if (!doc || !doc.querySelector) return;
+      var sel = '.sfv-continue-tile[data-sfv-key="' + esc(key) + '"] .sfv-tile-cover';
+      var tile = doc.querySelector(sel);
+      if (tile) {
+        tile.style.backgroundImage = 'url("' + esc(m.poster) + '")';
+        tile.classList.add('has-cover');
+      }
+    }).catch(function () { /* 静默降级：下次 home render 会重试 */ });
+  }
+
   function enrichTmdb(card, it) {
     if (!it || !it.title || !SFV.tmdb || !SFV.tmdb.hasKey()) return;
+    // 已有本地缓存海报时，不再二次远程替换，避免网络抖动导致图片消失。
+    if (it.pic && it.pic.indexOf('data:') === 0) return;
     SFV.tmdb.bestMatch(it.title).then(function (m) {
       if (!m || !card.isConnected) return;
       var cover = card.querySelector('.sfv-card-cover');
-      // TMDB 始终优先：有海报就替换/填充（无论 CMS10 是否已给图）
+      // TMDB 始终优先：有海报就替换/填充（无论 CMS10 是否已给图），
+      // 但优先使用本地缓存的 URL（若已缓存），避免远程加载失败。
       if (cover && m.poster) {
         var prevHtml = cover.innerHTML; // 备份 CMS10 原图，TMDB 加载失败时回退
         var img = el('img', 'sfv-card-img');
-        img.src = m.poster; img.alt = it.title || ''; img.loading = 'lazy';
+        var picUrl = (SFV.posterCache && typeof SFV.posterCache.resolvePic === 'function' && it.key)
+          ? SFV.posterCache.resolvePic(it.key, m.poster)
+          : m.poster;
+        img.src = picUrl; img.alt = it.title || ''; img.loading = 'lazy';
         img.addEventListener('error', function () {
           img.remove();
           if (!prevHtml || prevHtml === '') cover.textContent = '🎬';
@@ -1195,6 +1274,9 @@
           );
         }
       }
+      // T147：写回 it.pic，让 openDetail/view/recordHistory 都能拿到 TMDB 海报。
+      // 之前只写 _tmdb 不写 pic，导致点击播放后历史/接着看里都是空 pic。
+      if (m.poster) it.pic = m.poster;
       it._tmdb = m;
     }).catch(function () { /* 静默降级：保留 CMS10 原有展示 */ });
   }
@@ -1227,6 +1309,10 @@
           el('span', 'sfv-detail-year', ' (' + m.year + ')')
         );
       }
+      // T147：写回 view.pic/view._tmdb —— 此前只改 DOM 不改 view，
+      // 导致 playEpisode 里 recordHistory({ pic: view.pic = '' }) 永远记空。
+      if (m.poster) view.pic = m.poster;
+      view._tmdb = m;
     }
     if (view._tmdb) return apply(view._tmdb);
     SFV.tmdb.bestMatch(view.title).then(apply).catch(function () {});
@@ -1266,34 +1352,37 @@
   }
 
   // ---------------------------------------------------------------- 详情 + 剧集
-  function openDetail(item) {
+  function openDetail(item, meta) {
+    ensureOverlayShown(); // T145：确保浏览层已创建并可见（首页直接点接着看场景）
     var firstVar = (item.variants && item.variants[0]) || null;
     if (!firstVar) { toast('该结果缺少来源信息。'); return; }
     var vodKey = firstVar.key || (firstVar.sourceId + ':' + firstVar.vodId);
     var src = sourceById(firstVar.sourceId);
     var vodId = firstVar.vodId;
     if (!src || vodId == null) { toast('片源不可用，可能已被移除。'); return; }
-    recordMeta({ key: vodKey, title: item.title, pic: item.pic, year: item.year, sourceId: src.id, vodId: vodId });
-    var view = { mode: 'detail', key: vodKey, title: item.title, pic: item.pic, year: item.year, source: src, vodId: vodId };
+    recordMeta({ key: vodKey, title: item.title, pic: resolvePic(item), year: item.year, sourceId: src.id, vodId: vodId });
+    var view = { mode: 'detail', key: vodKey, title: item.title, pic: resolvePic(item), year: item.year, source: src, vodId: vodId, meta: meta || null, _tmdb: item._tmdb || null };
     pushView(view);
     loadDetail(view);
   }
 
   // Kazumi 结果详情：直接走规则引擎的章节解析（无需 CMS 详情接口）
   function openKazumiDetail(item) {
+    ensureOverlayShown(); // T145：确保浏览层已创建并可见
     var v = (item.variants && item.variants[0]) || null;
     if (!v || !v.src || !v.ruleName) { toast('该规则结果缺少详情链接。'); return; }
     var view = {
       mode: 'detail',
       key: item.key,
       title: item.title,
-      pic: item.pic,
+      pic: resolvePic(item),
       year: item.year,
       ruleName: v.ruleName,
       src: v.src,
       // 复用 playEpisode 的进度键拼装（view.source.id + ':' + view.vodId + ':' + ep.index）
       source: { id: 'kazumi:' + v.ruleName },
       vodId: item.key,
+      _tmdb: item._tmdb || null,
       isKazumi: true
     };
     recordMeta({ key: item.key, title: item.title, pic: item.pic, year: item.year, sourceId: view.source.id, vodId: item.key });
@@ -1328,21 +1417,166 @@
   // 从四类列表点击元数据进入详情（元数据可能不含完整 variants，需要重新请求）
   function openDetailFromMeta(meta) {
     var src = meta.sourceId ? sourceById(meta.sourceId) : null;
-    if (!src || meta.vodId == null) {
-      // 本地/直链条目：直接打开
-      if (meta.key && meta.key.indexOf('url:') === 0) {
-        if (SFV.source) SFV.source.open(meta.key.slice(4));
-        else if (SFV.player) SFV.player.openUrl(meta.key.slice(4));
-      } else if (meta.key && meta.key.indexOf('file:') === 0) {
-        toast('本地文件需重新选择');
-        if (SFV.player) SFV.player.openFilePicker();
-      } else {
-        toast('该条目来源已失效，无法打开。');
-      }
+    // 本地/直链条目：直接打开（保留原行为，绕开米白详情）
+    if (meta.key && meta.key.indexOf('url:') === 0) {
+      if (SFV.source) SFV.source.open(meta.key.slice(4));
+      else if (SFV.player) SFV.player.openUrl(meta.key.slice(4));
       return;
     }
-    var item = { key: meta.key, title: meta.title, pic: meta.pic, year: meta.year, vodId: meta.vodId, variants: [{ sourceId: src.id, vodId: meta.vodId }] };
-    openDetail(item);
+    if (meta.key && meta.key.indexOf('file:') === 0) {
+      toast('本地文件需重新选择');
+      if (SFV.player) SFV.player.openFilePicker();
+      return;
+    }
+    // === Phase 2 v2 还原（2026-08-05）===
+    // 详情页 v2（detail-v2.js，暗色全屏）已上线。url/file 走播放器保留；
+    // 其余入口（搜索结果 / 「接着看」续播 / 跨源修复回退）一律进 v2。
+    // 旧 openDetail / repairFromSearch 路径与米白实现已整段删除（不再需要）。
+    renderDetail(meta);
+    return;
+  }
+
+  // —— 来源失效自动修复与标记 ——
+
+  function repairKeyOf(meta) {
+    return meta.key || ('__title__' + String(meta.title || ''));
+  }
+
+  // 从跨源搜索结果中挑选最佳候选：精确片名 > 同片名+同年份 > 模糊包含。
+  // 仅保留「未尝试过」的源变体；若某候选全部变体都已尝试过则跳过，避免跨源死循环。
+  function pickRepairCandidate(items, meta, tried) {
+    var title = String(meta.title || '').trim().toLowerCase();
+    var year = String(meta.year || '').trim();
+    if (!title) return null;
+    var yearMatch = null, exact = null, fuzzy = null;
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i];
+      if (!it || !it.title) continue;
+      // 仅保留未尝试过的来源变体
+      var usable = (it.variants || []).filter(function (v) { return !(tried && tried[v.sourceId]); });
+      if (!usable.length) continue;
+      var t = it.title.trim().toLowerCase();
+      if (t === title) {
+        if (year && String(it.year || '').trim() === year) { if (!yearMatch) yearMatch = { it: it, usable: usable }; }
+        else if (!exact) exact = { it: it, usable: usable };
+      } else if (!fuzzy && (t.indexOf(title) >= 0 || title.indexOf(t) >= 0)) {
+        fuzzy = { it: it, usable: usable };
+      }
+    }
+    var best = yearMatch || exact || fuzzy;
+    if (!best) return null;
+    // 用未尝试的变体替换原 variants，保证 variants[0] 可用且不会再选中失效源
+    best.it.variants = best.usable;
+    return best.it;
+  }
+
+  // 按标题跨源搜索替代片源；命中则直接打开（并修复 meta 缓存），未命中则标记失效。
+  // opts.excludeSourceId：当前已失败源，记入 tried 表，后续重试不再重复选中。
+  function repairFromSearch(meta, opts) {
+    opts = opts || {};
+    var title = meta.title ? String(meta.title).trim() : '';
+    if (!title) { renderExpiredPanel(meta, 'missing-title'); return; }
+    var key = repairKeyOf(meta);
+    var tried = repairTried[key] || (repairTried[key] = {});
+    if (opts.excludeSourceId) tried[opts.excludeSourceId] = true;
+    var enabled = SFV.sources.getEnabledSources();
+    if (!enabled.length) { renderExpiredPanel(meta, 'no-enabled-source'); return; }
+    renderLoading('正在尝试为你查找替代片源…');
+    SFV.sources.search(title, { sources: enabled, pg: 1, timeout: 12000 }).then(function (res) {
+      if (!isOpen()) return;
+      if (res.noSource || !res.items || !res.items.length) {
+        renderExpiredPanel(meta, 'search-empty'); return;
+      }
+      var cand = pickRepairCandidate(res.items, meta, tried);
+      if (!cand) { renderExpiredPanel(meta, 'no-match'); return; }
+      var variant = (cand.variants && cand.variants[0]) || null;
+      if (!variant || variant.vodId == null) { renderExpiredPanel(meta, 'no-variant'); return; }
+      tried[variant.sourceId] = true; // 记录本次选用，下次失败则跳过
+      // 修复 meta 缓存（用原 key 绑定到新片源），下次直接命中
+      toast('已为你找到替代片源：' + (cand.title || title));
+      var repaired = {
+        key: meta.key,
+        title: cand.title,
+        pic: cand.pic || meta.pic,
+        year: cand.year || meta.year,
+        vodId: variant.vodId,
+        variants: [{ key: meta.key, sourceId: variant.sourceId, vodId: variant.vodId }],
+      };
+      openDetail(repaired, meta);
+    }).catch(function () {
+      if (!isOpen()) return;
+      renderExpiredPanel(meta, 'search-error');
+    });
+  }
+
+  function expiredReasonText(r) {
+    var map = {
+      'missing-title': '条目缺少标题，无法检索',
+      'no-enabled-source': '未启用任何片源',
+      'search-empty': '跨源检索无结果',
+      'no-match': '跨源检索无匹配片名',
+      'no-variant': '匹配条目缺少可播放剧集',
+      'search-error': '跨源检索异常',
+    };
+    return map[r] || r || '未知';
+  }
+
+  // 标记「来源已失效」：保留原始信息 + 提供手动打开/重试，并记录失效日志
+  function renderExpiredPanel(meta, reason) {
+    if (!isOpen()) return;
+    setNote('');
+    titleEl.textContent = meta.title || '来源已失效';
+    bodyEl.innerHTML = '';
+    var panel = el('div', 'sfv-expired-panel');
+    panel.appendChild(el('div', 'sfv-expired-title', '来源已失效'));
+    var sub = el('div', 'sfv-expired-sub');
+    sub.textContent = '该条目原有来源不可访问，已为你保留原始信息，可手动查看或重试查找。';
+    panel.appendChild(sub);
+
+    var info = el('div', 'sfv-expired-info');
+    var rows = [
+      ['标题', meta.title || '—'],
+      ['原片源ID', meta.sourceId || '—'],
+      ['原剧集ID', meta.vodId != null ? String(meta.vodId) : '—'],
+      ['原始键', meta.key || '—'],
+      ['失效原因', expiredReasonText(reason)],
+    ];
+    rows.forEach(function (r) {
+      var row = el('div', 'sfv-expired-row');
+      row.appendChild(el('span', 'sfv-expired-k', r[0]));
+      row.appendChild(el('span', 'sfv-expired-v', r[1]));
+      info.appendChild(row);
+    });
+    panel.appendChild(info);
+
+    var actions = el('div', 'sfv-expired-actions');
+    if (meta.key && meta.key.indexOf('url:') === 0) {
+      var openBtn = el('button', 'sfv-expired-btn sfv-expired-btn--primary', '手动打开原始链接');
+      openBtn.type = 'button';
+      openBtn.addEventListener('click', function () {
+        var u = meta.key.slice(4);
+        if (SFV.source) SFV.source.open(u); else if (SFV.player) SFV.player.openUrl(u);
+      });
+      actions.appendChild(openBtn);
+    }
+    var retryBtn = el('button', 'sfv-expired-btn', '重试查找');
+    retryBtn.type = 'button';
+    retryBtn.addEventListener('click', function () { repairFromSearch(meta, {}); });
+    actions.appendChild(retryBtn);
+    panel.appendChild(actions);
+
+    bodyEl.appendChild(panel);
+
+    if (SFV.model && SFV.model.logFailure) {
+      SFV.model.logFailure({
+        title: meta.title || '',
+        key: meta.key || '',
+        sourceId: meta.sourceId || '',
+        vodId: meta.vodId != null ? String(meta.vodId) : '',
+        reason: reason,
+        action: 'open',
+      });
+    }
   }
 
   function loadDetail(view) {
@@ -1350,6 +1584,12 @@
     SFV.sources.detail(view.source, view.vodId, 12000).then(function (res) {
       if (!isOpen() || current !== view) return;
       if (!res.ok) {
+        // 主源 + 镜像 + 缓存快照均失败：尝试按标题跨源自动修复一次（排除当前已失效源，防死循环）
+        if (view.meta && !view._repaired) {
+          view._repaired = true;
+          repairFromSearch(view.meta, { excludeSourceId: view.source.id });
+          return;
+        }
         bodyEl.innerHTML = '';
         setNote('详情加载失败：' + (res.reason || '未知'), 'error');
         return;
@@ -1364,78 +1604,19 @@
   }
 
   function renderDetail(view) {
-    setNote('');
-    titleEl.textContent = view.title || '详情';
-
-    // 头部：封面 + 标题 + 心动/片单/收藏 切换
-    var head = el('div', 'sfv-detail-head');
-    var cover = el('div', 'sfv-detail-cover');
-    if (view.pic) {
-      var img = el('img', 'sfv-detail-img'); img.src = view.pic; img.alt = view.title || '';
-      img.addEventListener('error', function () { img.style.display = 'none'; cover.classList.add('sfv-detail-cover--broken'); });
-      cover.appendChild(img);
-    } else cover.textContent = '🎬';
-    var info = el('div', 'sfv-detail-info');
-    info.appendChild(el('div', 'sfv-detail-title', view.title || '未命名'));
-    if (view.year) info.appendChild(el('div', 'sfv-detail-year', '年份：' + view.year));
-    // 追片状态选择器（Kazumi 等价：互斥单值 + 清除），替换原 心动/收藏/片单 三按钮
-    var flagRow = el('div', 'sfv-detail-flags sfv-track-status');
-    flagRow.appendChild(el('div', 'sfv-track-status-label', '追片状态'));
-    var opts = el('div', 'sfv-track-status-opts');
-    TRACK_META.forEach(function (t) {
-      var b = el('button', 'sfv-track-status-opt', t.label);
-      b.type = 'button';
-      b.setAttribute('data-status', t.status);
-      paintTrackStatus(b, view.key, t.status);
-      b.addEventListener('click', function () {
-        if (!SFV.model) return;
-        var cur = SFV.model.getTrackStatus(view.key);
-        // 点当前态再次点击 = 清除（none）；否则设为该态
-        SFV.model.setTrackStatus(view.key, (cur === t.status) ? null : t.status);
-        repaintTrackStatus(opts, view.key);
-      });
-      opts.appendChild(b);
-    });
-    flagRow.appendChild(opts);
-    info.appendChild(flagRow);
-
-    // 加入我的片单（C 玩法：用户自建片单夹）
-    if (SFV.collections) {
-      var collRow = el('div', 'sfv-detail-flags');
-      var collBtn = el('button', 'sfv-detail-coll-btn', '＋ 加入我的片单');
-      collBtn.type = 'button';
-      collBtn.addEventListener('click', function () { showPickFolderDialog(view); });
-      collRow.appendChild(collBtn);
-      info.appendChild(collRow);
+    // === Phase 2 v2 详情页 (2026-08-05) ===
+    // 米白渲染实现已删除，改由 detail-v2.js 渲染暗色全屏详情页。
+    // 本函数仍是所有进详情路径的唯一汇聚点（被 openDetail / openKazumiDetail /
+    // navigate({mode:'detail'}) / loadDetail / loadKazumiDetail 共享），
+    // 在此处统一转交 detailV2.build 即可覆盖所有进详情路径。
+    if (SFV.detailV2 && typeof SFV.detailV2.build === 'function') {
+      try { SFV.detailV2.build(view); return; }
+      catch (e) { console.error('[detailV2] build failed', e); }
     }
+    // 兜底：detail-v2 未加载时给出轻提示，避免静默白屏
+    try { toast('详情页加载中…'); } catch (e) { /* 静默降级 */ }
+    return;
 
-    head.appendChild(cover); head.appendChild(info);
-    bodyEl.appendChild(head);
-    enrichTmdbDetail(view, info, cover);
-
-    // 剧集
-    if (!view.plays || !view.plays.length) {
-      bodyEl.appendChild(el('div', 'sfv-browse-sub', '暂无可播放的剧集（源未提供播放地址）。'));
-      return;
-    }
-    view.plays.forEach(function (play, pi) {
-      var grp = el('div', 'sfv-ep-group');
-      grp.appendChild(el('div', 'sfv-ep-from', play.from || ('线路' + (pi + 1))));
-      var list = el('div', 'sfv-ep-list');
-      (play.episodes || []).forEach(function (ep) {
-        var eb = el('button', 'sfv-ep', ep.name || ('第' + (ep.index + 1) + '集'));
-        eb.type = 'button';
-        var prog = SFV.model ? SFV.model.getProgress(view.key + ':' + ep.index) : null;
-        if (prog && prog.position) {
-          eb.classList.add('sfv-ep-done');
-          eb.textContent = (ep.name || ('第' + (ep.index + 1) + '集')) + ' ✓';
-        }
-        eb.addEventListener('click', function () { playEpisode(view, ep, play); });
-        list.appendChild(eb);
-      });
-      grp.appendChild(list);
-      bodyEl.appendChild(grp);
-    });
   }
 
   function paintFlag(btn, key, field) {
@@ -1448,7 +1629,6 @@
   function openCollections() {
     goToNav('collections');
   }
-
   // 打开某片单的影片列表（collection-items 视图）
   function openCollectionItems(def) {
     pushView({ mode: 'collection-items', collId: def.id, collTitle: def.title, collDef: def });
@@ -1610,14 +1790,29 @@
     if (!ep || !ep.url) { toast('该集无播放地址'); return; }
     var id = view.source.id + ':' + view.vodId + ':' + ep.index;
     var title = (view.title || '影片') + ' · ' + (ep.name || ('第' + (ep.index + 1) + '集'));
-    recordMeta({ key: view.key, title: view.title, pic: view.pic, year: view.year, sourceId: view.source.id, vodId: view.vodId });
-    recordHistory({ key: id, title: title, pic: view.pic, year: view.year, sourceId: view.source.id, vodId: view.vodId });
+    recordMeta({ key: view.key, title: view.title, pic: resolvePic(view), year: view.year, sourceId: view.source.id, vodId: view.vodId });
+    recordHistory({ key: id, title: title, pic: resolvePic(view), year: view.year, sourceId: view.source.id, vodId: view.vodId });
 
     // ---- Kazumi 播放页解析（chapterResult 提取的是 HTML 页面 URL，需先提取真实视频地址）----
     var doPlay = function (playUrl) {
       // 经 source-adapter：跨域直链自动走 /api/proxy；进度键锚定 站点:vod:集数
-      if (SFV.source) SFV.source.open({ url: playUrl, title: title, id: id });
-      else if (SFV.player) SFV.player.openUrl(playUrl, { id: id, title: title });
+      var sourceName = (view.source && view.source.name) ? view.source.name : ((view.source && view.source.id) ? view.source.id : '');
+      var coverUrl = resolvePic(view);
+      var meta = { url: playUrl, title: title, id: id };
+      if (SFV.source) SFV.source.open(meta);
+      else if (SFV.player) SFV.player.openUrl(playUrl, meta);
+      // 封面/站点名晚到：open 已同步 setCurrentMeta，这里合并（emit sfv:player-meta → 底部控制器刷新）
+      if (SFV.player && SFV.player.setMeta) SFV.player.setMeta({ key: id, cover: coverUrl, subtitle: sourceName });
+      // 剧集导航：供底部控制器 prev/next 键使用（无剧集则清空）
+      if (SFV.player && SFV.player.setPlaylist) {
+        if (play && play.episodes) {
+          SFV.player.setPlaylist(play.episodes, ep.index);
+          if (SFV.player.setPlayEpisodeAt) SFV.player.setPlayEpisodeAt(function (i, e) { playEpisode(view, e, play); });
+        } else {
+          SFV.player.setPlaylist(null, -1);
+          if (SFV.player.setPlayEpisodeAt) SFV.player.setPlayEpisodeAt(null);
+        }
+      }
       registerNextEpisode(view, ep, play); // 必须在 open 之后：open 会清空 playNext 钩子
       // 关闭浏览层，露出播放器全屏弹层
       close();
@@ -1626,8 +1821,9 @@
     // 嵌入第三方解析器页面播放：解析器自渲染播放器、客户端解密真实流地址，
     // 我们无需（也无法）提取直链，直接把整个解析器页嵌入播放器 iframe 即可。
     var openEmbed = function (embedUrl, embedTitle, embedId) {
+      var sourceName = (view.source && view.source.name) ? view.source.name : ((view.source && view.source.id) ? view.source.id : '');
       if (SFV.player && typeof SFV.player.openEmbed === 'function') {
-        SFV.player.openEmbed(embedUrl, { id: embedId, title: embedTitle });
+        SFV.player.openEmbed(embedUrl, { id: embedId, title: embedTitle, cover: resolvePic(view), subtitle: sourceName });
         close(); // 关闭浏览层，露出带 iframe 的播放器弹层
       } else {
         // 无嵌入能力时降级为原始地址直连
@@ -1743,6 +1939,8 @@
     titleEl.textContent = '追片';
     bodyEl.innerHTML = '';
     setNote('');
+    var renderId = Date.now();
+    bodyEl._sfvTrackRenderId = renderId;
 
     // 顶部 tab 栏：5 状态 + 各分区计数
     var tabs = el('div', 'sfv-track-tabs');
@@ -1800,18 +1998,49 @@
     // 当前分区网格
     var keys = SFV.model ? SFV.model.getKeysByTrack(trackActiveStatus) : [];
     var list = SFV.model ? SFV.model.resolveList(keys) : [];
-    if (!list.length) {
+
+    // 兼容修复：TMDB 分页（电影/动漫）早期只写 track 状态未写 meta，导致 key 存在但 resolveList 为空。
+    // 对缺失的 tmdb:* key 用详情接口补全元数据，让既有标记也能显示海报。
+    var present = {};
+    list.forEach(function (it) { if (it && it.key) present[it.key] = true; });
+    var missing = keys.filter(function (k) {
+      return !present[k] && /^tmdb:/.test(k) && !trackMetaInflight[k];
+    });
+    var canFetch = !!(SFV.tmdb && SFV.tmdb.getDetails);
+
+    if (!list.length && (!missing.length || !canFetch)) {
       // 空分区保持简洁干净，不显示任何文字与图案提示
       return;
     }
+
     var grid = el('div', 'sfv-grid');
-    list.forEach(function (it) {
+    bodyEl.appendChild(grid);
+
+    function appendTrackCard(it) {
       var card = el('button', 'sfv-card');
       card.type = 'button';
       var cover = el('div', 'sfv-card-cover');
       if (it.pic) {
         var img = el('img', 'sfv-card-img'); img.src = it.pic; img.alt = it.title || ''; img.loading = 'lazy';
-        img.addEventListener('error', function () { img.style.display = 'none'; cover.classList.add('sfv-cover--broken'); });
+        img.addEventListener('load', function () { img.classList.add('loaded'); });
+        img.addEventListener('error', function () {
+          // 远程海报加载失败：尝试本地缓存；命中则替换 src 重载，未命中再显示裂图占位。
+          if (it.key && it.pic && it.pic.indexOf('data:') !== 0 && SFV.posterCache && typeof SFV.posterCache.cache === 'function') {
+            SFV.posterCache.cache(it.key, it.pic).then(function (dataUrl) {
+              if (dataUrl && img.parentNode) {
+                img.src = dataUrl;
+                img.style.display = '';
+                cover.classList.remove('sfv-cover--broken');
+              } else {
+                img.style.display = 'none';
+                cover.classList.add('sfv-cover--broken');
+              }
+            });
+          } else {
+            img.style.display = 'none';
+            cover.classList.add('sfv-cover--broken');
+          }
+        });
         cover.appendChild(img);
       } else cover.textContent = '🎬';
       var name = el('div', 'sfv-card-name', it.title || '未命名');
@@ -1831,9 +2060,38 @@
 
       card.addEventListener('click', function () { openDetailFromMeta(it); });
       grid.appendChild(card);
-      enrichTmdb(card, it);
-    });
-    bodyEl.appendChild(grid);
+      // 追片页 meta 已携带 TMDB 海报 + 本地缓存机制，无需 enrichTmdb 二次替换，
+      // 避免二次请求远程 URL 导致刚显示又消失。
+    }
+
+    list.forEach(appendTrackCard);
+
+    if (missing.length && canFetch) {
+      var status = el('div', 'sfv-browse-status', '补全 ' + missing.length + ' 条元数据…');
+      bodyEl.appendChild(status);
+      var pending = missing.length;
+      function tryRemoveStatus() {
+        pending--;
+        if (pending <= 0 && status.parentNode) status.parentNode.removeChild(status);
+      }
+      missing.forEach(function (k) {
+        var parts = k.split(':');
+        var mediaType = parts[1] === 'anime' ? 'tv' : (parts[1] || 'movie');
+        var id = parts[2];
+        if (!id) { tryRemoveStatus(); return; }
+        trackMetaInflight[k] = true;
+        SFV.tmdb.getDetails(id, mediaType).then(function (d) {
+          delete trackMetaInflight[k];
+          if (!d || bodyEl._sfvTrackRenderId !== renderId) { tryRemoveStatus(); return; }
+          SFV.model.setMeta({ key: k, title: d.title, pic: d.poster, year: d.year, sourceId: '', vodId: '' });
+          appendTrackCard({ key: k, title: d.title, pic: d.poster, year: d.year, sourceId: '', vodId: '' });
+          tryRemoveStatus();
+        }).catch(function () {
+          delete trackMetaInflight[k];
+          tryRemoveStatus();
+        });
+      });
+    }
   }
 
   function paintTrackCardBtn(btn, key) {
@@ -2073,6 +2331,9 @@
     openCollections: openCollections,   // Step 5：片单浏览页入口
     reopenCollections: reopenCollections, // 退出具体片单：重渲染片单列表（协同 page-collections.back）
     openCollectionItems: openCollectionItems, // Step 5：片单影片列表
+    tryPicBackfill: tryPicBackfill, // T147：home.js 接着看空 pic 后向补图
+    showPickFolderDialog: showPickFolderDialog, // Phase 2 v2 详情页「加片单」入口
+    renderDetail: renderDetail, // Phase 2 v2：所有进详情路径的单一汇聚点（转发 detailV2.build）
   };
 
   // ---------------------------------------------------------------- T102修复：初始化时立即绑定（不依赖 ensure()）

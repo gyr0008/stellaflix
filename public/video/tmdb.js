@@ -62,7 +62,12 @@
   function posterUrl(path, size) {
     if (!path) return null;
     // 网格缩略图默认 w342（~342px，足够 6 列响应式卡片；详情页传 'w500' 覆盖）
-    return IMG_BASE + (size || 'w342') + path;
+    var full = IMG_BASE + (size || 'w342') + path;
+    // TMDB 图片 CDN (image.tmdb.org) 在部分网络（沙箱/中国大陆常见）被浏览器侧封锁，
+    // 直接 <img>/background-image 静默失败 → 海报空白。走本地 /api/proxy 转发，
+    // 服务端可达 image.tmdb.org（22:3x 沙箱实测 HTTP 200 / 4.17s）。
+    // 注意：poster-cache 缓存后存为 data:，下次直接读本地；本路径仅未缓存的远程海报生效。
+    return (cfg.proxyBase || '') + '/api/proxy?url=' + encodeURIComponent(full);
   }
 
   // 搜索电影 + 剧集（含 person 但过滤掉），用于「按标题补全海报/简介」
@@ -190,6 +195,44 @@
     });
   }
 
+  // 详情页一次性聚合：主信息 + 演职员 + 相似影片（一次请求拿全，避免多次往返）
+  // 返回 { backdrop, runtime, genres[], cast[{id,name,character,profile}], similar[{...normalizeList}] }
+  // 无 key / 网络失败 → reject，调用方静默降级（不展示该模块即可）。
+  function getDetailBundle(id, mediaType) {
+    if (!cfg.apiKey) return Promise.reject(new Error('TMDB_KEY_REQUIRED'));
+    if (!id) return Promise.reject(new Error('TMDB_NO_ID'));
+    var path = '/' + (mediaType === 'tv' ? 'tv' : 'movie') + '/' + id;
+    return request(path, { append_to_response: 'credits,similar' }).then(function (r) {
+      var cast = (r.credits && r.credits.cast ? r.credits.cast : []).slice(0, 12).map(function (c) {
+        return {
+          id: c.id,
+          name: c.name || c.original_name || '',
+          character: c.character || '',
+          profile: posterUrl(c.profile_path, 'w185')
+        };
+      });
+      var similar = normalizeList(r.similar || {}).slice(0, 18);
+      var rt = r.runtime || (r.episode_run_time && r.episode_run_time[0]) || 0;
+      var genres = (r.genres || []).map(function (g) { return g.name; });
+      // Phase 2 v2 详情页扩展：logo（production_companies）+ 所属合集（belongs_to_collection）
+      var companies = (r.production_companies || []).map(function (c) {
+        return { id: c.id, name: c.name || '', logo: posterUrl(c.logo_path, 'w342') };
+      });
+      var collection = r.belongs_to_collection
+        ? { id: r.belongs_to_collection.id, name: r.belongs_to_collection.name || '', poster: posterUrl(r.belongs_to_collection.poster_path, 'w342') }
+        : null;
+      return {
+        backdrop: posterUrl(r.backdrop_path, 'w1280'),
+        runtime: rt,
+        genres: genres,
+        cast: cast,
+        similar: similar,
+        companies: companies,
+        collection: collection
+      };
+    });
+  }
+
   var tmdb = {
     configure: function (o) {
       if (!o) return;
@@ -209,7 +252,8 @@
     discover: discover,
     trending: trending,
     upcoming: upcoming,
-    getCollection: getCollection
+    getCollection: getCollection,
+    getDetailBundle: getDetailBundle
   };
 
   SFV.tmdb = tmdb;

@@ -27,6 +27,7 @@
 
     var detailOpen = false;
     var showGridFn = null;
+    var gridEl = null; // 网格容器，用于详情页定位宿主（grid.parentNode）
 
     var cardIdx = 0; // 追踪卡片序号，首屏 eager 加载
     function buildCard(ui, it) {
@@ -65,6 +66,7 @@
       host.innerHTML = '';
       var grid = ui.el('div', 'sfv-grid');
       host.appendChild(grid);
+      gridEl = grid;
       var statusEl = ui.el('div', 'sfv-browse-status', '加载中…');
       host.appendChild(statusEl);
       var foot = ui.el('div', 'sfv-browse-foot',
@@ -116,63 +118,22 @@
       btn.classList.toggle('on', cur === status);
     }
 
-    function showDetail(host, it) {
-      var ui = SFV.ui;
-      detailOpen = true;
-      host.innerHTML = '';
-      // 详情页为层级导航：自带返回按钮（关闭详情回到网格），不依赖被隐藏的全局头
-      var back = ui.el('button', 'sfv-detail-back', '← 返回');
-      back.type = 'button';
-      back.addEventListener('click', function () { if (showGridFn) showGridFn(); });
-      host.appendChild(back);
-      var key = 'tmdb:' + mediaType + ':' + it.id;
-      var wrap = ui.el('div', 'sfv-tmdb-detail');
-      var head = ui.el('div', 'sfv-detail-head');
-      var cover = ui.el('div', 'sfv-detail-cover');
-      if (it.poster) {
-        var img = ui.el('img', 'sfv-detail-img');
-        img.src = it.poster; img.alt = it.title || '';
-        img.addEventListener('error', function () { img.style.display = 'none'; cover.classList.add('sfv-detail-cover--broken'); });
-        cover.appendChild(img);
-      } else {
-        cover.textContent = '🎬';
-      }
-      var info = ui.el('div', 'sfv-detail-info');
-      info.appendChild(ui.el('div', 'sfv-detail-title', it.title || '未命名'));
-      if (it.year) info.appendChild(ui.el('div', 'sfv-detail-year', '年份：' + it.year));
-      if (it.rating) info.appendChild(ui.el('div', 'sfv-detail-rating', '评分：★ ' + it.rating.toFixed(1) + ' / 10'));
-      if (it.originalTitle && it.originalTitle !== it.title) {
-        info.appendChild(ui.el('div', 'sfv-detail-orig', '原名：' + it.originalTitle));
-      }
-      // 追片状态选择器（与 online.js 详情页一致：互斥单值 + 清除）
-      var flagRow = ui.el('div', 'sfv-detail-flags sfv-track-status');
-      flagRow.appendChild(ui.el('div', 'sfv-track-status-label', '追片状态'));
-      var opts = ui.el('div', 'sfv-track-status-opts');
-      var STATUSES = (SFV.model && SFV.model.TRACK_STATUSES) || [];
-      var LABELS = (SFV.model && SFV.model.TRACK_LABELS) || {};
-      STATUSES.forEach(function (status) {
-        var b = ui.el('button', 'sfv-track-status-opt', LABELS[status] || status);
-        b.type = 'button';
-        b.setAttribute('data-status', status);
-        paintTrackOpt(b, key, status);
-        b.addEventListener('click', function () {
-          if (!SFV.model) return;
-          var cur = SFV.model.getTrackStatus(key);
-          SFV.model.setTrackStatus(key, (cur === status) ? null : status);
-          var all = opts.querySelectorAll('.sfv-track-status-opt');
-          for (var i = 0; i < all.length; i++) paintTrackOpt(all[i], key, all[i].getAttribute('data-status'));
-        });
-        opts.appendChild(b);
-      });
-      flagRow.appendChild(opts);
-      info.appendChild(flagRow);
-      head.appendChild(cover); head.appendChild(info);
-      wrap.appendChild(head);
-      if (it.overview) wrap.appendChild(ui.el('div', 'sfv-detail-overview', it.overview));
-      else wrap.appendChild(ui.el('div', 'sfv-browse-sub', 'TMDB 暂未提供中文简介。'));
-      wrap.appendChild(ui.el('div', 'sfv-detail-note', '本条目仅展示 TMDB 资料；播放需先在「片源」中配置可用源，再到搜索中按标题查找。'));
-      wrap.appendChild(ui.el('div', 'sfv-tmdb-attrib', 'This product uses the TMDB API but is not endorsed or certified by TMDB.'));
-      host.appendChild(wrap);
+    function showDetail(it) {
+      // Phase 2 v2：海报点击进入暗色全屏详情页（renderDetail 为单一汇聚点，
+      // 内部转发 SFV.detailV2.build）。detail-v2 用 view.key||id 作为追片键，
+      // popular 项已带 id + mediaType，可直接复用。
+      try {
+        if (SFV.online && typeof SFV.online.renderDetail === 'function') {
+          SFV.online.renderDetail(it);
+          return;
+        }
+      } catch (e) { /* 落到下方兜底，避免崩溃 */ }
+      // 兜底：detail-v2 未就绪时给轻提示，避免静默白屏
+      try {
+        if (SFV.ui && typeof SFV.ui.toast === 'function') {
+          SFV.ui.toast('详情页加载中…');
+        }
+      } catch (e) { /* 静默降级 */ }
     }
 
     var page = {
