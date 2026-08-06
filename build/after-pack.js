@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
+const { injectForAfterPack } = require('../scripts/inject-dandan-creds.cjs');
 
 function findNewestRceditInCache(cacheRoot) {
   if (!cacheRoot || !fs.existsSync(cacheRoot)) return null;
@@ -63,4 +64,7 @@ module.exports = async function afterPack(context) {
     '--set-file-version', version,
     '--set-product-version', version
   ], { stdio: 'inherit' });
+
+  // 构建期注入 DanDanPlay 凭证占位符（源码留空 + 环境变量注入打包副本，对齐 Kazumi）。
+  injectForAfterPack(context);
 };

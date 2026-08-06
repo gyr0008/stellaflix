@@ -1183,6 +1183,32 @@ ipcMain.handle('stellaflix-import-json-file', async (event) => {
   }
 });
 
+// 影视态 home 海报：原生图片选择对话框（替代 <input type="file"> .click()，Electron 下更可靠）
+ipcMain.handle('stellaflix-pick-image', async (event) => {
+  try {
+    const owner = getSenderWindow(event);
+    const result = await dialog.showOpenDialog(owner, {
+      title: '选择海报图片',
+      properties: ['openFile'],
+      filters: [
+        { name: '图片', extensions: ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp'] },
+        { name: '所有文件', extensions: ['*'] },
+      ],
+    });
+    if (result.canceled || !result.filePaths || !result.filePaths[0]) return { ok: false, canceled: true };
+    const filePath = result.filePaths[0];
+    // 读取文件并转为 base64 data URL（与现有 posterStore 格式一致）
+    const buf = fs.readFileSync(filePath);
+    const ext = path.extname(filePath).slice(1).toLowerCase();
+    const mimeMap = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp', gif: 'image/gif', bmp: 'image/bmp' };
+    const mime = mimeMap[ext] || 'image/jpeg';
+    const b64 = buf.toString('base64');
+    return { ok: true, dataUrl: 'data:' + mime + ';base64,' + b64, fileName: path.basename(filePath) };
+  } catch (e) {
+    return { ok: false, error: e.message || 'PICK_IMAGE_FAILED' };
+  }
+});
+
 // 影视态 home 自定义海报持久化：改用 userData 文件存储，
 // 彻底绕开 localStorage 配额上限（base64 本地大图易超限导致跨启动丢失）
 // 与端口/origin 不一致（findOpenPort 在端口冲突时跳变导致 localStorage 不跨启动）的不确定性。
@@ -1207,6 +1233,42 @@ ipcMain.handle('stellaflix-video-poster', async (event, action, payload) => {
     return { ok: false, error: 'UNKNOWN_ACTION' };
   } catch (e) {
     return { ok: false, error: e.message || 'VIDEO_POSTER_FAILED' };
+  }
+});
+
+// 影视模块追片/片单/历史海报本地缓存：存 base64 data URL 到 userData/poster-cache.json，
+// 避免 image.tmdb.org 在国内网络环境下偶发不可达导致海报白图。
+const POSTER_CACHE_FILE = path.join(app.getPath('userData'), 'poster-cache.json');
+ipcMain.handle('stellaflix-poster-cache', async (event, action, payload) => {
+  try {
+    if (action === 'get') {
+      const key = payload;
+      try {
+        const text = await fs.promises.readFile(POSTER_CACHE_FILE, 'utf8');
+        const all = JSON.parse(text);
+        return { ok: true, data: (key && all && typeof all[key] === 'string') ? all[key] : null };
+      } catch (e) {
+        return { ok: true, data: null };
+      }
+    } else if (action === 'set') {
+      const key = payload && payload.key;
+      const dataUrl = payload && payload.dataUrl;
+      if (!key || !dataUrl) return { ok: false, error: 'INVALID_PAYLOAD' };
+      let all = {};
+      try {
+        const text = await fs.promises.readFile(POSTER_CACHE_FILE, 'utf8');
+        all = JSON.parse(text);
+      } catch (e) { /* 文件不存在或损坏 → 空对象 */ }
+      all[key] = dataUrl;
+      await fs.promises.writeFile(POSTER_CACHE_FILE, JSON.stringify(all), 'utf8');
+      return { ok: true };
+    } else if (action === 'clear') {
+      try { await fs.promises.unlink(POSTER_CACHE_FILE); } catch (e) { /* 不存在即无需删 */ }
+      return { ok: true };
+    }
+    return { ok: false, error: 'UNKNOWN_ACTION' };
+  } catch (e) {
+    return { ok: false, error: e.message || 'POSTER_CACHE_FAILED' };
   }
 });
 
@@ -1530,10 +1592,12 @@ async function createWindow() {
     sendWindowState(mainWindow);
   });
 
-  // 开发模式自动打开 DevTools（方便调试；发布构建前移除此块）
-  mainWindow.webContents.once('did-finish-load', () => {
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
-  });
+  // 默认不再自动打开 DevTools；如需调试，启动前设置环境变量 STELLAFLIX_OPEN_DEVTOOLS=1
+  if (process.env.STELLAFLIX_OPEN_DEVTOOLS === '1') {
+    mainWindow.webContents.once('did-finish-load', () => {
+      mainWindow.webContents.openDevTools({ mode: 'detach' });
+    });
+  }
 
   mainWindow.on('maximize', () => sendWindowState(mainWindow));
   mainWindow.on('unmaximize', () => sendWindowState(mainWindow));

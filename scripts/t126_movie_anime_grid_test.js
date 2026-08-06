@@ -58,7 +58,7 @@ assert(onlineJs.indexOf('renderBrowse') === -1 && onlineJs.indexOf('function ren
 console.log('\n=== B. page-media-grid.js 网格/详情/无限滚动 ===\n');
 assert(gridJs.indexOf('sfv-grid') !== -1 && gridJs.indexOf('sfv-card') !== -1, '含 .sfv-grid / .sfv-card 网格');
 assert(gridJs.indexOf('sfv-card-rating') !== -1, '含评分徽章 .sfv-card-rating');
-assert(gridJs.indexOf('sfv-tmdb-detail') !== -1, '含 TMDB 详情 .sfv-tmdb-detail');
+assert(gridJs.indexOf('sfv-tmdb-detail') === -1, 'page-media-grid.js 不再内联废弃的 .sfv-tmdb-detail 详情样式（详情页回滚为 toast 占位）');
 assert(gridJs.indexOf('SFV.tmdb.popular(mediaType') !== -1, '调用 SFV.tmdb.popular(mediaType, p)');
 assert(gridJs.indexOf('IntersectionObserver') !== -1 &&
        gridJs.indexOf("rootMargin: '400px'") !== -1, '无限滚动 IntersectionObserver(rootMargin 400px)');
@@ -89,7 +89,7 @@ assert(/\.sfv-card-cover\s*\{[^}]*position:\s*relative/.test(playerCss),
        '.sfv-card-cover 设 position: relative（徽章定位基准）');
 assert(playerCss.indexOf('.sfv-browse-status') !== -1, '.sfv-browse-status 状态行样式存在');
 assert(playerCss.indexOf('.sfv-browse-foot') !== -1, '.sfv-browse-foot TMDB 署名样式存在');
-assert(playerCss.indexOf('.sfv-tmdb-detail') !== -1, '.sfv-tmdb-detail 详情暗色覆盖样式存在');
+assert(playerCss.indexOf('.sfv-tmdb-detail') === -1, '.sfv-tmdb-detail 废弃详情样式已移除（v2/米白详情页清理）');
 
 // ================================================================
 // E. 回归：index.html 零 grid-diy 引用

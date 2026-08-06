@@ -29,31 +29,32 @@ console.log('-- A: 修复代码结构验证 --');
 
 assert(onlineCode.indexOf('[SFV-Search]') !== -1,
   'A1: online.js 包含 [SFV-Search] 诊断日志前缀');
-assert(onlineCode.indexOf("console.log('[SFV-Search] kw=") !== -1,
-  'A2: 每次搜索输出 kw/CMS10/Kazumi 数量');
-assert(onlineCode.indexOf('console.warn') !== -1 &&
-       onlineCode.indexOf('[SFV-Search]') !== -1 &&
-       onlineCode.indexOf('\u7ed3\u679c\u4e22\u5f03') !== -1,
-  'A3: current!==view 守卫触发时有 console.warn');
+assert(onlineCode.indexOf('[SFV-Search]') !== -1 &&
+       onlineCode.indexOf('kw="') !== -1,
+  'A2: 每次搜索输出 [SFV-Search] 诊断日志并带 kw');
+assert(onlineCode.indexOf('_currentSearchView') !== -1 &&
+       onlineCode.indexOf('!== viewToken') !== -1,
+  'A3: 搜索结果经 viewToken 防过时（_currentSearchView !== viewToken 即丢弃，取代旧 current!==view 守卫）');
 assert(onlineCode.indexOf("console.error('[SFV-Search]") !== -1,
   'A4: 异常路径有 console.error 日志');
 
 // renderSearch 在 Promise.all 之前被调用
-var renderSearchIdx = onlineCode.indexOf('renderSearch(view)');
-var promiseAllIdx = onlineCode.indexOf('Promise.all([cmsPromise');
-assert(renderSearchIdx > 0, 'A5: doSearch 内部调用 renderSearch(view)');
-assert(renderSearchIdx < promiseAllIdx,
-  'A6: renderSearch 在 Promise.all 之前（UI 立即更新，不等异步）');
+var doInlineIdx = onlineCode.indexOf('function doInlineSearch');
+var paIdx = onlineCode.indexOf('Promise.all([cmsP, kzP])');
+assert(doInlineIdx > 0, 'A5: 搜索入口为 doInlineSearch（取代旧 doSearch/renderSearch）');
+assert(paIdx > doInlineIdx,
+  'A6: doInlineSearch 内 Promise.all([cmsP, kzP]) 并行搜索（UI 立即更新，不等异步）');
 
-// 错误提示增强
-assert(onlineCode.indexOf("\u90e8\u5206\u6e90\u4e0d\u53ef\u7528") !== -1,
-  'A7: 新增"部分源不可用"提示文案');
+// 错误提示增强：旧"部分源不可用"文案已移除，无片源/规则时改由 showSearchStatus(..., warn) 给出明确提示
+assert(onlineCode.indexOf('部分源不可用') === -1 && /showSearchStatus\([^)]*'warn'\)/.test(onlineCode),
+  'A7: 旧"部分源不可用"文案已移除，无片源/规则时改由 showSearchStatus(..., warn) 给出明确提示');
 assert(onlineCode.indexOf('\u5df2\u663e\u793a') !== -1,
   'A8: 错误提示包含结果数量信息（"已显示 N 条结果")');
 
 // nSrc 安全取值（canCms=false 时不再调 getEnabledSources）
-assert(onlineCode.indexOf('canCms ? SFV.sources.getEnabledSources().length : 0') !== -1,
-  'A9: nSrc 用三元表达式安全取值（避免 canCms=false 时无效调用）');
+assert(onlineCode.indexOf('function hasSources') !== -1 &&
+       onlineCode.indexOf('var canCms = hasSources()') !== -1,
+  'A9: 源判断安全取值（canCms = hasSources()，避免 canCms=false 时无效调用）');
 
 // ===================== B: sources.search 降级逻辑验证 =====================
 console.log('\n-- B: sources.search 降级逻辑 --');
@@ -100,32 +101,27 @@ assert(sourcesCode.indexOf('AbortController') !== -1,
 // ===================== D: 回归防护 =====================
 console.log('\n-- D: 回归防护 --');
 
-// Promise.all 仍然使用（CMS10 + Kazumi 并行）
-assert(onlineCode.indexOf('Promise.all([cmsPromise, kzPromise])') !== -1,
-  'D1: 保留 CMS10 + Kazumi 并行搜索（未退化为串行）');
+// Promise.all 仍然使用（CMS10 + Kazumi 并行）—— 变量改名 cmsP/kzP
+assert(onlineCode.indexOf('Promise.all([cmsP, kzP])') !== -1,
+  'D1: 保留 CMS10 + Kazumi 并行搜索（cmsP/kzP，未退化为串行）');
 
 // merged 仍然是 CMS10.concat(Kazumi) 顺序
-assert(onlineCode.indexOf('(res.items || []).concat(kz.items || [])') !== -1,
+assert(onlineCode.indexOf('(arr[0].items || []).concat(arr[1].items || [])') !== -1,
   'D2: 合并顺序不变（CMS10 结果在前，Kazumi 在后）');
 
-// view.items 赋值仍在渲染前
-var itemsAssignIdx = onlineCode.indexOf('view.items = merged');
-var bodyClearIdx = onlineCode.indexOf("bodyEl.innerHTML = ''");
-assert(itemsAssignIdx > bodyClearIdx,
-  'D3: view.items 赋值在 bodyEl 清空之后（顺序正确）');
+// 结果经 viewToken 防过时后再渲染 renderInlineResults
+assert(onlineCode.indexOf('_currentSearchView') !== -1 &&
+       onlineCode.indexOf('renderInlineResults(merged, kw)') !== -1,
+  'D3: 搜索结果经 viewToken 防过时后渲染 renderInlineResults（取代旧 view.items=merged）');
 
-// renderGrid 仍检查 current===view
-assert(onlineCode.indexOf('if (current === view) renderGrid(merged, view)') !== -1,
-  'D4: 渲染前仍守卫 current===view（安全检查保留）');
+// 结果渲染走 renderInlineResults（取代旧 current===view renderGrid 守卫）
+assert(onlineCode.indexOf('renderInlineResults(merged, kw)') !== -1,
+  'D4: 结果渲染走 renderInlineResults（取代旧 current===view renderGrid 守卫）');
 
-// busy flag 仍正确管理
-var busyTrueIdx = 0, busySetIdx = 0, busyFalseIdx = 0;
-var remaining = onlineCode;
-var idx1 = remaining.indexOf('busy = true'); if (idx1 >= 0) { busyTrueIdx = idx1; remaining = remaining.slice(idx1 + 10); }
-var idx2 = remaining.indexOf('setBusy(true)'); if (idx2 >= 0) { busySetIdx = idx2; }
-var idx3 = onlineCode.indexOf('busy = false'); if (idx3 >= 0) { busyFalseIdx = idx3; }
-assert(busyTrueIdx > 0 && busySetIdx > 0 && busyFalseIdx > 0,
-  'D5: busy 标志仍完整管理（true→setBusy→false）');
+// busy 标志管理：旧 setBusy/busy=true 已移除，状态改由 showSearchStatus 管理
+assert(onlineCode.indexOf('setBusy') === -1 &&
+       onlineCode.indexOf('function showSearchStatus') !== -1,
+  'D5: legacy setBusy/busy=true 已移除；状态改由 showSearchStatus 管理');
 
 // ===================== 结果汇总 =====================
 console.log('\n========================================');

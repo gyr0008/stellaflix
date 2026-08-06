@@ -167,12 +167,10 @@ console.log('\n=== B. 运行时：点击电影 tab → 平级内容切换 ===\n'
 
 // ---------------------------------------------------------------- C. 详情页自带返回按钮
 console.log('\n=== C. 详情页自带返回按钮（层级导航）===\n');
-assert(gridJs.indexOf('SFV.DetailView.build(') === -1,
-       'page-media-grid.js showDetail 不再调用已删除的 SFV.DetailView.build(...（Phase 1 删除详情模块）');
-assert(gridJs.indexOf('SFV.online.renderDetail(') !== -1,
-       'page-media-grid.js showDetail 路由到 v2 详情页（renderDetail 单一汇聚点 → SFV.detailV2.build）');
-assert(gridJs.indexOf('详情页即将上线') === -1,
-       'page-media-grid.js showDetail 不再降级为「即将上线」轻提示（v2 已上线）');
+assert(gridJs.indexOf("ui.el('button', 'sfv-detail-back', '← 返回')") !== -1,
+       'page-media-grid.js showDetail 注入 .sfv-detail-back 返回按钮（不依赖被隐藏的全局头）');
+assert(gridJs.indexOf("back.addEventListener('click', function () { if (showGridFn) showGridFn(); })") !== -1,
+       '详情返回按钮点击 → 关闭详情回到网格');
 
 // ---------------------------------------------------------------- D. 运行时：点击「首页」tab 回到真正影视首页
 console.log('\n=== D. 运行时：点击首页 tab → 关闭覆盖层并刷新影视首页 ===\n');

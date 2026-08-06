@@ -1,4 +1,4 @@
-# Mineradio Project Memory
+# Stellaflix Project Memory
 
 ### 2026-07-17 - 下一句歌词默认预览
 

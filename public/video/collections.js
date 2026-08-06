@@ -106,6 +106,8 @@
 
   // ---------------------------------------------------------------- 用户自建片单夹（C 玩法）
   var USER_KEY = 'stellaflix-user-collections';
+  // 观看标记（看过 / 弃）：独立键，不与片单夹耦合，便于搜索结果前端过滤
+  var MARKS_KEY = 'stellaflix-view-marks';
   var LS = global.localStorage;
 
   function loadUser() {
@@ -272,6 +274,62 @@
     return f ? (f.items || []) : [];
   }
 
+  // ---------------------------------------------------------------- 看过 / 弃 标记（Kazumi 隐藏已看/已弃）
+  // 主键策略：搜索结果去重后无单一 id，以其身份键（小写 title|year）为主；
+  // TMDB 条目（含 mediaType/id）回退 mediaType:id；源 variant 直接用其复合 key。
+  function loadMarks() {
+    if (!LS) return { watched: {}, abandoned: {} };
+    try {
+      var raw = LS.getItem(MARKS_KEY);
+      if (!raw) return { watched: {}, abandoned: {} };
+      var p = JSON.parse(raw);
+      return { watched: p.watched || {}, abandoned: p.abandoned || {} };
+    } catch (e) { return { watched: {}, abandoned: {} }; }
+  }
+  function saveMarks(data) {
+    if (!LS) return false;
+    try { LS.setItem(MARKS_KEY, JSON.stringify(data)); return true; }
+    catch (e) { return false; }
+  }
+  function markKey(item) {
+    if (!item) return null;
+    if (item.key) return String(item.key);
+    if (item.title) return String(item.title).toLowerCase() + '|' + (item.year || '');
+    if (item.id != null) return (item.mediaType || 'movie') + ':' + item.id;
+    return null;
+  }
+  function setMark(item, type, on) {
+    var k = markKey(item);
+    if (!k) return false;
+    type = (type === 'abandoned') ? 'abandoned' : 'watched';
+    var d = loadMarks();
+    if (on) d[type][k] = Date.now();
+    else delete d[type][k];
+    return saveMarks(d);
+  }
+  function isMarked(item, type) {
+    var k = markKey(item);
+    if (!k) return false;
+    type = (type === 'abandoned') ? 'abandoned' : 'watched';
+    return !!loadMarks()[type][k];
+  }
+  function markWatched(item) { return setMark(item, 'watched', true); }
+  function unmarkWatched(item) { return setMark(item, 'watched', false); }
+  function isWatched(item) { return isMarked(item, 'watched'); }
+  function markAbandoned(item) { return setMark(item, 'abandoned', true); }
+  function unmarkAbandoned(item) { return setMark(item, 'abandoned', false); }
+  function isAbandoned(item) { return isMarked(item, 'abandoned'); }
+  function toggleMark(item, type) {
+    if (isMarked(item, type)) { setMark(item, type, false); return false; }
+    setMark(item, type, true); return true;
+  }
+  // 批量判定辅助：返回某类型下的主键集合（供搜索结果前端隐藏过滤）
+  function getMarkedKeys(type) {
+    type = (type === 'abandoned') ? 'abandoned' : 'watched';
+    var d = loadMarks();
+    return Object.keys(d[type] || {});
+  }
+
   // ---------------------------------------------------------------- 导出
   SFV.collections = {
     getTabs: getTabs,
@@ -284,6 +342,15 @@
     deleteUserFolder: deleteUserFolder,
     addUserItem: addUserItem,
     removeUserItem: removeUserItem,
-    getUserFolderItems: getUserFolderItems
+    getUserFolderItems: getUserFolderItems,
+    // 看过 / 弃 标记
+    markWatched: markWatched,
+    unmarkWatched: unmarkWatched,
+    isWatched: isWatched,
+    markAbandoned: markAbandoned,
+    unmarkAbandoned: unmarkAbandoned,
+    isAbandoned: isAbandoned,
+    toggleMark: toggleMark,
+    getMarkedKeys: getMarkedKeys
   };
 })(typeof window !== 'undefined' ? window : this);

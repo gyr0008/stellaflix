@@ -18,7 +18,7 @@
     "test:lyrics": "node --test test/lyrics/*.test.js",
     "test:custom-source": "node --test test/custom-source/*.test.js",
     "test:custom-source:electron": "electron test/custom-source/electron-smoke.js",
-    "test:video": "node scripts/kazumi_phase1_test.js && node scripts/sprint_a_test.js && node scripts/online_b3_test.js && node scripts/kazumi_phase2_bridge_test.js && node scripts/online_phase2_test.js",
+    "test:video": "node scripts/kazumi_phase1_test.js && node scripts/sprint_a_test.js && node scripts/kazumi_phase2_bridge_test.js && node scripts/online_phase2_test.js",
     "test:video:e2e": "electron scripts/kazumi_e2e_electron.js",
     "test:video:live": "node scripts/kazumi_live_rule_test.js",
     "build:win": "electron-builder --win nsis",

@@ -101,25 +101,13 @@
     closeBtn.addEventListener('click', close);
     headEl.appendChild(backBtn); headEl.appendChild(titleEl); headEl.appendChild(actsEl); headEl.appendChild(closeBtn);
 
-    var srch = el('div', 'sfv-browse-search');
-    searchInput = el('input', 'sfv-browse-search-input');
-    searchInput.type = 'text';
-    searchInput.placeholder = '搜索影片 / 剧集（聚合已启用片源）';
-    var bGo = el('button', 'sfv-browse-search-btn', '搜索');
-    bGo.type = 'button';
-    searchBtn = bGo;
-    var submit = function () { doSearch((searchInput.value || '').trim()); };
-    bGo.addEventListener('click', submit);
-    searchInput.addEventListener('keydown', function (ev) {
-      if (ev && (ev.key === 'Enter' || ev.keyCode === 13)) submit();
-    });
-    srch.appendChild(searchInput); srch.appendChild(bGo);
+    // [清理] legacy 覆盖层 inline 搜索栏已移除：搜索统一走 #sfv-search-page（openSearchPage）。
+    // 覆盖层 search 视图（mode:'search' / renderSearch / online.js doSearch）已废弃，避免头部残留“在线搜索”。
 
     noteEl = el('div', 'sfv-browse-note');
     bodyEl = el('div', 'sfv-browse-body');
 
     overlay.appendChild(headEl);
-    overlay.appendChild(srch);
     overlay.appendChild(noteEl);
     overlay.appendChild(bodyEl);
     (doc.body || doc.documentElement).appendChild(overlay);
@@ -137,6 +125,7 @@
       global.addEventListener('keydown', function (ev) {
         if (!isOpen()) return;
         if (ev && (ev.key === 'Escape' || ev.keyCode === 27)) {
+          if (SFV.SearchFilter && SFV.SearchFilter.isOpen && SFV.SearchFilter.isOpen()) return;
           ev.preventDefault();
           ev.stopPropagation();
           goBack();
@@ -166,10 +155,24 @@
       global.addEventListener(SFV.state && SFV.state.EVENT ? SFV.state.EVENT : 'spacechange', function (ev) {
         var mode = ev && ev.detail ? ev.detail.spaceMode : (isVideoSpace() ? 'video' : 'music');
         if (mode !== 'video' && isOpen()) close();
-        // 通知 3D 歌单架立即重建
+        // 通知 3D 歌单架立即重建（音乐态下重建；影视态下 setMode('off') 已使 group=null，rebuild 自动 no-op）
         if (typeof global.scheduleShelfRebuild === 'function') {
           try { global.scheduleShelfRebuild('video-space-change', true); } catch (e) {}
         }
+        // Phase 3 · 选项 A：影视态自动隐藏 3D 歌单架，回音乐态复原到用户偏好 fx.shelf。
+        // 直接调 shelfManager.setMode（不碰 fx.shelf / UI 按钮 / 存档），零侵入 shelf 核心逻辑。
+        // 原理：setMode('off') 将 group 置 null 并从 scene 移除；animate() 仍无条件调 update 但 update 在 group=null 时早退，
+        // 故影视态下歌单架零渲染、零冲突（与方案 D 海报墙共用同一相机/场景也不再重叠）。
+        try {
+          if (global.shelfManager && typeof global.shelfManager.setMode === 'function') {
+            if (mode === 'video') {
+              global.shelfManager.setMode('off');
+            } else {
+              var _prevShelf = (global.fx && /^(off|side|stage)$/.test(String(global.fx.shelf || ''))) ? global.fx.shelf : 'side';
+              global.shelfManager.setMode(_prevShelf);
+            }
+          }
+        } catch (e) { console.warn('[SFV] 歌单架空间切换处理失败', e); }
         // 空间切换时立即更新第5卡文案
         try {
           var vt = doc.getElementById('home-video-title');
@@ -207,6 +210,209 @@
   var resultArea = null;   // #sfv-search-result-area
   var _searchBound = false;
   var _currentSearchView = null;
+
+  // ---- 搜索筛选状态（对齐 Kazumi SearchFilterState + 隐藏已看/已弃 开关）----
+  var _filterState = null;       // SFV.SearchFilterCore.SearchFilterState 实例
+  var _hideWatched = false;      // 隐藏已看
+  var _hideAbandoned = false;    // 隐藏已弃
+  var _filterFab = null;         // 筛选 FAB（动态创建）
+  var _chipsBar = null;          // 已应用筛选条容器
+
+  function getFilterState() {
+    if (!_filterState) {
+      var seeded = (SFV.SearchFilterCore && SFV.SearchFilterCore.buildJunkDefaults)
+        ? SFV.SearchFilterCore.buildJunkDefaults() : null;
+      _filterState = (SFV.SearchFilterCore && SFV.SearchFilterCore.SearchFilterState)
+        ? new SFV.SearchFilterCore.SearchFilterState(seeded || {})
+        : null;
+    }
+    return _filterState;
+  }
+
+  // ---- 纯排除模型：客户端结果过滤 ----
+  // 排除维度无法表达为 CMS/Bangumi 查询语法，统一在结果合并后剔除。
+  // 说明：当前 CMS/Kazumi 归一化结果仅含 title/year/area/typeName/remarks/content，
+  // 因此「类型 / 地区 / 年份」可可靠排除；「评分 / 标签 / 星期 / 排名」依赖片源元数据，
+  // 当前结果无这些字段时该排除不生效（待后续维度讨论补全元数据来源）。
+
+  function _containsEither(a, b) {
+    return (a && a.indexOf(b) >= 0) || (b && b.indexOf(a) >= 0);
+  }
+  function _typeMatches(excl, t) {
+    if (!t) return false;
+    if (t.indexOf(excl) >= 0) return true;                       // 动漫 / 纪录片 / 综艺 等直接包含
+    if (excl === '电影' && /片$/.test(t) && t !== '纪录片') return true; // 动作片/喜剧片…（纪录片单列）
+    if (excl === '剧集' && /剧$/.test(t)) return true;            // 国产剧/日韩剧/电视剧…
+    return false;
+  }
+  function _itemTypeExcluded(it, arr) {
+    var t = it.typeName || it.vodType || '';
+    for (var i = 0; i < arr.length; i++) { if (_typeMatches(arr[i], t)) return true; }
+    return false;
+  }
+  function _itemRegionExcluded(it, arr) {
+    var a = it.area || '';
+    for (var i = 0; i < arr.length; i++) { if (_containsEither(a, arr[i])) return true; }
+    return false;
+  }
+  function _itemYearExcluded(it, year) {
+    var y = parseInt(it.year, 10);
+    if (isNaN(y)) return false; // 无年份不剔除
+    return y < year;
+  }
+  function _itemScoreExcluded(it, min) {
+    var s = parseFloat(it.score != null ? it.score : (it.vodScore != null ? it.vodScore : ''));
+    if (isNaN(s)) return false;
+    return s < min;
+  }
+  function _itemKeywordExcluded(it, arr) {
+    // 简介 + 标题 + 备注 任一含关键词子串即隐藏（大小写不敏感）
+    var hay = ((it.content || '') + ' ' + (it.title || '') + ' ' + (it.remarks || '')).toLowerCase();
+    for (var i = 0; i < arr.length; i++) {
+      if (arr[i] && hay.indexOf(String(arr[i]).toLowerCase()) >= 0) return true;
+    }
+    return false;
+  }
+  function _itemEpisodeExcluded(it, n) {
+    // 结构识别：playUrl 集数超过阈值即隐藏（竖屏短剧多为 60–100+ 集）。
+    // 电影 playUrl 仅 1 集天然安全；无 playUrl（如 Kazumi 搜索结果）不判定。
+    if (n == null || !it || !it.playUrl) return false;
+    var cnt = (SFV.sources && typeof SFV.sources.countEpisodes === 'function')
+      ? SFV.sources.countEpisodes(it.playUrl) : 0;
+    if (!cnt) return false;
+    return cnt > n;
+  }
+
+  // 懒加载 TMDB 评分补全：仅当设置了 minScore 才调用。
+  // 按 title|year 内存缓存；约 4 路并发；失败项 score 保持 undefined（不被 minScore 误杀）。
+  var _scoreCache = {};
+  function _scoreKey(it) { return (it.title || '').toLowerCase() + '|' + (it.year || ''); }
+  function enrichScores(items) {
+    if (!items || !items.length) return Promise.resolve(items);
+    var tmdb = SFV.tmdb;
+    if (!tmdb || !tmdb.search) return Promise.resolve(items);
+    var pending = items.filter(function (it) {
+      if (it.tmdbRating != null) { it.score = it.tmdbRating; return false; } // 聚合已补评分，复用
+      return _scoreCache[_scoreKey(it)] === undefined;
+    });
+    if (!pending.length) {
+      items.forEach(function (it) { var s = _scoreCache[_scoreKey(it)]; if (s != null) it.score = s; });
+      return Promise.resolve(items);
+    }
+    var CONC = 4;
+    var idx = 0;
+    function worker() {
+      if (idx >= pending.length) return Promise.resolve();
+      var it = pending[idx++];
+      var key = _scoreKey(it);
+      if (_scoreCache[key] !== undefined) return worker(); // 已被并发 worker 认领/查询，跳过
+      _scoreCache[key] = null; // 认领哨兵，防止同标题并发重复请求
+      return Promise.resolve(tmdb.search(it.title)).then(function (res) {
+        var top = (res && res.length) ? res[0] : null;
+        var rating = top && typeof top.rating === 'number' ? top.rating : null;
+        _scoreCache[key] = rating;
+        if (rating != null) it.score = rating;
+      }).catch(function () {
+        _scoreCache[key] = null; // 标记已查无果，避免重复请求
+      }).then(worker);
+    }
+    var workers = [];
+    for (var w = 0; w < Math.min(CONC, pending.length); w++) workers.push(worker());
+    return Promise.all(workers).then(function () {
+      items.forEach(function (it) { var s = _scoreCache[_scoreKey(it)]; if (s != null) it.score = s; });
+      return items;
+    });
+  }
+
+  // 应用「排除筛选 + 隐藏已看/已弃」前端过滤
+  function applyResultFilters(items) {
+    var fs = getFilterState();
+    if (!fs || !items) return items;
+    var exclTypes = fs.excludeTypes || [];
+    var exclRegions = fs.excludeRegions || [];
+    var exclKeywords = fs.excludeKeywords || [];
+    var exclYear = fs.excludeBeforeYear != null ? fs.excludeBeforeYear : null;
+    var minScore = fs.minScore != null ? fs.minScore : null;
+    var exclEpi = fs.excludeEpisodeAbove != null ? fs.excludeEpisodeAbove : null;
+    var hasExcl = exclTypes.length || exclRegions.length || exclKeywords.length ||
+      exclYear != null || minScore != null || exclEpi != null;
+    if (!hasExcl && !_hideWatched && !_hideAbandoned) return items;
+    return items.filter(function (it) {
+      if (_hideWatched && SFV.collections && SFV.collections.isWatched(it)) return false;
+      if (_hideAbandoned && SFV.collections && SFV.collections.isAbandoned(it)) return false;
+      if (exclTypes.length && _itemTypeExcluded(it, exclTypes)) return false;
+      if (exclRegions.length && _itemRegionExcluded(it, exclRegions)) return false;
+      if (exclYear != null && _itemYearExcluded(it, exclYear)) return false;
+      if (exclKeywords.length && _itemKeywordExcluded(it, exclKeywords)) return false;
+      if (minScore != null && _itemScoreExcluded(it, minScore)) return false;
+      if (exclEpi != null && _itemEpisodeExcluded(it, exclEpi)) return false;
+      return true;
+    });
+  }
+
+  // 确保筛选 FAB 与 chips 容器存在并可见
+  function ensureFilterUi() {
+    var page = getSearchPage();
+    if (!page) return;
+    if (!SFV.SearchFilter || !SFV.SearchFilter.createFab) return;
+
+    if (!_chipsBar) {
+      _chipsBar = doc.getElementById('sfv-search-filter-chips');
+    }
+    if (!_filterFab) {
+      _filterFab = SFV.SearchFilter.createFab('筛选', function () { openFilterPanel(); });
+      // T-移植：FAB 内嵌到搜索页（随页面显隐），避免遮挡音乐态 fx-fab
+      page.appendChild(_filterFab);
+    }
+    // chips 内容/可见性交由 renderFilterChips 处理
+    renderFilterChips();
+  }
+
+  function renderFilterChips() {
+    if (!_chipsBar || !SFV.SearchFilter || !SFV.SearchFilter.renderChips) return;
+    var fs = getFilterState();
+    var hasAny = (fs && fs.hasAdvancedFilters && fs.hasAdvancedFilters()) || _hideWatched || _hideAbandoned;
+    _chipsBar.style.display = hasAny ? '' : 'none';
+    SFV.SearchFilter.renderChips(_chipsBar, fs || {}, { notShowWatched: _hideWatched, notShowAbandoned: _hideAbandoned }, {
+      onRemoveType: function (t) { var fs2 = getFilterState(); var i = fs2.excludeTypes.indexOf(t); if (i >= 0) { fs2.excludeTypes.splice(i, 1); reSearch(); } },
+      onRemoveRegion: function (r) { var fs2 = getFilterState(); var i = fs2.excludeRegions.indexOf(r); if (i >= 0) { fs2.excludeRegions.splice(i, 1); reSearch(); } },
+      onRemoveKeyword: function (t) { var fs2 = getFilterState(); var i = fs2.excludeKeywords.indexOf(t); if (i >= 0) { fs2.excludeKeywords.splice(i, 1); reSearch(); } },
+      onRemoveYear: function () { getFilterState().excludeBeforeYear = null; reSearch(); },
+      onRemoveScore: function () { getFilterState().minScore = null; reSearch(); },
+      onRemoveEpisode: function () { getFilterState().excludeEpisodeAbove = null; reSearch(); },
+      onRemoveSort: function () { getFilterState().sort = 'heat'; reSearch(); },
+      onToggleWatched: function () { _hideWatched = false; reSearch(); },
+      onToggleAbandoned: function () { _hideAbandoned = false; reSearch(); }
+    });
+  }
+
+  function reSearch() {
+    renderFilterChips();
+    var kw = (searchInput && searchInput.value) ? searchInput.value.trim() : '';
+    if (kw) doInlineSearch(kw);
+  }
+
+  function openFilterPanel() {
+    if (!SFV.SearchFilter || !SFV.SearchFilter.open) {
+      console.warn('[SFV-Search] 筛选模块未加载');
+      return;
+    }
+    var fs = getFilterState();
+    SFV.SearchFilter.open({
+      initialFilterState: fs ? fs.copyWith() : null,
+      initialNotShowWatched: _hideWatched,
+      initialNotShowAbandoned: _hideAbandoned,
+      onApply: function (res) {
+        if (res.filterState) _filterState = res.filterState.copyWith();
+        _hideWatched = !!res.notShowWatched;
+        _hideAbandoned = !!res.notShowAbandoned;
+        // 应用后重新搜索（带 filters）
+        var kw = (searchInput && searchInput.value) ? searchInput.value.trim() : '';
+        if (kw) doInlineSearch(kw);
+        else renderFilterChips();
+      }
+    });
+  }
 
   // ==== T120 关键修复：把 helper 函数定义在 IIFE 顶层，避免 bindCapsuleSearchBtn() 内
   // handler 引用 _getSearchInput 时报 ReferenceError（之前 helper 定义在 `{ ... }` 块内，
@@ -451,6 +657,7 @@
         return;
       }
       if (ev.key === 'Escape' || ev.keyCode === 27) {
+        if (SFV.SearchFilter && SFV.SearchFilter.isOpen && SFV.SearchFilter.isOpen()) return;
         // T123：分级 Esc —— 先关历史面板（如果显示），再关闭搜索页
         var hd = _getHistoryDrop();
         if (hd && hd.classList.contains('sfv-history-visible')) {
@@ -513,6 +720,7 @@
     renderHistoryDrop();
     clearResultArea();
     _currentSearchView = null;
+    ensureFilterUi(); // 挂载筛选 FAB + 渲染已应用筛选条
     if (searchInput) {
       searchInput.value = '';
       setTimeout(function () { if (searchInput) searchInput.focus(); }, 350);
@@ -640,19 +848,55 @@
     var viewToken = { mode: 'inline-search', query: kw, _ts: Date.now() };
     _currentSearchView = viewToken;
 
+    // 纯排除模型：排除维度统一在结果合并后客户端过滤，数据源只接收正向 keyword。
+    // Kazumi 桥接层会调用 fromFilterState 仅透传 keyword + 排序 hint。
+    var kzFilters = getFilterState() || {}; // SearchFilterState 实例，fromFilterState 仅序列化正向意图
+
     var cmsP = canCms ? SFV.sources.search(kw, { timeout: 12000 })
                       : Promise.resolve({ items: [], errors: [], noSource: true });
-    var kzP  = canKz  ? SFV.kazumi.search(kw)
+    var kzP  = canKz  ? SFV.kazumi.search(kw, { filters: kzFilters })
                       : Promise.resolve({ items: [], errors: [] });
 
     Promise.all([cmsP, kzP]).then(function (arr) {
       if (_currentSearchView !== viewToken) return; // 已过时丢弃
       var merged = (arr[0].items || []).concat(arr[1].items || []);
-      if (merged.length) {
-        renderInlineResults(merged, kw);
-      } else {
+      if (!merged.length) {
         showSearchStatus('\u6CA1\u6709\u627E\u5230\u300C' + esc(kw) + '\u300D\u7684\u76F8\u5173\u7ED3\u679C\u3002');
+        return;
       }
+      // 方案 B：本地清洗标题归并（同步，零 TMDB 请求）—— 先合掉同名不同源的重复卡
+      var aggregated = (SFV.SearchFilterCore && SFV.SearchFilterCore.aggregateByLocalKey)
+        ? SFV.SearchFilterCore.aggregateByLocalKey(merged)
+        : merged;
+      var tmdbEnabled = !!(SFV.tmdb && typeof SFV.tmdb.hasKey === 'function' && SFV.tmdb.hasKey() &&
+                           typeof SFV.tmdb.bestMatch === 'function');
+      showSearchStatus('\u6B63\u5728\u805A\u5408\u7ED3\u679C\u2026');
+      // 方案 A：TMDB 身份归一（异步，带超时/并发），不可用时仅用方案 B 本地分组
+      var pId = tmdbEnabled ? enrichIdentity(aggregated) : Promise.resolve(aggregated);
+      pId.then(function (afterId) {
+        if (_currentSearchView !== viewToken) return;
+        // 评分排除需 TMDB 补全：仅当用户设置了 minScore 才懒加载
+        var fsNow = getFilterState();
+        var needScore = fsNow && fsNow.minScore != null && tmdbEnabled;
+        if (needScore) showSearchStatus('\u6B63\u5728\u8865\u5168\u8BC4\u5206\u2026');
+        var chain = needScore
+          ? enrichScores(afterId).then(function (enriched) {
+              if (_currentSearchView !== viewToken) return null;
+              return applyResultFilters(enriched);
+            })
+          : Promise.resolve(applyResultFilters(afterId));
+        chain.then(function (filtered) {
+          if (_currentSearchView !== viewToken || filtered == null) return;
+          if (filtered.length) {
+            renderInlineResults(filtered, kw);
+          } else {
+            showSearchStatus('\u6CA1\u6709\u627E\u5230\u300C' + esc(kw) + '\u300D\u7684\u76F8\u5173\u7ED3\u679C\u3002');
+          }
+        });
+      }).catch(function (err) {
+        if (_currentSearchView !== viewToken) return;
+        showSearchStatus('\u641C\u7D22\u51FA\u9519\uFF1A' + (err && err.message ? err.message : '\u672A\u77E5\u9519\u8BEF'), 'error');
+      });
     }).catch(function (err) {
       if (_currentSearchView !== viewToken) return;
       showSearchStatus('\u641C\u7D22\u51FA\u9519\uFF1A' + (err && err.message ? err.message : '\u672A\u77E5\u9519\u8BEF'), 'error');
@@ -691,6 +935,7 @@
         img.src = it.pic;
         img.alt = esc(it.title || '');
         img.loading = 'lazy';
+        img.addEventListener('load', function () { img.classList.add('loaded'); });
         cover.appendChild(img);
       } else {
         cover.textContent = '\uD83C\uDFA5';
@@ -704,6 +949,12 @@
       // 副标题
       var sub = doc.createElement('div');
       sub.className = 'sfv-card-sub';
+      if (it.tmdbRating != null) {
+        var vote = doc.createElement('span');
+        vote.className = 'sfv-tmdb-vote';
+        vote.textContent = '\u2605 ' + Number(it.tmdbRating).toFixed(1);
+        sub.appendChild(vote);
+      }
       var st = '';
       if (it.year) st += it.year;
       if (it.variants && it.variants.length > 1) {
@@ -711,19 +962,25 @@
         st += it.variants.length + ' \u4E2A\u6765\u6E90';
       }
       if (!st) st = '\u70B9\u51FB\u67E5\u770B';
-      sub.textContent = st;
+      sub.appendChild(doc.createTextNode(st));
 
       card.appendChild(cover);
       card.appendChild(name);
       card.appendChild(sub);
       if (it.isKazumi) card.classList.add('sfv-card--kazumi');
 
-      // 点击 -> 关闭搜索页 -> 打开浏览层详情
+      // 点击 -> 关闭搜索页 -> 直接打开浏览层详情
+      // 不走 open() 的 search 模式（否则 renderSearch 会把头部标题写成"在线搜索"并残留到详情页）。
+      // 这里手动把覆盖层复位成 legacy 视图（清掉可能残留的 page/category 态），再由 openDetail/openKazumiDetail 渲染详情。
       (function (cap) {
         card.addEventListener('click', function () {
           closeSearchPage();
           ensure();
-          open();
+          overlay.classList.remove('sfv-browse--page');
+          overlay.style.top = '';
+          uiMode = 'view';
+          activePageId = null;
+          stack.length = 0;
           if (cap.isKazumi) openKazumiDetail(cap);
           else openDetail(cap);
         });
@@ -764,7 +1021,7 @@
         goToNav('anime');    // 动漫：独立页面（TMDB 热门动画网格）
         break;
       default:
-        ensure(); open();
+        break;
     }
   }
 
@@ -845,6 +1102,10 @@
   // 不是 #sfv-browse 覆盖层里的独立分页。点击首页 tab 时关闭覆盖层，回到并刷新真正的影视首页。
   function goHome() {
     ensure();
+    // 离开电影/动漫分页时回收 3D 海报网格（goHome 不走 router → browse3d.deactivate 必须显式触发）
+    if (SFV.browse3d && SFV.browse3d.isActive && SFV.browse3d.isActive()) {
+      try { SFV.browse3d.deactivate(); } catch (e) { /* 静默：避免首页渲染被 3D 清理阻塞 */ }
+    }
     close();                 // 关闭浏览覆盖层，露出下方 home.js 渲染的影视首页
     activePageId = 'home';   // 用于背景同步：首页不参与 movie/anime 自定义背景
     // T132-P2：回到影视首页时同步高亮「首页」tab
@@ -876,7 +1137,8 @@
     if (opts.mode === 'category' && opts.field) {
       pushView({ mode: 'category', field: opts.field });
     } else {
-      pushView({ mode: 'search' });
+      // 搜索通道已废弃：open() 仅支持 category 模式，不再进入 search 视图
+      console.warn('[SFV] open() 仅支持 category 模式（搜索通道已移除）');
     }
     overlay.classList.add('sfv-show');
     if (searchInput && searchInput.focus) { try { searchInput.focus(); } catch (e) {} }
@@ -896,7 +1158,7 @@
   function isOpen() { return !!(overlay && overlay.classList.contains('sfv-show')); }
 
   function openCategory(field) { open({ mode: 'category', field: field }); }
-  function openSearch() { open({ mode: 'search' }); }
+  // [清理] openSearch 已移除：搜索统一走 #sfv-search-page（openSearchPage）
 
   // ---------------------------------------------------------------- 视图栈
   function pushView(v) { stack.push(v); render(stack[stack.length - 1]); }
@@ -969,14 +1231,12 @@
     overlay.classList.toggle('sfv-browse--category', v.mode === 'category');
     bodyEl.innerHTML = '';
     setNote('');
-    if (v.mode === 'search') { setBrowseChrome(false); renderSearch(v); }
-    else if (v.mode === 'category') { setBrowseChrome(true); renderCategory(v); }
+    if (v.mode === 'category') { setBrowseChrome(true); renderCategory(v); }
     else if (v.mode === 'detail') { setBrowseChrome(true); renderDetail(v); }
     else if (v.mode === 'rules') { setBrowseChrome(true); renderRules(v); }
     else if (v.mode === 'collection-items') { setBrowseChrome(true); renderCollectionItems(v); }
     applyVideoPageBg(); // 影视分页背景：复用「视觉主色/封面取色」控件（死命令：双态互不影响）
   }
-
 
   // ===== 网格 DIY：从 localStorage 读取偏好并写入 .sfv-browse-body 的 CSS 变量 =====
   // 由 grid-diy.js 写入 localStorage('stellaflix-grid-diy-prefs')；此处每次 render 时应用，
@@ -1068,13 +1328,6 @@
     if (overlay) overlay.classList.toggle('sfv-browse--browse', !!on);
   }
 
-  // 搜索进行中：禁用输入与按钮 + 按钮改文案，防重复提交并给明确反馈
-  function setBusy(on) {
-    if (searchInput) searchInput.disabled = on;
-    if (searchBtn) { searchBtn.disabled = on; searchBtn.textContent = on ? '搜索中…' : '搜索'; }
-    if (overlay) overlay.classList.toggle('sfv-busy', !!on);
-  }
-
   // 居中 spinner 加载块（详情加载时用，优于纯文本）
   function renderLoading(text) {
     bodyEl.innerHTML = '';
@@ -1082,110 +1335,6 @@
     box.appendChild(el('div', 'sfv-spinner'));
     box.appendChild(el('div', 'sfv-loading-text', text || '加载中…'));
     bodyEl.appendChild(box);
-  }
-
-  // ---------------------------------------------------------------- 搜索
-  function renderSearch(v) {
-    titleEl.textContent = '在线搜索';
-    if (!hasSources()) {
-      setNote('尚未添加任何片源。请点击右上角「片源」，在「视觉控制台 → 片源」中导入一个 CMS10 接口（如苹果 CMS V10）。', 'warn');
-    }
-    if (v.query) {
-      var hint = el('div', 'sfv-browse-sub', '搜索：“' + esc(v.query) + '”');
-      bodyEl.appendChild(hint);
-    }
-    if (v.items) renderGrid(v.items, v);
-    else if (v.query && v.items === null) {
-      setNote('没有找到相关结果。');
-    }
-  }
-
-  function doSearch(kw) {
-    if (!kw) return;
-    if (busy) return; // 防止重复提交（按钮已禁用，双保险）
-    var canCms = hasSources();
-    var canKz = !!(SFV.kazumi && SFV.kazumi.hasRules && SFV.kazumi.hasRules());
-    if (!canCms && !canKz) {
-      setNote('请先在「片源」添加并启用 CMS10 接口，或在「规则」中导入 Kazumi 规则。', 'warn');
-      return;
-    }
-    busy = true;
-    setBusy(true);
-    var nSrc = canCms ? SFV.sources.getEnabledSources().length : 0;
-    var nKz = (SFV.kazumi && SFV.kazumi.listRules)
-      ? SFV.kazumi.listRules().filter(function (r) { return r.enabled && r.valid && r.searchMode === 'xpath'; }).length
-      : 0;
-    setNote('搜索中…（共 ' + nSrc + ' 个片源 / ' + nKz + ' 条规则）', 'info');
-    var view = { mode: 'search', query: kw, items: undefined };
-    // 用栈顶覆盖，保持返回语义
-    stack[stack.length - 1] = view; current = view;
-
-    // 立即切换到搜索视图状态（标题+提示），避免残留上一视图（如"心动"）的标题
-    renderSearch(view);
-
-    // CMS10 与 Kazumi 并行搜索，单路失败降级不阻断整体
-    var cmsPromise = canCms
-      ? SFV.sources.search(kw, { timeout: 12000 })
-      : Promise.resolve({ items: [], errors: [], noSource: true });
-    var kzPromise = canKz
-      ? SFV.kazumi.search(kw)
-      : Promise.resolve({ items: [], errors: [] });
-
-    Promise.all([cmsPromise, kzPromise]).then(function (arr) {
-      busy = false; setBusy(false);
-
-      // [诊断日志] 精确输出每路返回数量，便于定位 CMS10 结果丢失点
-      var res = arr[0] || { items: [], errors: [] };
-      var kz = arr[1] || { items: [], errors: [] };
-      console.log('[SFV-Search] kw="' + kw +
-        '" | CMS10 items=' + (res.items || []).length +
-        ' errors=' + (res.errors || []).length +
-        (res.noSource ? ' [noSource]' : '') +
-        ' | Kazumi items=' + (kz.items || []).length +
-        ' | isOpen=' + isOpen() +
-        ' | current===view=' + (current === view));
-
-      if (!isOpen() || current !== view) {
-        console.warn('[SFV-Search] 结果丢弃：isOpen=' + isOpen() + ' current!==view=' + (current !== view));
-        return; // 已被用户切换
-      }
-
-      var merged = (res.items || []).concat(kz.items || []);
-
-      var errors = [];
-      if (res.errors && res.errors.length) {
-        res.errors.forEach(function (e) { errors.push({ sourceName: e.name, reason: e.reason, type: 'cms' }); });
-      }
-      if (kz.errors && kz.errors.length) {
-        kz.errors.forEach(function (e) { errors.push({ sourceName: e.ruleName, reason: e.reason, type: 'kazumi' }); });
-      }
-
-      // 提示文案：错误优先，合并结果与错误不互相覆盖
-      // [修复] 即使有结果也展示 CMS10 错误（此前仅无结果时才提示）
-      if (errors.length && !merged.length) {
-        setNote('搜索失败：' + errors.map(function (e) { return e.sourceName + '(' + e.reason + ')'; }).join('、'), 'error');
-      } else if (errors.length) {
-        // 有结果但有部分失败：显示警告 + 具体哪些源失败
-        var failNames = errors.map(function (e) { return e.sourceName; }).join('、');
-        setNote('部分源不可用（' + failNames + '），已显示 ' + merged.length + ' 条结果', 'warn');
-      } else {
-        setNote('');
-      }
-
-      view.items = merged;
-      bodyEl.innerHTML = '';
-      if (merged.length) {
-        if (current === view) renderGrid(merged, view);
-      } else if (!errors.length) {
-        // 无结果且无错误：通用空态（不覆盖上面的错误/部分失败提示）
-        setNote(view && view.query ? '没有找到相关结果。' : '输入关键词开始搜索。', 'info');
-      }
-    }).catch(function (err) {
-      busy = false; setBusy(false);
-      if (!isOpen() || current !== view) return;
-      console.error('[SFV-Search] 异常:', err && err.message ? err.message : err);
-      setNote('搜索出错：' + (err && err.message ? err.message : '未知错误'), 'error');
-    });
   }
 
   // ---- TMDB 元数据统一层：海报 + 简介（元数据服务，非视频源，不触碰合规红线）----
@@ -1243,7 +1392,9 @@
   }
 
   function enrichTmdb(card, it) {
-    if (!it || !it.title || !SFV.tmdb || !SFV.tmdb.hasKey()) return;
+    if (!it || !it.title) return;
+    if (it._tmdbResolved) return; // 聚合层已补过 TMDB（方案 A），避免重复请求
+    if (!SFV.tmdb || !SFV.tmdb.hasKey()) return;
     // 已有本地缓存海报时，不再二次远程替换，避免网络抖动导致图片消失。
     if (it.pic && it.pic.indexOf('data:') === 0) return;
     SFV.tmdb.bestMatch(it.title).then(function (m) {
@@ -1258,10 +1409,18 @@
           ? SFV.posterCache.resolvePic(it.key, m.poster)
           : m.poster;
         img.src = picUrl; img.alt = it.title || ''; img.loading = 'lazy';
+        img.addEventListener('load', function () { img.classList.add('loaded'); });
         img.addEventListener('error', function () {
           img.remove();
           if (!prevHtml || prevHtml === '') cover.textContent = '🎬';
-          else cover.innerHTML = prevHtml; // 回退到 CMS10 原图
+          else {
+            cover.innerHTML = prevHtml; // 回退到 CMS10 原图
+            var fallbackImg = cover.querySelector('img');
+            if (fallbackImg && !fallbackImg.classList.contains('loaded')) {
+              if (fallbackImg.complete) fallbackImg.classList.add('loaded');
+              else fallbackImg.addEventListener('load', function () { fallbackImg.classList.add('loaded'); });
+            }
+          }
         });
         cover.textContent = ''; cover.appendChild(img);
       }
@@ -1281,6 +1440,70 @@
     }).catch(function () { /* 静默降级：保留 CMS10 原有展示 */ });
   }
 
+
+  // ---- 方案 A：TMDB 身份归一（多源聚合为一张卡的精确身份键）----
+  // 输入：aggregateByLocalKey 的聚合结果（已按清洗标题+年份合并）。
+  // 对每个候选并发 bestMatch（4 路 + 4s 超时），拿到 tmdbId|mediaType 作为
+  // 二次身份键再合并；相同身份键的多个源合并为一张卡，海报只补一次。
+  // TMDB 不可用/被禁用时直接返回方案 B 结果（enrichTmdb 也会因 hasKey 跳过）。
+  function enrichIdentity(aggs) {
+    if (!aggs || !aggs.length) return Promise.resolve(aggs);
+    if (!SFV.tmdb || typeof SFV.tmdb.hasKey !== 'function' || !SFV.tmdb.hasKey() ||
+        typeof SFV.tmdb.bestMatch !== 'function') {
+      return Promise.resolve(aggs);
+    }
+    var queue = aggs.slice();
+    var CONC = 4;
+    function worker() {
+      if (!queue.length) return Promise.resolve();
+      var item = queue.shift();
+      var p = Promise.race([
+        SFV.tmdb.bestMatch(item.title),
+        new Promise(function (res) { setTimeout(function () { res(null); }, 4000); })
+      ]).catch(function () { return null; });
+      return p.then(function (m) {
+        // 无论命中与否都标记已尝试，避免 renderInlineResults 的 enrichTmdb 重复请求
+        item._tmdbResolved = true;
+        if (m && m.id != null) {
+          item._tmdb = m;
+          item.tmdbId = m.id;
+          item.tmdbMediaType = m.mediaType;
+          if (m.rating != null) item.tmdbRating = m.rating;
+          if (m.poster) item.pic = m.poster; // TMDB 海报优先
+        }
+        return worker();
+      });
+    }
+    var ps = [];
+    for (var i = 0; i < CONC; i++) ps.push(worker());
+    return Promise.all(ps).then(function () {
+      // 二次合并：按 tmdbId|mediaType（精确身份键）
+      var tmap = {}; var torder = [];
+      aggs.forEach(function (a) {
+        var tk = (a._tmdb && a._tmdb.id != null)
+          ? (a._tmdb.id + '|' + a._tmdb.mediaType)
+          : ('local:' + a._localKey);
+        if (!tmap[tk]) { tmap[tk] = a; torder.push(tk); return; }
+        var prev = tmap[tk];
+        prev.cmsVars = (prev.cmsVars || []).concat(a.cmsVars || []);
+        prev.kzVars = (prev.kzVars || []).concat(a.kzVars || []);
+        prev.variants = (prev.variants || []).concat(a.variants || []);
+        if (!prev.pic && a.pic) prev.pic = a.pic;
+        if (!prev.playUrl && a.playUrl) prev.playUrl = a.playUrl;
+        if (!prev.year && a.year) prev.year = a.year;
+        if (!prev.typeName && a.typeName) prev.typeName = a.typeName;
+        if (!prev.content && a.content) prev.content = a.content;
+        if (prev.tmdbRating == null && a.tmdbRating != null) prev.tmdbRating = a.tmdbRating;
+      });
+      return torder.map(function (tk) {
+        var a = tmap[tk];
+        a.isKazumi = (a.variants || []).length > 0 &&
+          a.variants.every(function (v) { return v && v.isKazumi; });
+        delete a._localKey; // 清理内部字段
+        return a;
+      });
+    });
+  }
 
   function renderGrid(items, view) {
     bodyEl.innerHTML = '';
@@ -1525,14 +1748,21 @@
   }
 
   function renderDetail(view) {
-    // Phase 1.5 占位态：详情页 v2 已撤回，所有进详情路径统一 toast 拦截。
-    // 不渲染米白页、不写 bodyEl，避免黑屏/卡屏。等用户拍板下一步方案再接回。
+    // 详情页（Plex 风）接回：统一经 SFV.detail.build 渲染，失败静默降级为占位 toast，
+    // 避免黑屏/卡屏。2600ms 自动消失由 SFV.ui.toast 内置保证。
     setNote('');
     try {
-      if (SFV.ui && typeof SFV.ui.toast === 'function') {
+      if (SFV.detail && typeof SFV.detail.build === 'function') {
+        SFV.detail.build(bodyEl, view, { back: goBack });
+      } else if (SFV.ui && typeof SFV.ui.toast === 'function') {
         SFV.ui.toast('详情页开发中，敬请期待');
       }
-    } catch (e) { /* 静默降级 */ }
+    } catch (detailErr) {
+      // 兜底：任何同步异常都不要黑屏，回退占位 toast
+      if (SFV.ui && typeof SFV.ui.toast === 'function') {
+        SFV.ui.toast('详情页加载失败，敬请期待');
+      }
+    }
   }
 
   // ===== 片单浏览：打开 collections 页（router page）=====
@@ -2228,7 +2458,9 @@
     isOpen: isOpen,
     goHome: goHome,           // 首页导航：关闭覆盖层并刷新影视首页
     openCategory: openCategory,
-    openSearch: openSearch,
+    openSearchPage: openSearchPage, // 全页搜索开关（供搜索页胶囊按钮 / 测试驱动）
+    doInlineSearch: doInlineSearch, // 全页搜索执行（取代旧 doSearch，供搜索页 / 测试驱动）
+    // [清理] openSearch 导出已移除
     openRules: openRules,
     openLocal: openLocal,
     openUrlPrompt: openUrlPrompt,

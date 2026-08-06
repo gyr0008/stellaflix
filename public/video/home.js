@@ -66,11 +66,11 @@
     return best;
   }
 
-  // ---- 恢复用户五卡（对齐音乐态 LIBRARY/DAILY/SONGO/CONTINUE/VIDEO 布局）：
-  //   心动 / 片单 / 收藏 / 历史 / 音乐空间
+  // ---- 影视态五卡（对齐音乐态 LIBRARY/DAILY/SONG/CONTINUE/VIDEO 布局）：
+  //   label 英文（LIKED / LISTS / TRACKING / HISTORY / MUSIC），title 保留中文（心动/片单/追片/历史/音乐空间）
   //   顺序对应 DOM 中前 5 张 .home-card（index.html L2301~2330）。
   //   本地影片 / 网络地址 / 片源管理 入口迁移至 SFV.online 浏览层，首页不再承载（#19）。
-  //   T118：第 5 张固定为"音乐空间"返回入口，不与第 5 张 home-card 数据耦合。
+  //   T112/T118：第 5 张固定为"音乐空间/返回音乐空间"入口（label=MUSIC），不与第 5 张 home-card 数据耦合。
   function cardDefs() {
     var M = SFV.model || {};
     var count = function (arr) { return (arr && arr.length) || 0; };
@@ -81,28 +81,28 @@
 
     return [
       {
-        label: '心动', title: '心动', sub: likedN ? ('已心动 ' + likedN + ' 部') : '在详情页点亮 ♥ 加入',
+        label: 'LIKED', title: '心动', sub: likedN ? ('已心动 ' + likedN + ' 部') : '进入浏览厅 · 挑片即看',
         flag: 'liked',
-        action: function () { if (SFV.online) SFV.online.openCategory('liked'); },
+        action: function () { if (SFV.hall) SFV.hall.enter(); },
       },
       {
-        label: '片单', title: '片单', sub: listN ? ('片单 ' + listN + ' 部') : '想看的全放进来',
+        label: 'LISTS', title: '片单', sub: listN ? ('片单 ' + listN + ' 部') : '想看的全放进来',
         flag: null,
         action: function () { if (SFV.online && SFV.online.openCollections) SFV.online.openCollections(); },
       },
       {
-        label: '追片', title: '追片', sub: trackN ? ('在追 ' + trackN + ' 部') : '标记想看的片子',
+        label: 'TRACKING', title: '追片', sub: trackN ? ('在追 ' + trackN + ' 部') : '标记想看的片子',
         flag: 'track',
         action: function () { if (SFV.online) SFV.online.openCategory('track'); },
       },
       {
-        label: '历史', title: '历史', sub: histN ? ('最近观看 ' + histN + ' 部') : '看过的会记在这里',
+        label: 'HISTORY', title: '历史', sub: histN ? ('最近观看 ' + histN + ' 部') : '看过的会记在这里',
         flag: 'history',
         action: function () { if (SFV.online) SFV.online.openCategory('history'); },
       },
       {
-        label: '音乐空间', title: '音乐空间', sub: '返回音乐空间 · 听歌',
-        flag: null,
+        label: 'MUSIC', title: '音乐空间', sub: '返回音乐空间 · 听歌',
+        flag: 'music-space',
         action: function () { if (SFV.state && SFV.state.setSpace) SFV.state.setSpace('music'); },
       },
     ];
@@ -117,13 +117,53 @@
     if (s) s.textContent = def.sub;
   }
 
+  // T119-ext：读取音乐态左侧个人海报（跨态连线：影视态「音乐空间」卡展示音乐态海报）
+  //   来源：① index.html 全局 homePosterState.image（运行时）② localStorage 持久化（兜底）
+  //   与影视态 posterStore 完全独立，互不影响。
+  function getMusicLeftPoster() {
+    try {
+      if (typeof global.homePosterState === 'object' && global.homePosterState && global.homePosterState.image) {
+        return global.homePosterState.image;
+      }
+      if (global.localStorage) {
+        var raw = global.localStorage.getItem('stellaflix-home-personal-poster-v1');
+        if (raw) {
+          var parsed = JSON.parse(raw);
+          if (parsed && parsed.image) return parsed.image;
+        }
+      }
+    } catch (e) { /* ignore */ }
+    return '';
+  }
+
   // T119：设置 home-card 的 .home-card-art 背景图（按各自 flag 类最新一条的 pic）
   function setCardArt(card, flag) {
     if (!card) return;
     var art = card.querySelector('.home-card-art');
     if (!art) return;
     var pic = '';
-    if (SFV.model && flag) {
+    if (flag === 'music-space') {
+      // 跨态连线：音乐空间卡展示音乐态左侧个人海报
+      pic = getMusicLeftPoster();
+    } else if (flag === 'liked') {
+      // 连线：心动卡右侧展示浏览厅退出时的中心海报（localStorage 覆写=自动销毁旧图）
+      try {
+        var raw = global.localStorage.getItem('stellaflix:hall:lastPoster');
+        if (raw) { var parsed = JSON.parse(raw); if (parsed && parsed.poster) pic = parsed.poster; }
+      } catch (e) {}
+      // 无浏览厅海报时 fallback 到 model liked 数据
+      if (!pic && SFV.model) {
+        try {
+          var keys = (SFV.model.getKeysByFlag && SFV.model.getKeysByFlag('liked')) || [];
+          var lpool = [];
+          keys.forEach(function (k) {
+            var m = SFV.model.getMeta && SFV.model.getMeta(k);
+            if (m && m.pic) lpool.push(m.pic);
+          });
+          if (lpool.length) pic = lpool[lpool.length - 1];
+        } catch (e2) {}
+      }
+    } else if (SFV.model && flag) {
       try {
         var pool = [];
         if (flag === 'history') {
@@ -291,17 +331,45 @@
       var p = SFV.model.getProgress(it.key);
       var pct = (p && p.duration) ? Math.min(100, Math.round((p.position / p.duration) * 100)) : 0;
       var sub = p ? ('看到 ' + fmtTime(p.position) + (pct ? ' · ' + pct + '%' : '')) : (it.year || '');
-      var cover = it.pic ? ('background-image:url("' + escAttr(it.pic) + '")') : '';
-      var coverClass = 'home-tile-cover sfv-tile-cover' + (it.pic ? ' has-cover' : '');
+      // 不复用 .home-tile-cover（其 background: 简写含 var(--tone-a) 在接着看 card 上
+      // 未定义 → 简写会重置所有 background-* 子属性，inline 简写无法可靠胜出）；
+      // 改用单一 .sfv-tile-cover（已显式声明 background-size/position/repeat:cover/center/no-repeat），
+      // inline 设 background-image:url(...) 覆盖其渐变 + height:92px 替代原 .home-tile-cover 的高度。
+      // 22:3x 迁移：历史 pic 若为 TMDB CDN 直链（修复 posterUrl 之前保存），浏览器侧被墙；
+      // 渲染时包一层 /api/proxy 走服务端。仅影响显示，不改 history 存储。
+      var renderPic = it.pic;
+      if (renderPic && renderPic.indexOf('https://image.tmdb.org/') === 0) {
+        renderPic = '/api/proxy?url=' + encodeURIComponent(renderPic);
+      }
+      var coverParts = ['height:92px', 'border-radius:15px'];
+      var coverStyle = coverParts.join(';');
+      var coverClass = 'sfv-tile-cover' + (it.pic ? ' has-cover' : '');
+      // 22:4x：改用 <img> 显示海报（标准做法，object-fit:cover 自适应容器，
+      // 且 onerror 可在代理/网络失败时隐藏并回退到 .sfv-tile-cover 的暗色渐变）。
+      // 不再用 background-image 内联简写，避免任何特异性/简写重置的隐性问题。
+      var coverImg = it.pic
+        ? '<img class="sfv-tile-img" src="' + escAttr(renderPic) + '" alt="" loading="lazy" ' +
+          'onerror="this.style.display=\'none\'">'
+        : '';
 
       html += '<button class="home-tile sfv-continue-tile" type="button" data-sfv-key="' + escAttr(it.key) + '">' +
-        '<div class="' + coverClass + '" style="' + cover + '">' +
+        '<div class="' + coverClass + '" style="' + coverStyle + '">' +
+        coverImg +
         '<i class="sfv-tile-bar" style="width:' + pct + '%"></i></div>' +
         '<div class="home-tile-title">' + escHtml(it.title || '未命名') + '</div>' +
         '<div class="home-tile-sub">' + escHtml(sub) + '</div>' +
         '</button>';
     }
     row.innerHTML = html;
+
+    // T147 后向补图：历史 pic 为空（搜索时 CMS10/Kazumi 没返图，TMDB 又没及时写回 it.pic）
+    // → 渲染后异步尝试 TMDB 补图，成功回写 history.pic 并刷新对应 tile。
+    // 会话级去重（_picBackfillTried in online.js）+ history.pic 已更新则下次不再触发。
+    if (SFV.online && typeof SFV.online.tryPicBackfill === 'function') {
+      for (var k = 0; k < items.length; k++) {
+        try { SFV.online.tryPicBackfill(items[k], doc); } catch (e) {}
+      }
+    }
 
     // 缺位补空：保持 5 列网格对齐
     if (items.length < 5) {
@@ -403,27 +471,29 @@
     var quote = d() && d().getElementById ? d().getElementById('home-poster-quote') : null;
     if (quote) {
       var vq = posterStore && posterStore.quote;
+      console.log('[SFV-HOME] render() setting quote, posterStore.quote:', JSON.stringify(vq), 'posterStore:', !!posterStore);
       quote.textContent = vq ? vq : '导入你自己的片源，搜索 / 播放 / 收藏都在这里完成 —— Stellaflix 不存储任何视频资源。';
     }
-    // TMDB 署名（API 条款强制要求：使用其元数据即须显示）
-    if (SFV.tmdb && SFV.tmdb.hasKey()) {
-      var doc = d();
-      if (doc && doc.getElementById) {
-        var attrib = doc.getElementById('sfv-tmdb-attrib');
-        if (!attrib) {
-          attrib = doc.createElement('div');
-          attrib.id = 'sfv-tmdb-attrib';
-          attrib.className = 'sfv-tmdb-attrib';
-          var poster = doc.getElementById('home-poster');
-          if (poster) poster.appendChild(attrib);
-        }
-        attrib.textContent = '影片海报与简介由 TMDB 提供 · This product uses the TMDB API but is not endorsed or certified by TMDB.';
-        attrib.style.display = '';
+    // 影视态最近播放（覆盖音乐态残留文案）
+    var nowEl = d() && d().getElementById ? d().getElementById('home-poster-now') : null;
+    if (nowEl) {
+      var history = (SFV.model && SFV.model.getHistory) ? SFV.model.getHistory() : [];
+      if (history.length && history[0] && history[0].title) {
+        nowEl.textContent = '最近播放 · ' + history[0].title;
+      } else {
+        nowEl.textContent = '播放任意影片后，这里会显示最近观看。';
       }
+    }
+    // 用户要求移除红笔圈出的 TMDB 署名；清理可能残留的 DOM
+    var doc = d();
+    if (doc && doc.getElementById) {
+      var oldAttrib = doc.getElementById('sfv-tmdb-attrib');
+      if (oldAttrib && oldAttrib.parentNode) oldAttrib.parentNode.removeChild(oldAttrib);
     }
     // 接着看：5 卡横排（对齐音乐态 renderHomeTiles 的 #home-tile-row）
     renderContinueWatching();
     // T119：渲染影视态左侧海报（独立于音乐态）
+    console.log('[SFV-HOME] render() calling renderVideoPoster, posterStore:', !!posterStore, 'url:', !!(posterStore && posterStore.url));
     renderVideoPoster();
     // T119：改造 home-poster-actions 5 个 chip（隐藏"用当前封面"；海报只允许本地自定义图，故移除 TMDB 选图入口）
     restructurePosterActionsForVideo();
@@ -431,6 +501,40 @@
     if (typeof global.scheduleShelfRebuild === 'function') {
       try { global.scheduleShelfRebuild('sfv-render-video', true); } catch (e) {}
     }
+
+    // T134-f Layer4：requestAnimationFrame 自愈——拦截 render() 之后任何异步路径对海报/文案的覆盖
+    // 原因：safePlaybackStep('home-poster', ...) 在播放状态变化时同步调用 renderHomePersonalPoster，
+    //   它可能在 render() 之后同一微任务或下一帧执行（如切歌事件恰好在 spacechange 后触发）。
+    //   即使前面三层守卫（回调包装 / 函数入口 / renderHomeDiscover）全部生效，此层作为最后保险。
+    // T134-f Layer4：raf 自愈（修正 10:52 — 实时读 posterStore，编辑中跳过）
+    var doc = d();
+    (function heal() {
+      var raf = typeof requestAnimationFrame !== 'undefined' ? requestAnimationFrame : function(fn) { return setTimeout(fn, 16); };
+      raf(function () {
+        try {
+          if (!doc || !doc.body || !doc.body.classList.contains('video-space-active')) return;
+          var copyEl = doc.querySelector('.home-poster-copy');
+          if (copyEl && copyEl.classList.contains('editing')) return;
+          var liveQuote = (posterStore && posterStore.quote) || '';
+          var liveUrl = (posterStore && posterStore.url) || '';
+          if (liveQuote) {
+            var q = doc.getElementById('home-poster-quote');
+            if (q && q.textContent !== liveQuote) q.textContent = liveQuote;
+          }
+          if (liveUrl) {
+            var m = doc.getElementById('home-poster-media');
+            if (m) {
+              var current = m.style.getPropertyValue('--home-poster-image') || '';
+              if (current.indexOf(liveUrl.slice(0, 40)) === -1) {
+                m.style.setProperty('--home-poster-image', 'url("' + escAttr(liveUrl) + '")');
+                m.classList.add('sfv-poster-movie', 'has-image');
+                m.classList.remove('sfv-poster-default');
+              }
+            }
+          }
+        } catch (e) { /* 自愈失败静默 */ }
+      });
+    })();
   }
 
   function ensureBackBtn() {
@@ -558,73 +662,18 @@
     } catch (e) { return false; }
   }
 
-  // 海报来源策略：用户设置 > 四类最新 > 默认封面
+  // 海报来源策略（用户死命令：仅允许用户上传，不自动回退任何历史/TMDB/收藏数据）
+  //   1) 用户手动设置过 → 用 posterStore
+  //   2) 否则 → 默认封面（暗色玻璃 + 🎬 emoji）
   function pickVideoPoster() {
-    // 1) 用户手动设置优先
     var user = getUserVideoPoster();
     if (user && user.url) return { kind: 'user', url: user.url, title: user.title || '' };
-
-    // 2) 遍历 liked + 追片(track) + inList + history 的 vod key，从 meta 中按 ts 排序取最新一条 pic
-    if (SFV.model) {
-      try {
-        var pool = []; // [{ts, pic, title, key, flag}]
-        function pushByFlag(flag) {
-          var keys = SFV.model.getKeysByFlag ? (SFV.model.getKeysByFlag(flag) || []) : [];
-          keys.forEach(function (k) {
-            var m = SFV.model.getMeta ? SFV.model.getMeta(k) : null;
-            if (m && m.pic) {
-              // meta 没有 ts，回退用 getHistory 里该 key 的 ts
-              var ts = 0;
-              try {
-                var h = SFV.model.getHistory ? (SFV.model.getHistory() || []) : [];
-                for (var i = 0; i < h.length; i++) if (h[i].key === k) { ts = h[i].ts || 0; break; }
-              } catch (e2) {}
-              pool.push({ ts: ts || 0, pic: m.pic, title: m.title || '', key: k, flag: flag });
-            }
-          });
-        }
-        pushByFlag('liked');
-        pushByFlag('inList');
-        // 追片：聚合所有已追片 key（任意状态）的封面
-        try {
-          var trackKeys = SFV.model.getTrackKeys ? (SFV.model.getTrackKeys() || []) : [];
-          trackKeys.forEach(function (k) {
-            var m = SFV.model.getMeta ? SFV.model.getMeta(k) : null;
-            if (m && m.pic) {
-              var ts = 0;
-              try {
-                var h2 = SFV.model.getHistory ? (SFV.model.getHistory() || []) : [];
-                for (var i2 = 0; i2 < h2.length; i2++) if (h2[i2].key === k) { ts = h2[i2].ts || 0; break; }
-              } catch (e2) {}
-              pool.push({ ts: ts || 0, pic: m.pic, title: m.title || '', key: k, flag: 'track' });
-            }
-          });
-        } catch (e3) {}
-        // history 单独处理：自带 ts 且 pic 已经在 history entry 内
-        try {
-          var history = SFV.model.getHistory ? (SFV.model.getHistory() || []) : [];
-          history.forEach(function (h) {
-            if (h && h.pic) pool.push({ ts: h.ts || 0, pic: h.pic, title: h.title || '', key: h.key, flag: 'history' });
-          });
-        } catch (e3) {}
-
-        pool.sort(function (a, b) { return b.ts - a.ts; });
-        if (pool.length) {
-          var best = pool[0];
-          return { kind: 'auto', url: best.pic, title: best.title || '', flag: best.flag, key: best.key };
-        }
-      } catch (e) {
-        console.warn('[SFV-HOME] pickVideoPoster auto-fallback failed:', e);
-      }
-    }
-
-    // 3) C1 兜底：history 为空 → 默认封面
     return { kind: 'default', url: '', title: '' };
   }
 
   // 渲染影视态左侧海报（默认封面 = B2 暗色玻璃 + 🎬 emoji 96px + 文字 20px）
   // T120 改进：不清空 innerHTML，保留音乐态 .home-poster-frame / .home-poster-reflection 装饰（E1），
-  //   仅移除之前注入的影视态子元素（.sfv-poster-default-inner / .sfv-poster-movie-overlay）。
+  //   仅移除之前注入的影视态子元素（.sfv-poster-default-inner）。
   //   装饰可见性由 CSS class（.sfv-poster-default / .sfv-poster-movie）控制。
   function renderVideoPoster() {
     var doc = d();
@@ -635,8 +684,6 @@
     // 先清掉上一次注入的影视态子元素（但不删 frame / frame reflection）
     var oldDefault = media.querySelector('.sfv-poster-default-inner');
     if (oldDefault && oldDefault.parentNode) oldDefault.parentNode.removeChild(oldDefault);
-    var oldMovie = media.querySelector('.sfv-poster-movie-overlay');
-    if (oldMovie && oldMovie.parentNode) oldMovie.parentNode.removeChild(oldMovie);
 
     var picked = pickVideoPoster();
     if (picked.kind === 'default') {
@@ -658,15 +705,12 @@
       inner.appendChild(text);
       media.appendChild(inner);
     } else {
-      // 真实海报：背景图 + sfv-poster-movie 类 + 底部渐变遮罩
+      // 真实海报：背景图 + sfv-poster-movie 类（玻璃质感由 .home-poster-frame 提供，与音乐态同源；
+      //   不注入底部遮罩，避免影视态海报底部被系统性压暗，与音乐态亮度对齐）
       media.classList.add('sfv-poster-movie', 'has-image');
       media.classList.remove('sfv-poster-default');
       var safe = escAttr(picked.url);
       media.style.setProperty('--home-poster-image', 'url("' + safe + '")');
-
-      var overlay = doc.createElement('div');
-      overlay.className = 'sfv-poster-movie-overlay';
-      media.appendChild(overlay);
     }
   }
 
@@ -681,11 +725,13 @@
   function restructurePosterActionsForVideo() {
     var doc = d();
     if (!doc) return;
-    var actions = doc.querySelector('#home-poster .home-poster-actions');
-    if (!actions) return;
+    // 主选器匹配 #home-poster（影视态 hero 容器）；若 index.html 重构丢失该 id，回退到全局唯一的 .home-poster-actions
+    var actions = doc.querySelector('#home-poster .home-poster-actions') || doc.querySelector('.home-poster-actions');
+    if (!actions) { console.warn('[SFV-HOME] restructurePosterActionsForVideo: .home-poster-actions not found'); return; }
 
     // 每次 render 强制重写（D1）：不用 dataset 守卫，直接遍历按钮 + 按需修改
     var btns = actions.querySelectorAll('.home-poster-chip');
+    console.log('[SFV-HOME] restructurePosterActionsForVideo: found', btns.length, 'chips');
     btns.forEach(function (b) {
       var txt = (b.textContent || '').trim();
       // ① "用当前封面" → display:none（保留 DOM 以便 restoreMusic 还原）
@@ -694,7 +740,7 @@
       }
       // ② "换图片" 重定向到视频态版本
       if (txt === '换图片') {
-        b.onclick = function () { pickLocalVideoPoster(); };
+        b.onclick = function () { console.log('[SFV-HOME] 换图片 clicked'); pickLocalVideoPoster(); };
       }
       // ③ "重置" 重定向到视频态版本
       if (txt === '重置') {
@@ -702,7 +748,7 @@
       }
       // ④ "改文案" 重定向到视频态独立文案存储（不再写入音乐 store stellaflix-home-personal-poster-v1）
       if (txt === '改文案') {
-        b.onclick = function () { editVideoPosterQuote(); };
+        b.onclick = function () { console.log('[SFV-HOME] 改文案 clicked'); editVideoPosterQuote(); };
       }
     });
   }
@@ -716,24 +762,29 @@
     }
   }
 
-  // 本地图片上传（FileReader → base64 → stellaflix-video-poster）
+  // 本地图片上传 —— 使用 Electron 原生对话框（dialog.showOpenDialog），
+  //   替代 <input type="file"> .click() 方案（后者在 Electron 中即使用户手势同步调用也不可靠，
+  //   Chromium 安全模型可能因 input 非用户直接交互创建而静默忽略 click()）。
   function pickLocalVideoPoster() {
-    var doc = d();
-    if (!doc) return;
-    var input = doc.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = function () {
-      var f = input.files && input.files[0];
-      if (!f) return;
-      if (!/^image\//i.test(f.type || '')) {
-        if (typeof global.showToast === 'function') global.showToast('请选择图片文件');
-        return;
-      }
-      var reader = new FileReader();
-      reader.onload = function (ev) {
-        var dataUrl = String(ev.target.result || '');
+    console.log('[SFV-HOME] pickLocalVideoPoster: calling native dialog via IPC');
+    if (global.desktopWindow && typeof global.desktopWindow.pickImage === 'function') {
+      global.desktopWindow.pickImage().then(function (result) {
+        console.log('[SFV-HOME] native dialog result:', JSON.stringify(result));
+        if (!result || !result.ok) {
+          if (result && !result.canceled) {
+            if (typeof global.showToast === 'function') global.showToast('图片选择失败: ' + (result.error || '未知错误'));
+          }
+          return;
+        }
+        var dataUrl = result.dataUrl || '';
+        if (!dataUrl || !/^data:image\//i.test(dataUrl)) {
+          if (typeof global.showToast === 'function') global.showToast('图片数据无效');
+          return;
+        }
+        console.log('[SFV-HOME] image selected, dataURL length:', dataUrl.length, 'fileName:', result.fileName);
         // 压缩到 1400px 上限，保持 base64 体积可控
+        var doc = d();
+        if (!doc) return;
         var img = new Image();
         img.onload = function () {
           var maxSide = 1400;
@@ -747,7 +798,7 @@
           var cx = cv.getContext('2d');
           cx.drawImage(img, 0, 0, w, h);
           var out = '';
-          try { out = cv.toDataURL('image/webp', 0.82); } catch (e1) {}
+          try { out = cv.toDataURL('image/webp', 0.82); } catch (e1) { console.warn('[SFV-HOME] canvas webp failed:', e1.message); }
           if (!/^data:image\/webp/i.test(out)) {
             try { out = cv.toDataURL('image/jpeg', 0.84); } catch (e2) { out = dataUrl; }
           }
@@ -757,11 +808,14 @@
         };
         img.onerror = function () { if (typeof global.showToast === 'function') global.showToast('图片读取失败'); };
         img.src = dataUrl;
-      };
-      reader.onerror = function () { if (typeof global.showToast === 'function') global.showToast('图片读取失败'); };
-      reader.readAsDataURL(f);
-    };
-    input.click();
+      }).catch(function (err) {
+        console.warn('[SFV-HOME] pickImage IPC error:', err ? err.message : '');
+        if (typeof global.showToast === 'function') global.showToast('图片选择失败');
+      });
+    } else {
+      console.warn('[SFV-HOME] desktopWindow.pickImage not available');
+      if (typeof global.showToast === 'function') global.showToast('图片选择功能不可用');
+    }
   }
 
   // ---- T134-f：影视态独立文案（不写入音乐 store，且保存时不污染 #home-poster-media 海报图）----
@@ -769,19 +823,21 @@
 
   function saveVideoPosterQuote(raw) {
     var next = String(raw || '').trim().slice(0, 80);
+    console.log('[SFV-HOME] saveVideoPosterQuote called, raw:', JSON.stringify(next));
     if (!next) { if (typeof global.showToast === 'function') global.showToast('文案不能为空'); return; }
     try {
       if (!posterStore || typeof posterStore !== 'object') posterStore = {};
       posterStore.quote = next;
       var data = { url: posterStore.url || '', source: posterStore.source || 'custom', title: posterStore.title || '', quote: next, ts: Date.now() };
+      console.log('[SFV-HOME] writing to IPC + localStorage, quote:', next);
       if (global.desktopWindow && typeof global.desktopWindow.videoPoster === 'function') {
         global.desktopWindow.videoPoster('set', data);
       }
       try { if (global.localStorage) global.localStorage.setItem(VIDEO_POSTER_LS_KEY, JSON.stringify(data)); } catch (e2) {}
-    } catch (e) {}
+    } catch (e) { console.warn('[SFV-HOME] saveVideoPosterQuote error:', e.message); }
     // 仅更新文案 DOM；绝不改写 #home-poster-media 的 --home-poster-image（海报图保持视频态）
     var quote = d() && d().getElementById ? d().getElementById('home-poster-quote') : null;
-    if (quote) quote.textContent = next;
+    if (quote) { quote.textContent = next; console.log('[SFV-HOME] DOM quote updated to:', next); }
     var wrap = d() && d().querySelector ? d().querySelector('.home-poster-copy') : null;
     if (wrap) wrap.classList.remove('editing');
     if (typeof global.showToast === 'function') global.showToast('影视海报文案已保存');
@@ -812,15 +868,49 @@
     if (!doc) return;
     var input = doc.getElementById('home-poster-quote-input');
     var wrap = doc.querySelector('.home-poster-copy');
-    if (!input || !wrap) return;
+    console.log('[SFV-HOME] editVideoPosterQuote called, input:', !!input, 'wrap:', !!wrap);
+    if (!input || !wrap) { console.warn('[SFV-HOME] editVideoPosterQuote: missing input or wrap'); return; }
     var current = (posterStore && posterStore.quote) || '';
     input.value = current;
     wrap.classList.add('editing');
     _videoQuoteInput = input;
-    _videoQuoteSaveBtn = wrap.querySelector('.home-poster-editor-actions .primary');
-    _videoQuoteCancelBtn = wrap.querySelector('.home-poster-editor-actions .home-poster-chip:not(.primary)');
-    if (_videoQuoteSaveBtn) _videoQuoteSaveBtn.onclick = videoSaveHandler;
-    if (_videoQuoteCancelBtn) _videoQuoteCancelBtn.onclick = videoCancelHandler;
+
+    // 用多种策略查找保存/取消按钮，确保绑定成功
+    var actionsEl = wrap.querySelector('.home-poster-editor-actions');
+    _videoQuoteSaveBtn = null;
+    _videoQuoteCancelBtn = null;
+
+    if (actionsEl) {
+      // 策略1：通过 .primary class 找保存按钮
+      _videoQuoteSaveBtn = actionsEl.querySelector('.primary');
+      // 策略2：通过文本内容匹配（兜底）
+      if (!_videoQuoteSaveBtn) {
+        var btns = actionsEl.querySelectorAll('button, .home-poster-chip');
+        for (var i = 0; i < btns.length; i++) {
+          if ((btns[i].textContent || '').trim() === '保存') { _videoQuoteSaveBtn = btns[i]; break; }
+        }
+      }
+
+      // 取消按钮：非 .primary 的按钮
+      var allBtns = actionsEl.querySelectorAll('button, .home-poster-chip');
+      for (var j = 0; j < allBtns.length; j++) {
+        if (allBtns[j] !== _videoQuoteSaveBtn) { _videoQuoteCancelBtn = allBtns[j]; break; }
+      }
+    }
+
+    console.log('[SFV-HOME] saveBtn:', !!_videoQuoteSaveBtn, 'cancelBtn:', !!_videoQuoteCancelBtn);
+
+    if (_videoQuoteSaveBtn) {
+      _videoQuoteSaveBtn.onclick = videoSaveHandler;
+      // 移除可能的内联 onclick 属性（防止双触发）
+      _videoQuoteSaveBtn.setAttribute('data-sfv-bound', '1');
+    } else {
+      console.warn('[SFV-HOME] save button NOT FOUND in editor actions!');
+    }
+    if (_videoQuoteCancelBtn) {
+      _videoQuoteCancelBtn.onclick = videoCancelHandler;
+      _videoQuoteCancelBtn.setAttribute('data-sfv-bound', '1');
+    }
     _videoQuoteKeyHandler = function (e) {
       if (!e) return;
       if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); videoCancelHandler(); }

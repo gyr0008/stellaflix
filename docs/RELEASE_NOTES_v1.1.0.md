@@ -1,6 +1,6 @@
-# Mineradio v1.1.0 纯净安装版
+# Stellaflix v1.1.0 纯净安装版
 
-这是 Mineradio 1.1.0 的纯净安装发布版。安装包从当前可信源码重新构建，旧 `dist`、旧安装包、旧备份包和旧 packaged build 都没有作为本次发布来源。
+这是 Stellaflix 1.1.0 的纯净安装发布版。安装包从当前可信源码重新构建，旧 `dist`、旧安装包、旧备份包和旧 packaged build 都没有作为本次发布来源。
 
 ## 重要安全说明
 
@@ -31,7 +31,7 @@
 ## 安装建议
 
 1. 不要继续运行或转发旧安装包。
-2. 先卸载旧版 Mineradio。
+2. 先卸载旧版 Stellaflix。
 3. 隔离旧 `.exe` 安装包和旧打包目录。
 4. 下载并安装 `Stellaflix-1.1.0-Setup.exe`。
 5. 安装后如需对照校验，请使用 Release 中提供的 SHA256 文件。

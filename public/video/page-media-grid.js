@@ -3,23 +3,79 @@
  *
  * 电影 / 动漫 是两个**独立注册**的页面模块，各自调用本工厂生成，传入字面量
  *   mediaType（'movie' / 'anime'），而非运行时用 kind 切换同一函数。
- * 工厂内聚：TMDB 热门网格 + 无限滚动 + 评分徽章 + TMDB 资料详情（点卡片进入，
- *   页面内部 back 关闭详情回到网格），不再依赖 online.js 的全局视图栈。
+ * 工厂内聚：页面生命周期（mount/unmount/back）+ 3D 海报墙接入（browse3d）。
  *
- * 视觉契约：复用 .sfv-card / .sfv-card-cover / .sfv-card-img / .sfv-card-name /
- *   .sfv-card-sub / .sfv-card-rating / .sfv-grid / .sfv-browse-status /
- *   .sfv-browse-foot / .sfv-tmdb-detail 等既有样式；
- *   浅色卡片变量由 online.js 的 applyGridDiyToBody 写入 bodyEl（本页面渲染进
- *   同一 bodyEl），背景由 applyVideoPageBg 按 activePageId 同步。
+ * 方案 D（2026-08-05）：删除 DOM 海报网格外壳（grid/filter/loadMore/status），
+ * 仅保留底部 TMDB 署名（foot）。海报墙由 browse3d 在共享 WebGL 画布
+ * （与首页星空同 canvas）渲染，覆盖层透明透出星空。功能连线（点击→详情 /
+ * 筛选 / 加载更多）留待 Phase 4 接回。
  *
- * 双态隔离：本模块只读取 SFV.tmdb / SFV.model / SFV.ui，绝不写入音乐态 DOM。
+ * 双态隔离：本模块只读取 SFV.ui / SFV.online / SFV.router / SFV.browse3d，
+ * 绝不写入音乐态 DOM。
  */
 (function (global) {
   'use strict';
   var SFV = (global.StellaflixVideo = global.StellaflixVideo || {});
 
-  // 由 online.js 在 IIFE 导出 SFV.ui（el/toast/setNote/paintFlag/CATEGORY_META/
-  // setBrowseChrome/setTitle）。页面模块仅通过这些共享辅助与外壳交互。
+  // ---- 3D 海报浏览（方案 D）动态加载器 ----
+  // 不在 index.html 加 <script>（保持 git diff 为零），按需加载 page-browse-3d.js。
+  // 加载策略：fetch+eval（vite dev / Electron WebContents / file:// 三环境通用，
+  //   不依赖动态 <script src> 的隐式 fetch 行为，避免 vite/Electron 拦截导致
+  //   SFV.browse3d 永远 undefined → 电影页无 3D 海报墙）。
+  // 失败回退：fetch 不支持/失败时退回动态 script 注入（向后兼容）。
+  // 加载完成通过 'sfv-browse3d-ready' 事件通知等待方激活。
+  function ensureBrowse3d(cb) {
+    if (SFV.browse3d) { if (cb) cb(); return; }
+    if (!global.__sfvBr3dLoading) {
+      global.__sfvBr3dLoading = true;
+      var done = function (ok) {
+        if (!ok) {
+          // 加载失败 → 解锁重试 + 退回动态 script 注入
+          global.__sfvBr3dLoading = false;
+          try {
+            var s2 = global.document.createElement('script');
+            s2.src = 'video/page-browse-3d.js';
+            s2.onerror = function () {
+              try { console.error('[SFV] browse3d script fallback also failed'); } catch (_) {}
+              global.__sfvBr3dLoading = false;
+            };
+            (global.document.head || global.document.body || global.document.documentElement).appendChild(s2);
+          } catch (e2) {
+            try { console.error('[SFV] browse3d fallback script inject error:', e2); } catch (_) {}
+            global.__sfvBr3dLoading = false;
+          }
+        }
+      };
+      if (global.fetch && global.Promise) {
+        global.fetch('video/page-browse-3d.js', { cache: 'no-cache' })
+          .then(function (r) {
+            if (!r || !r.ok) throw new Error('HTTP ' + (r ? r.status : 'no-response'));
+            return r.text();
+          })
+          .then(function (src) {
+            try {
+              // 通过 Function 构造器在 global 作用域执行（绕过 script 标签隐式 fetch）
+              // eslint-disable-next-line no-new-func
+              (new Function('window', 'document', 'self', src))(global, global.document, global);
+              try { console.log('[SFV] browse3d loaded via fetch+eval (page-browse-3d.js)'); } catch (_) {}
+            } catch (e) {
+              try { console.error('[SFV] browse3d eval error:', e); } catch (_) {}
+              done(false);
+            }
+          })
+          .catch(function (e) {
+            try { console.warn('[SFV] browse3d fetch failed, fallback to <script>:', e && e.message); } catch (_) {}
+            done(false);
+          });
+      } else {
+        done(false); // 无 fetch → 直接 script 注入
+      }
+    }
+    var h = function () { global.removeEventListener('sfv-browse3d-ready', h); if (cb) cb(); };
+    global.addEventListener('sfv-browse3d-ready', h);
+  }
+  SFV.ensureBrowse3d = ensureBrowse3d;
+
   function createMediaGridPage(opts) {
     var id = opts.id;
     var title = opts.title;
@@ -27,111 +83,23 @@
 
     var detailOpen = false;
     var showGridFn = null;
-    var gridEl = null; // 网格容器，用于详情页定位宿主（grid.parentNode）
 
-    var cardIdx = 0; // 追踪卡片序号，首屏 eager 加载
-    function buildCard(ui, it) {
-      cardIdx++;
-      var card = ui.el('button', 'sfv-card');
-      card.type = 'button';
-      var cover = ui.el('div', 'sfv-card-cover');
-      if (it.poster) {
-        var img = ui.el('img', 'sfv-card-img');
-        img.src = it.poster; img.alt = it.title || '';
-        // 首屏（前 2 行约 10-12 张）eager 加载，其余 lazy
-        if (cardIdx > 12) img.loading = 'lazy';
-        img.addEventListener('load', function () { img.classList.add('loaded'); });
-        img.addEventListener('error', function () {
-          img.style.display = 'none';
-          cover.classList.add('sfv-cover--broken');
-        });
-        cover.appendChild(img);
-      } else {
-        cover.textContent = '🎬';
-      }
-      if (it.rating) {
-        cover.appendChild(ui.el('div', 'sfv-card-rating', '★ ' + it.rating.toFixed(1)));
-      }
-      card.appendChild(cover);
-      card.appendChild(ui.el('div', 'sfv-card-name', it.title || '未命名'));
-      card.appendChild(ui.el('div', 'sfv-card-sub', it.year || ''));
-      card.addEventListener('click', function () { showDetail(it); });
-      return card;
-    }
-
-    function showGrid(host) {
+    // 方案 D（2026-08-05）：删除 DOM 海报外壳，仅保留底部 TMDB 署名。
+    // 星空由透明覆盖层透出，海报墙由 browse3d 渲染。
+    function showShell(host) {
       var ui = SFV.ui;
       detailOpen = false;
-      cardIdx = 0; // 重置卡片序号（每次 mount 重新计数）
       host.innerHTML = '';
-      var grid = ui.el('div', 'sfv-grid');
-      host.appendChild(grid);
-      gridEl = grid;
-      var statusEl = ui.el('div', 'sfv-browse-status', '加载中…');
-      host.appendChild(statusEl);
       var foot = ui.el('div', 'sfv-browse-foot',
         '影视资料来自 TMDB，仅供展示。This product uses the TMDB API but is not endorsed or certified by TMDB.');
       host.appendChild(foot);
-
-      var pageNo = 0, loading = false, done = false;
-
-      function appendItems(items) {
-        items.forEach(function (it) { grid.appendChild(buildCard(ui, it)); });
-      }
-      function loadMore() {
-        if (loading || done) return;
-        if (!SFV.tmdb || !SFV.tmdb.popular) { done = true; statusEl.textContent = 'TMDB 未就绪'; return; }
-        loading = true;
-        statusEl.textContent = '加载中…';
-        var p = pageNo + 1;
-        SFV.tmdb.popular(mediaType, p).then(function (items) {
-          pageNo = p;
-          loading = false;
-          if (!items || !items.length) {
-            if (pageNo >= 6) { done = true; statusEl.textContent = '没有更多了'; }
-            else { statusEl.textContent = ''; loadMore(); } // 该页无结果，继续翻页
-            return;
-          }
-          appendItems(items);
-          statusEl.textContent = '';
-        }).catch(function (e) {
-          loading = false; done = true;
-          statusEl.textContent = '加载失败：' + ((e && e.message) ? e.message : e);
-        });
-      }
-      loadMore();
-      // 无限滚动：以状态行作为哨兵（root:null=视口，兼容任意滚动容器）
-      if (global.IntersectionObserver) {
-        var io = new IntersectionObserver(function (entries) {
-          entries.forEach(function (en) { if (en.isIntersecting) loadMore(); });
-        }, { root: null, rootMargin: '400px' });
-        io.observe(statusEl);
-      } else {
-        statusEl.classList.add('sfv-browse-status--click');
-        statusEl.textContent = '点击加载更多';
-        statusEl.addEventListener('click', loadMore);
-      }
     }
 
-    function paintTrackOpt(btn, key, status) {
-      var cur = SFV.model ? SFV.model.getTrackStatus(key) : null;
-      btn.classList.toggle('on', cur === status);
-    }
-
+    // Phase 1.5 占位态：所有进详情路径统一走 SFV.online.renderDetail 拦截（toast 提示）
     function showDetail(it) {
-      // Phase 2 v2：海报点击进入暗色全屏详情页（renderDetail 为单一汇聚点，
-      // 内部转发 SFV.detailV2.build）。detail-v2 用 view.key||id 作为追片键，
-      // popular 项已带 id + mediaType，可直接复用。
       try {
         if (SFV.online && typeof SFV.online.renderDetail === 'function') {
           SFV.online.renderDetail(it);
-          return;
-        }
-      } catch (e) { /* 落到下方兜底，避免崩溃 */ }
-      // 兜底：detail-v2 未就绪时给轻提示，避免静默白屏
-      try {
-        if (SFV.ui && typeof SFV.ui.toast === 'function') {
-          SFV.ui.toast('详情页加载中…');
         }
       } catch (e) { /* 静默降级 */ }
     }
@@ -142,14 +110,22 @@
       mount: function (host, ctx) {
         var ui = SFV.ui;
         ui.setBrowseChrome(true); // 网格页隐藏浏览层自带内联搜索与操作按钮
-        showGridFn = function () { showGrid(host); };
-        showGrid(host);
+        showGridFn = function () { showShell(host); };
+        showShell(host);
+        // 3D 海报网格栏（方案 D）：复用全局 scene/camera/renderer/orbit
+        SFV.ensureBrowse3d(function () {
+          if (SFV.browse3d) SFV.browse3d.activate({ mediaType: mediaType, host: host, onCardClick: showDetail });
+        });
       },
       // 页面内部 back：详情打开时关闭详情回到网格（返回 true 表示已处理）；
       // 否则返回 false（顶层 tab 页平级，无返回语义，交由外壳 no-op）。
       back: function () {
         if (detailOpen) { if (showGridFn) showGridFn(); return true; }
         return false;
+      },
+      // 离开本页（router.go 切换 / 切空间）→ 坍缩回收 3D + 还原 orbit
+      unmount: function () {
+        if (SFV.browse3d) SFV.browse3d.deactivate();
       }
     };
 

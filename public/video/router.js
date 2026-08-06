@@ -35,10 +35,14 @@
   // online.js 在 ensure() 创建 bodyEl 后调用，注入渲染宿主
   function setHost(h) { host = h; }
 
-  // 切换到某个页面：清空宿主并交给该页面的 mount 全权渲染
+  // 切换到某个页面：先卸载当前页（若有 unmount），再清空宿主并交给新页面 mount
   function go(id) {
     var p = pages[id];
     if (!p || !host) return;
+    var cur = pages[currentPageId];
+    if (cur && typeof cur.unmount === 'function') {
+      try { cur.unmount(); } catch (e) {}
+    }
     host.innerHTML = '';
     currentPageId = id;
     if (typeof p.mount === 'function') {

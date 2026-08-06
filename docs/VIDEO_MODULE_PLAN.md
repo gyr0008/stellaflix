@@ -13,7 +13,6 @@
 > - [x] Step 3 剩余（2026-07-31 完成）：`video/source-adapter.js` 三源统一 + `video/home.js` 影视态首页与海报墙。测试 `step3b`(50) / `step3c`(41) 全通过。
 > - [ ] Step 3.5 Three.js 渲染循环消费 `sfv:render-pause`（性能收尾，见任务 #17）
 > - [ ] Step 4 切换入口与全局翻转
-> - [x] **影视详情页 v2（2026-08-05 落地 · 取代 Phase 1.5 降级 toast）**：暗色全屏详情页 `public/video/detail-v2.js`；`online.js` 的 `renderDetail(view)` 作为**所有进详情路径的唯一汇聚点**（搜索 / 电影 / 动漫 / 接着看 / 跨源修复），统一转发 `SFV.detailV2.build`。`openDetail` 米白页**保留**用于搜索结果详情 + 跨源失效修复兜底（不删除）。▶ 播放按钮对无源 TMDB 条目保持幂等 no-op，真实播放待源接入。追片六状态弹窗图标取自 Kazumi `public/vendor/fonts/`。
 >
 > **⚠️ 与本文档旧描述的两处实测偏差（以代码为准）**
 > 1. **首页卡片是 6 张不是 4 张**：第七章表格第 3 行原写「四卡」，实测 `index.html:2266-2303` 的 `.home-grid` 内为 **6 张 `.home-card`**。影视态已按 6 张实现。
@@ -24,7 +23,7 @@
 > 3. **`renderHomeDiscover()` 守卫**：该函数有 13 处调用点，影视态不早退会被音乐侧事件覆写文案，故在 `index.html:16682` 增加 2 行守卫。这是影视模块在 index.html 中唯一的非 `<script>` 改动。
 >
 > **阶段顺序修正（已采纳，覆盖第五章原排序）**：阶段 1 = 在线 CMS10 源闭环（原排最后，提前）→ 阶段 2 = 本地媒体库 → 阶段 3 = 用户自配插件源 → 阶段 4 = 体验完善。代理层并入 Step 1，三种源形态共用。
-> 目标：在 Mineradio 中加入影视模块，home 中切换音乐/影视，两模块除 UI 外互不干扰。
+> 目标：在 Stellaflix 中加入影视模块，home 中切换音乐/影视，两模块除 UI 外互不干扰。
 >
 > ---
 >

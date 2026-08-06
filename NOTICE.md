@@ -1,10 +1,10 @@
 # NOTICE
 
-Mineradio 使用了以下第三方项目或服务。各项目版权归其原作者所有。
+Stellaflix 使用了以下第三方项目或服务。各项目版权归其原作者所有。
 
 ## Fork Notice
 
-Mineradio 扩展版是基于 `XxHuberrr/Mineradio` 的非官方二创 Fork。
+Stellaflix 是基于 `XxHuberrr/Mineradio` 的非官方二创 Fork。
 
 原版 Mineradio 的作者、项目来源、界面视觉设计、名称与相关原创表达必须保留署名。本仓库新增的扩展能力、文档和后续二创改动由本仓库维护者继续记录和维护。
 
@@ -14,7 +14,7 @@ https://github.com/XxHuberrr/Mineradio
 
 ## License
 
-Mineradio 扩展版整体采用 **GPL-3.0-or-later** 授权，与上游 `XxHuberrr/Mineradio` 保持一致。完整条款见仓库根目录 `LICENSE`。
+Stellaflix 整体采用 **GPL-3.0-or-later** 授权，与上游 `XxHuberrr/Mineradio` 保持一致。完整条款见仓库根目录 `LICENSE`。
 
 ## Third-party Libraries
 
@@ -47,9 +47,9 @@ Mineradio 扩展版整体采用 **GPL-3.0-or-later** 授权，与上游 `XxHuber
 
 ## Third-party Services
 
-Mineradio 可能与网易云音乐、QQ 音乐等第三方音乐服务进行用户自有账号相关的本地客户端交互。
+Stellaflix 可能与网易云音乐、QQ 音乐等第三方音乐服务进行用户自有账号相关的本地客户端交互。
 
-Mineradio 不是任何音乐平台的官方客户端，也不隶属于网易云音乐、QQ 音乐或腾讯音乐娱乐集团。请用户自行遵守对应平台的服务协议、版权规则和会员权益规则。
+Stellaflix 不是任何音乐平台的官方客户端，也不隶属于网易云音乐、QQ 音乐或腾讯音乐娱乐集团。请用户自行遵守对应平台的服务协议、版权规则和会员权益规则。
 
 ## Original Design
 

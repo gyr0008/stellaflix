@@ -10,6 +10,8 @@
   var NS = 'stellaflix-video-';
   var KEY_PROGRESS = NS + 'progress'; // { [videoId]: { position, duration, updatedAt } }
   var KEY_LIBRARY = NS + 'library'; // [ { id, title, ... } ]
+  var KEY_FAILURE_LOG = NS + 'failure-log'; // [ { title, key, sourceId, vodId, reason, action, ts } ]
+  var FAILURE_LOG_CAP = 200;
 
   // ---- 在线闭环新增：用户数据模型 ----
   // 历史：用户播放过的每一个 vod（在线/本地统一），按 key 去重，最新在前的数组。
@@ -123,6 +125,28 @@
 
   function clearHistory() { writeJSON(KEY_HISTORY, []); return []; }
 
+  // 把历史条目（进度键匹配）的海报替换为本地 data URL。
+  // 用途：观看达阈值后把 TMDB 远程海报缓存到本地，再回写 history.pic，
+  // 使「接着看」等读取 history.pic 时直接加载本地图，不再请求 TMDB。
+  // T147：同步支持空 pic → 远程 URL（home.js 后向补图场景）。
+  // 仅当 pic 已是 data: 时跳过，避免覆盖已缓存的本地图。
+  function updateHistoryPic(key, dataUrl) {
+    if (!key || !dataUrl) return false;
+    var arr = getHistory();
+    var changed = false;
+    for (var i = 0; i < arr.length; i++) {
+      var x = arr[i];
+      // pic 为空字符串/undefined（搜索时 CMS10/规则源没返图）→ 允许更新；
+      // pic 已是 data: 本地图 → 跳过，避免覆盖缓存。
+      if (x.key === key && (typeof x.pic !== 'string' || x.pic.indexOf('data:') !== 0)) {
+        x.pic = dataUrl;
+        changed = true;
+      }
+    }
+    if (changed) writeJSON(KEY_HISTORY, arr);
+    return changed;
+  }
+
   function getFlag(key) {
     var all = readJSON(KEY_FLAG, {});
     var f = all[key] || {};
@@ -212,15 +236,27 @@
   function setMeta(rec) {
     if (!rec || !rec.key) return;
     var all = readJSON(KEY_META, {});
+    var prev = all[rec.key] || {};
+    var nextPic = rec.pic || prev.pic || '';
     all[rec.key] = {
       key: rec.key,
-      title: rec.title || (all[rec.key] && all[rec.key].title) || rec.key,
-      pic: rec.pic || (all[rec.key] && all[rec.key].pic) || '',
-      year: rec.year || (all[rec.key] && all[rec.key].year) || '',
+      title: rec.title || prev.title || rec.key,
+      pic: nextPic,
+      year: rec.year || prev.year || '',
       sourceId: rec.sourceId || '',
       vodId: rec.vodId || '',
     };
     writeJSON(KEY_META, all);
+
+    // 异步抓取并缓存海报到本地；成功后把 meta pic 替换为本地 data URL，
+    // 下次 resolveList / renderTrackPage 即可直接加载本地图，不再请求 TMDB。
+    if (nextPic && SFV.posterCache && typeof SFV.posterCache.cache === 'function' && nextPic.indexOf('data:') !== 0) {
+      SFV.posterCache.cache(rec.key, nextPic).then(function (dataUrl) {
+        if (dataUrl && dataUrl !== nextPic) {
+          setMeta({ key: rec.key, pic: dataUrl, title: all[rec.key].title, year: all[rec.key].year, sourceId: all[rec.key].sourceId, vodId: all[rec.key].vodId });
+        }
+      });
+    }
   }
 
   // 供 online.js 一次性取「某分类」的完整列表：以 meta 为主、缺失时用 history 兜底
@@ -232,10 +268,36 @@
         var h = getHistory().filter(function (x) { return x.key === k; })[0];
         if (h) m = { key: k, title: h.title, pic: h.pic, year: h.year, sourceId: h.sourceId, vodId: h.vodId };
       }
-      if (m) out.push(m);
+      if (m) {
+        // 优先使用本地海报缓存（内存命中立即替换，未命中则后台触发缓存并保留原 URL）
+        if (SFV.posterCache && typeof SFV.posterCache.resolvePic === 'function' && m.pic && m.pic.indexOf('data:') !== 0) {
+          m = Object.assign({}, m, { pic: SFV.posterCache.resolvePic(m.key, m.pic) });
+        }
+        out.push(m);
+      }
     });
     return out;
   }
+
+  // ---- 来源失效日志（用于后续跟进与诊断）----
+  function logFailure(entry) {
+    if (!entry || !entry.title) return false;
+    var arr = readJSON(KEY_FAILURE_LOG, []);
+    if (!Array.isArray(arr)) arr = [];
+    arr.unshift({
+      title: entry.title,
+      key: entry.key || '',
+      sourceId: entry.sourceId || '',
+      vodId: entry.vodId || '',
+      reason: entry.reason || '',
+      action: entry.action || 'open',
+      ts: Date.now(),
+    });
+    if (arr.length > FAILURE_LOG_CAP) arr = arr.slice(0, FAILURE_LOG_CAP);
+    return writeJSON(KEY_FAILURE_LOG, arr);
+  }
+  function getFailureLog() { return readJSON(KEY_FAILURE_LOG, []); }
+  function clearFailureLog() { return writeJSON(KEY_FAILURE_LOG, []); }
 
   SFV.model = {
     NS: NS,
@@ -249,6 +311,7 @@
     getHistory: getHistory,
     addHistory: addHistory,
     clearHistory: clearHistory,
+    updateHistoryPic: updateHistoryPic,
     getFlag: getFlag,
     setFlag: setFlag,
     toggleFlag: toggleFlag,
@@ -266,5 +329,9 @@
     clearTrack: clearTrack,
     TRACK_STATUSES: TRACK_STATUSES,
     TRACK_LABELS: TRACK_LABELS,
+    // 来源失效日志
+    logFailure: logFailure,
+    getFailureLog: getFailureLog,
+    clearFailureLog: clearFailureLog,
   };
 })(typeof window !== 'undefined' ? window : this);

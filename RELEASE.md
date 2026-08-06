@@ -40,7 +40,31 @@ git diff --check
 npm run build:win
 ```
 
-构建产物位于 `dist/`。正式给普通用户分发时，以 `Stellaflix-1.1.2-Setup.exe` 这类完整安装包为准，不要让普通用户下载 `Source code`、`.blockmap`、`latest.yml` 或 `win-unpacked`。
+构建产物位于 `dist/`。
+
+## 弹幕凭证注入（DanDanPlay）
+
+影视弹幕使用弹弹play(DanDanPlay) 开放 API，自 2025-01-30 起强制签名认证。
+AppId / AppSecret 由维护者在**构建期**注入，**绝不进入源码或仓库**（合规红线 + GPLv3）。
+
+- 源码占位：`public/video/danmaku/client.js` 中 `DEFAULT_APP_ID` / `DEFAULT_APP_SECRET` 永远为 `''`。
+- 注入时机：`build/after-pack.js`（electron-builder afterPack 钩子）读取环境变量，
+  正则替换打包副本 `resources/app/public/video/danmaku/client.js` 的占位符。
+- 环境变量（命名对齐 Kazumi，值与 Kazumi 无关）：
+  - `DANDANAPI_APPID` —— 弹弹play 应用 Id
+  - `DANDANAPI_KEY`  —— 弹弹play 应用密钥(AppSecret)
+- 未设置环境变量时：打包副本保持 `''`，应用启动后由用户在设置面板自行配置（存于 localStorage）。
+- GitHub Actions 发布见 `.github/workflows/release.yaml`，从 `secrets.DANDANAPI_APPID` / `secrets.DANDANAPI_KEY` 注入。
+
+本地手动打包如需注入，构建前导出环境变量即可：
+
+```powershell
+$env:DANDANAPI_APPID = "你的AppId"
+$env:DANDANAPI_KEY   = "你的AppSecret"
+npm run build:win
+```
+
+正式给普通用户分发时，以 `Stellaflix-1.1.2-Setup.exe` 这类完整安装包为准，不要让普通用户下载 `Source code`、`.blockmap`、`latest.yml` 或 `win-unpacked`。
 
 ## GitHub Release 建议文案
 

@@ -38,7 +38,9 @@
 <script src="lyric-timeline.js"></script>
 <script src="equalizer-core.js"></script>
 <link rel="stylesheet" href="video/player.css">
+<link rel="stylesheet" href="video/hall.css">
 <script src="video/state.js"></script>
+<script src="video/poster-cache.js"></script>
 <script src="video/dispatch.js"></script>
 <script src="video/model.js"></script>
 <script src="video/bootstrap.js"></script>
@@ -46,6 +48,7 @@
   <script src="video/nav.js"></script>
 <script src="video/subtitle.js"></script>
 <script src="video/player.js"></script>
+<script src="video/player-controller.js"></script>
 <script src="video/source-adapter.js"></script>
   <script src="video/sources.js"></script>
   <script src="video/fx-sources.js"></script>
@@ -79,7 +82,16 @@
   <script src="video/danmaku/ui.js"></script>
   <script src="video/tmdb.js"></script>
   <script src="video/collections.js"></script>
+  <!-- Plex 风详情页（detail.js）：仅定义 SFV.detail，依赖 tmdb/collections/model 在调用期已就绪 -->
+  <script src="video/detail.js"></script>
+  <script src="video/search-filter-core.js"></script>
+  <script src="video/search-filter.js"></script>
+  <script src="video/search-filter-chips.js"></script>
 <script src="video/home.js"></script>
+  <!-- 浏览厅（cover-flow 移植自 cover-flow-showcase / 纯 CSS 3D）：SFV.coverFlow / SFV.sourcePicker / SFV.hall 入口；零业务逻辑进 index.html -->
+  <script src="video/cover-flow.js"></script>
+  <script src="video/source-picker.js"></script>
+  <script src="video/hall.js"></script>
   <script src="video/page-collections.js"></script>
 <script>
 try {
@@ -108,7 +120,7 @@ body::after,#desktop-window-shell::after{content:none}
 #desktop-window-shell{display:contents}
 #desktop-titlebar{display:none}
 body.desktop-shell{background:transparent}
-body.desktop-shell #desktop-window-shell{display:block;position:fixed;inset:0;overflow:hidden;border-radius:34px;clip-path:inset(0 round 34px);background:transparent;box-shadow:0 24px 80px rgba(0,0,0,.46);transform:translateZ(0)}
+body.desktop-shell #desktop-window-shell{display:block;position:fixed;inset:0;overflow:hidden;border-radius:22px;clip-path:inset(0 round 22px);background:transparent;box-shadow:0 24px 80px rgba(0,0,0,.46);transform:translateZ(0)}
 body.desktop-shell.desktop-maximized #desktop-window-shell,body.desktop-shell.desktop-fullscreen #desktop-window-shell,html:fullscreen body.desktop-shell #desktop-window-shell{border-radius:0!important;clip-path:none!important;box-shadow:none!important}
 body.desktop-shell #desktop-titlebar{position:fixed;z-index:500;top:0;left:0;right:0;height:44px;padding:0 12px 0 18px;display:flex;align-items:center;justify-content:space-between;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none;-webkit-app-region:drag;pointer-events:none}
 body.desktop-shell #desktop-titlebar::after{content:none}
@@ -207,8 +219,8 @@ body.idle-guide-dragging #canvas-container{cursor:grabbing}
 .splash-enter{margin-top:8px;font-size:11px;font-weight:700;letter-spacing:.24em;color:rgba(255,255,255,.62);text-transform:uppercase;opacity:0;transform:translateY(10px);text-shadow:0 0 18px rgba(244,210,138,.24),0 0 34px rgba(122,215,194,.12);transition:opacity 620ms cubic-bezier(.22,1,.36,1),transform 620ms cubic-bezier(.22,1,.36,1)}
 #splash.ready .splash-enter{opacity:1;transform:translateY(0);animation:splash-enter-pulse 1800ms ease-in-out infinite alternate}
 @keyframes splash-field-breathe{0%{opacity:.72;transform:scale(1)}100%{opacity:1;transform:scale(1.035)}}
-@keyframes splash-mine-in{0%{opacity:0;clip-path:inset(48% 0 49% 0);transform:translate(calc(-50% - 10px),-42%) skewX(-10deg) scaleX(1.08);letter-spacing:.055em}14%{opacity:.92;clip-path:inset(40% 0 42% 0);transform:translate(calc(-50% - 4px),-50%) skewX(-4deg) scaleX(1.04);letter-spacing:.014em}26%{opacity:1;clip-path:inset(0);transform:translate(-50%,-50%) skewX(0) scaleX(1);letter-spacing:-.040em}48%{opacity:1;transform:translate(-50%,-50%) scale(1)}67%{opacity:1;transform:translate(calc(-50% - clamp(66px,10.8vw,130px)),-50%) scale(.998);letter-spacing:-.055em}100%{opacity:1;transform:translate(calc(-50% - clamp(66px,10.8vw,130px)),-50%) scale(.998)}}
-@keyframes splash-radio-in{0%,32%{opacity:0;clip-path:inset(52% 0 44% 0);transform:translate(calc(-50% + clamp(78px,12vw,142px)),-50%) skewX(9deg) scaleX(1.06);background-position:0 0}48%{opacity:.88;clip-path:inset(34% 0 32% 0);transform:translate(calc(-50% + clamp(72px,11.5vw,138px)),-50%) skewX(3deg) scaleX(1.02);background-position:52% 0}66%{opacity:1;clip-path:inset(0);transform:translate(calc(-50% + clamp(70px,11.4vw,136px)),-50%) scale(1);background-position:76% 0}100%{opacity:1;transform:translate(calc(-50% + clamp(70px,11.4vw,136px)),-50%) scale(1);background-position:100% 0}}
+@keyframes splash-mine-in{0%{opacity:0;clip-path:inset(48% 0 49% 0);transform:translate(calc(-50% - 8px),-42%) skewX(-10deg) scaleX(1.08);letter-spacing:.055em}14%{opacity:.92;clip-path:inset(40% 0 42% 0);transform:translate(calc(-50% - 3px),-50%) skewX(-4deg) scaleX(1.04);letter-spacing:.014em}26%{opacity:1;clip-path:inset(0);transform:translate(-50%,-50%) skewX(0) scaleX(1);letter-spacing:-.040em}48%{opacity:1;transform:translate(-50%,-50%) scale(1)}67%{opacity:1;transform:translate(calc(-50% - clamp(56px,9.2vw,111px)),-50%) scale(.998);letter-spacing:-.055em}100%{opacity:1;transform:translate(calc(-50% - clamp(56px,9.2vw,111px)),-50%) scale(.998)}}
+@keyframes splash-radio-in{0%,32%{opacity:0;clip-path:inset(52% 0 44% 0);transform:translate(calc(-50% + clamp(66px,10.2vw,121px)),-50%) skewX(9deg) scaleX(1.06);background-position:0 0}48%{opacity:.88;clip-path:inset(34% 0 32% 0);transform:translate(calc(-50% + clamp(61px,9.8vw,117px)),-50%) skewX(3deg) scaleX(1.02);background-position:52% 0}66%{opacity:1;clip-path:inset(0);transform:translate(calc(-50% + clamp(60px,9.7vw,116px)),-50%) scale(1);background-position:76% 0}100%{opacity:1;transform:translate(calc(-50% + clamp(60px,9.7vw,116px)),-50%) scale(1);background-position:100% 0}}
 @keyframes splash-i-dot-pop{0%,48%{opacity:0;transform:translate(-50%,.22em) scale(.34)}60%{opacity:1;transform:translate(-50%,-.018em) scale(1.12)}68%{opacity:.92;transform:translate(-50%,.010em) scale(.94)}76%,100%{opacity:1;transform:translate(-50%,0) scale(1)}}
 @keyframes splash-signal-line{0%,28%{opacity:0;transform:scaleX(.10)}44%{opacity:.98;transform:scaleX(1.05)}64%{opacity:.70;transform:scaleX(.82)}76%{opacity:1;transform:scaleX(1.14);box-shadow:0 0 28px rgba(244,210,138,.36),0 0 60px rgba(122,215,194,.18)}100%{opacity:.30;transform:scaleX(.64)}}
 @keyframes splash-signal-blip{0%,42%{opacity:0;left:18%;transform:translate(-50%,-50%) scale(.24)}62%{opacity:.94;left:50%;transform:translate(-50%,-50%) scale(1)}76%{opacity:1;left:50%;transform:translate(-50%,-50%) scale(1.45)}100%{opacity:.16;left:82%;transform:translate(-50%,-50%) scale(.46)}}
@@ -346,7 +358,6 @@ body.home-wallpaper-preview #canvas-container{filter:none}
 .home-poster-media{align-self:center;justify-self:end;position:relative;width:100%;max-width:248px;aspect-ratio:3 / 4;border-radius:26px;isolation:isolate;filter:drop-shadow(0 24px 56px rgba(0,0,0,.36))}
 .home-poster-frame{position:absolute;inset:0;border-radius:26px;background-image:var(--home-poster-image,linear-gradient(145deg,color-mix(in srgb,var(--home-accent) 58%,#15171d),rgba(8,9,13,.92)));background-size:cover;background-position:center;overflow:hidden;border:1px solid color-mix(in srgb,var(--home-accent) 22%,rgba(255,255,255,.14));box-shadow:inset 0 1px 0 rgba(255,255,255,.16),0 24px 64px rgba(0,0,0,.34)}
 .home-poster-frame::before{content:'';position:absolute;inset:0;background:linear-gradient(145deg,rgba(255,255,255,.16),transparent 34%,rgba(0,0,0,.22) 100%);pointer-events:none}
-.home-poster-frame::after{content:'';position:absolute;left:16px;right:16px;bottom:16px;height:42px;border-radius:16px;background:linear-gradient(90deg,rgba(0,0,0,.46),rgba(0,0,0,.18));box-shadow:inset 0 1px 0 rgba(255,255,255,.08);opacity:.82;pointer-events:none}
 .home-poster-media:not(.has-image) .home-poster-frame::before{background:linear-gradient(145deg,rgba(255,255,255,.13),transparent 36%,rgba(0,0,0,.28)),repeating-linear-gradient(110deg,rgba(255,255,255,.13) 0 2px,transparent 2px 18px)}
 .home-poster-media:not(.has-image)::after{content:'Mine';position:absolute;left:22px;bottom:26px;z-index:2;font-size:28px;line-height:1;font-weight:780;color:rgba(255,255,255,.88);text-shadow:0 10px 30px rgba(0,0,0,.40)}
 .home-poster-reflection{position:absolute;z-index:-1;left:12%;right:12%;bottom:-22px;height:46px;border-radius:50%;background:color-mix(in srgb,var(--home-accent) 18%,rgba(255,255,255,.10));filter:blur(18px);opacity:.42}
@@ -407,7 +418,7 @@ body.empty-home-active .home-visual{animation:home-visual-drift 8.8s ease-in-out
 .home-card-label{font-size:10px;font-weight:760;letter-spacing:.14em;text-transform:uppercase;color:color-mix(in srgb,var(--tone-a) 70%,#fff);margin-bottom:8px;text-shadow:0 0 18px color-mix(in srgb,var(--tone-a) 22%,transparent)}
 .home-card-title{font-size:19px;font-weight:780;line-height:1.16;letter-spacing:0;color:rgba(255,255,255,.96);max-width:70%}
 .home-card-sub{margin-top:8px;font-size:11.5px;line-height:1.45;color:rgba(255,255,255,.55);max-width:70%}
-.home-card-art{position:absolute;z-index:1;right:13px;bottom:13px;width:108px;height:108px;border-radius:24px;background:linear-gradient(135deg,color-mix(in srgb,var(--tone-a) 78%,#14141a),color-mix(in srgb,var(--tone-b) 68%,#09090d));background-size:cover;background-position:center;box-shadow:0 18px 50px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.16);transform:rotate(3deg);overflow:hidden}
+.home-card-art{position:absolute;z-index:1;right:13px;bottom:13px;width:108px;height:108px;aspect-ratio:1/1;border-radius:24px;background:linear-gradient(135deg,color-mix(in srgb,var(--tone-a) 78%,#14141a),color-mix(in srgb,var(--tone-b) 68%,#09090d));background-size:cover;background-position:center;box-shadow:0 18px 50px rgba(0,0,0,.36),inset 0 1px 0 rgba(255,255,255,.16);transform:rotate(3deg);overflow:hidden}
 .home-card-art:not(.has-cover)::before{content:'';position:absolute;inset:18px;border-radius:50%;background:repeating-radial-gradient(circle,rgba(255,255,255,.16) 0 1px,transparent 1px 8px),conic-gradient(from 180deg,var(--tone-a),var(--tone-b),var(--tone-c),var(--tone-a));box-shadow:inset 0 0 0 14px rgba(5,5,8,.44),0 12px 28px rgba(0,0,0,.26)}
 .home-card-art::after{content:'';position:absolute;inset:0;background:linear-gradient(145deg,rgba(255,255,255,.12),transparent 42%,rgba(0,0,0,.28));pointer-events:none}
 .home-rail{align-self:stretch;min-height:0;display:grid;grid-template-rows:auto 1fr;gap:12px}
@@ -426,14 +437,14 @@ body.empty-home-active .home-visual{animation:home-visual-drift 8.8s ease-in-out
 .home-skeleton{position:relative;overflow:hidden}
 .home-skeleton::before{content:'';position:absolute;inset:0;background:linear-gradient(110deg,transparent,rgba(255,255,255,.08),transparent);transform:translateX(-100%);animation:home-shimmer 1.5s ease-in-out infinite}
 @keyframes home-shimmer{100%{transform:translateX(100%)}}
-@media (max-width:1120px){#empty-home{width:calc(100vw - 48px)}.empty-home-shell{grid-template-columns:minmax(300px,.88fr) minmax(440px,1.12fr);gap:12px}.home-hero{padding:24px}.home-hero-inner{grid-template-columns:minmax(0,1.16fr) minmax(128px,.52fr);column-gap:14px}.home-title{font-size:clamp(30px,4vw,48px);max-width:340px}.home-sub{font-size:12.5px;line-height:1.5;max-width:314px}.home-visual{height:198px;max-width:236px}.home-mosaic{height:142px;min-height:126px;margin-top:14px}.home-grid{gap:10px}.home-card{min-height:126px;padding:14px;border-radius:20px}.home-card-label{margin-bottom:6px}.home-card-title{font-size:16.5px;max-width:66%}.home-card-sub{margin-top:6px;font-size:10.8px;line-height:1.34;max-width:64%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.home-card-art{right:11px;bottom:11px;width:80px;height:80px;border-radius:18px}.home-card-art:not(.has-cover)::before{inset:14px;box-shadow:inset 0 0 0 11px rgba(5,5,8,.44),0 10px 24px rgba(0,0,0,.24)}.home-card::after{right:88px;bottom:14px;width:30px;height:56px}.home-rail{gap:8px}.home-tile{min-height:128px}.home-tile-cover{height:66px}}
-@media (max-height:760px){#empty-home{top:132px;bottom:44px}.empty-home-shell{min-height:0}.home-hero{min-height:0;padding:22px}.home-hero-inner{grid-template-columns:minmax(0,1.22fr) minmax(136px,.54fr);column-gap:14px}.home-title{font-size:clamp(31px,3.75vw,48px);max-width:360px}.home-sub{font-size:12.5px;line-height:1.55;max-width:330px}.home-quick-row{margin-top:16px}.home-visual{height:206px;max-width:246px}.home-mosaic{height:132px;min-height:120px;margin-top:14px}.home-card{min-height:134px;padding:14px}.home-card-title{font-size:17px}.home-card-art{width:92px;height:92px;border-radius:21px}.home-tile{min-height:132px}.home-tile-cover{height:72px}}
-@media (max-height:700px){#empty-home{top:126px;bottom:34px}.home-hero{padding:20px}.home-title{font-size:clamp(28px,3.55vw,42px)}.home-sub{font-size:12px;line-height:1.42}.home-weather-meta{margin-top:12px}.home-quick-row{margin-top:12px}.home-visual{height:174px;max-width:216px}.home-mosaic{height:112px;min-height:104px}.home-card{min-height:112px;padding:12px}.home-card-title{font-size:15.5px}.home-card-sub{font-size:10.5px;line-height:1.28;-webkit-line-clamp:2}.home-card-art{width:70px;height:70px;border-radius:16px}.home-card::after{right:78px;height:48px}.home-tile{min-height:112px;padding:9px}.home-tile-cover{height:54px;margin-bottom:8px}.home-section-head{min-height:30px}}
-@media (max-width:840px){.empty-home-shell{grid-template-columns:minmax(250px,.86fr) minmax(360px,1.14fr)}.home-hero-inner{grid-template-columns:minmax(0,1fr)}.home-visual{display:none}.home-mosaic{height:124px;min-height:108px}.home-card{min-height:108px}.home-card-title{font-size:15px;max-width:68%}.home-card-sub{font-size:10.3px;max-width:62%}.home-card-art{width:66px;height:66px;border-radius:15px}.home-card::after{right:72px;width:24px;height:44px}.home-tile-title{font-size:11.5px}}
+@media (max-width:1120px){#empty-home{width:calc(100vw - 48px)}.empty-home-shell{grid-template-columns:minmax(300px,.88fr) minmax(440px,1.12fr);gap:12px}.home-hero{padding:24px}.home-hero-inner{grid-template-columns:minmax(0,1.16fr) minmax(128px,.52fr);column-gap:14px}.home-title{font-size:clamp(30px,4vw,48px);max-width:340px}.home-sub{font-size:12.5px;line-height:1.5;max-width:314px}.home-visual{height:198px;max-width:236px}.home-mosaic{height:142px;min-height:126px;margin-top:14px}.home-grid{gap:10px}.home-card{min-height:126px;padding:14px;border-radius:20px}.home-card-label{margin-bottom:6px}.home-card-title{font-size:16.5px;max-width:66%}.home-card-sub{margin-top:6px;font-size:10.8px;line-height:1.34;max-width:64%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.home-card-art{right:11px;bottom:11px;width:80px;height:80px;aspect-ratio:1/1;border-radius:18px}.home-card-art:not(.has-cover)::before{inset:14px;box-shadow:inset 0 0 0 11px rgba(5,5,8,.44),0 10px 24px rgba(0,0,0,.24)}.home-card::after{right:88px;bottom:14px;width:30px;height:56px}.home-rail{gap:8px}.home-tile{min-height:128px}.home-tile-cover{height:66px}}
+@media (max-height:760px){#empty-home{top:132px;bottom:44px}.empty-home-shell{min-height:0}.home-hero{min-height:0;padding:22px}.home-hero-inner{grid-template-columns:minmax(0,1.22fr) minmax(136px,.54fr);column-gap:14px}.home-title{font-size:clamp(31px,3.75vw,48px);max-width:360px}.home-sub{font-size:12.5px;line-height:1.55;max-width:330px}.home-quick-row{margin-top:16px}.home-visual{height:206px;max-width:246px}.home-mosaic{height:132px;min-height:120px;margin-top:14px}.home-card{min-height:134px;padding:14px}.home-card-title{font-size:17px}.home-card-art{width:92px;height:92px;aspect-ratio:1/1;border-radius:21px}.home-tile{min-height:132px}.home-tile-cover{height:72px}}
+@media (max-height:700px){#empty-home{top:126px;bottom:34px}.home-hero{padding:20px}.home-title{font-size:clamp(28px,3.55vw,42px)}.home-sub{font-size:12px;line-height:1.42}.home-weather-meta{margin-top:12px}.home-quick-row{margin-top:12px}.home-visual{height:174px;max-width:216px}.home-mosaic{height:112px;min-height:104px}.home-card{min-height:112px;padding:12px}.home-card-title{font-size:15.5px}.home-card-sub{font-size:10.5px;line-height:1.28;-webkit-line-clamp:2}.home-card-art{width:70px;height:70px;aspect-ratio:1/1;border-radius:16px}.home-card::after{right:78px;height:48px}.home-tile{min-height:112px;padding:9px}.home-tile-cover{height:54px;margin-bottom:8px}.home-section-head{min-height:30px}}
+@media (max-width:840px){.empty-home-shell{grid-template-columns:minmax(250px,.86fr) minmax(360px,1.14fr)}.home-hero-inner{grid-template-columns:minmax(0,1fr)}.home-visual{display:none}.home-mosaic{height:124px;min-height:108px}.home-card{min-height:108px}.home-card-title{font-size:15px;max-width:68%}.home-card-sub{font-size:10.3px;max-width:62%}.home-card-art{width:66px;height:66px;aspect-ratio:1/1;border-radius:15px}.home-card::after{right:72px;width:24px;height:44px}.home-tile-title{font-size:11.5px}}
 @media (max-width:760px){#empty-home{top:150px;bottom:56px;width:calc(100vw - 40px)}.empty-home-shell{grid-template-columns:1fr;grid-template-rows:auto auto 1fr;overflow:auto;padding-bottom:4px}.home-hero{grid-row:auto;min-height:344px}.home-mosaic{height:172px;min-height:150px}.home-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.home-tile-row{grid-template-columns:repeat(3,minmax(0,1fr))}}
 body.empty-home-active.controls-visible #empty-home{bottom:128px}
 @media (max-height:760px){body.empty-home-active.controls-visible #empty-home{bottom:112px}}
-@media (max-width:620px){#empty-home{top:146px;bottom:44px;width:calc(100vw - 24px)}.home-hero{padding:20px;border-radius:22px}.home-hero-inner{display:flex;flex-direction:column}.home-visual{display:none}.home-mosaic{display:none}.home-grid{grid-template-columns:1fr}.home-tile-row{grid-template-columns:repeat(2,minmax(0,1fr))}.home-tile-cover{height:auto;aspect-ratio:1}.home-tile-sub{display:block}.home-card-art{width:88px;height:88px}.home-card-title,.home-card-sub{max-width:68%}}
+@media (max-width:620px){#empty-home{top:146px;bottom:44px;width:calc(100vw - 24px)}.home-hero{padding:20px;border-radius:22px}.home-hero-inner{display:flex;flex-direction:column}.home-visual{display:none}.home-mosaic{display:none}.home-grid{grid-template-columns:1fr}.home-tile-row{grid-template-columns:repeat(2,minmax(0,1fr))}.home-tile-cover{height:auto;aspect-ratio:1}.home-tile-sub{display:block}.home-card-art{width:88px;height:88px;aspect-ratio:1/1}.home-card-title,.home-card-sub{max-width:68%}}
 .home-visual.generated{height:74px!important;max-width:300px!important;align-self:center!important}
 @media (max-height:760px){.home-visual.generated{height:64px!important;max-width:260px!important}}
 
@@ -502,7 +513,7 @@ body.desktop-shell.desktop-fullscreen .home-mosaic-cell.has-cover,html:fullscree
   body.desktop-shell .home-card-label{margin-bottom:6px}
   body.desktop-shell .home-card-title{font-size:16px;max-width:66%}
   body.desktop-shell .home-card-sub{margin-top:6px;font-size:10.6px;line-height:1.32;max-width:64%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  body.desktop-shell .home-card-art{right:11px;bottom:11px;width:78px;height:78px;border-radius:18px}
+  body.desktop-shell .home-card-art{right:11px;bottom:11px;width:78px;height:78px;aspect-ratio:1/1;border-radius:18px}
   body.desktop-shell .home-card::after{right:86px;bottom:14px;width:30px;height:54px}
   body.desktop-shell .home-rail{gap:8px}
   body.desktop-shell .home-tile{min-height:120px}
@@ -520,7 +531,7 @@ body.desktop-shell.desktop-fullscreen .home-mosaic-cell.has-cover,html:fullscree
   body.desktop-shell .home-card{min-height:104px;padding:12px}
   body.desktop-shell .home-card-title{font-size:15px}
   body.desktop-shell .home-card-sub{font-size:10.2px;line-height:1.28}
-  body.desktop-shell .home-card-art{width:66px;height:66px;border-radius:15px}
+  body.desktop-shell .home-card-art{width:66px;height:66px;aspect-ratio:1/1;border-radius:15px}
   body.desktop-shell .home-card::after{right:72px;width:24px;height:44px}
   body.desktop-shell .home-tile{min-height:104px;padding:9px}
   body.desktop-shell .home-tile-cover{height:50px;margin-bottom:8px}
@@ -534,7 +545,7 @@ body.desktop-shell.desktop-fullscreen .home-mosaic-cell.has-cover,html:fullscree
   body.desktop-shell .home-card{min-height:102px}
   body.desktop-shell .home-card-title{font-size:14.8px;max-width:68%}
   body.desktop-shell .home-card-sub{font-size:10px;max-width:62%}
-  body.desktop-shell .home-card-art{width:62px;height:62px;border-radius:14px}
+  body.desktop-shell .home-card-art{width:62px;height:62px;aspect-ratio:1/1;border-radius:14px}
 }
 @media (max-width:760px){
   body.desktop-shell #empty-home{top:128px;bottom:48px;width:calc(100vw - 36px)}
@@ -2244,11 +2255,11 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
   <!-- 主内容 -->
   <div class="splash-content">
     <div class="splash-wordmark" id="splash-wordmark" aria-label="Stellaflix">
-      <span class="splash-word-mine">Mine</span>
-      <span class="splash-word-radio" aria-label="radio">rad<span class="splash-word-i" aria-hidden="true"></span><span class="splash-word-o">o</span></span>
+      <span class="splash-word-mine">Stella</span>
+      <span class="splash-word-radio" aria-label="flix">fl<span class="splash-word-i" aria-hidden="true"></span><span class="splash-word-o">x</span></span>
     </div>
     <div class="splash-signal-line"></div>
-    <div class="splash-sub">private visual radio</div>
+    <div class="splash-sub">private visual flix</div>
     <div class="splash-enter" aria-hidden="true">点击进入</div>
   </div>
 </div>
@@ -2293,7 +2304,7 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
 <section id="empty-home" aria-label="Stellaflix home">
   <div class="empty-home-shell">
     <div class="home-hero">
-      <div class="home-hero-inner home-poster-inner">
+      <div id="home-poster" class="home-hero-inner home-poster-inner">
         <input id="home-poster-file" type="file" accept="image/*" hidden onchange="readHomePosterImageFile(this.files && this.files[0]); this.value='';">
         <div class="home-poster-copy">
           <div class="home-kicker home-poster-kicker">Personal Poster</div>
@@ -2421,6 +2432,9 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
       </div>
     </div>
   </div>
+
+  <!-- 已应用筛选条（Kazumi 风格 Chip 条，挂载点；默认隐藏，有筛选时显示） -->
+  <div class="sfv-search-filter-chips" id="sfv-search-filter-chips"></div>
 
   <!-- 搜索结果区域（搜索后在此展示海报网格） -->
   <div class="sfv-search-result-area" id="sfv-search-result-area">
@@ -2829,6 +2843,31 @@ html.control-glass-svg-ok #visual-guide-btn:hover{
       <feBlend in="red" in2="green" mode="screen" result="rg"></feBlend>
       <feBlend in="rg" in2="blue" mode="screen" result="output"></feBlend>
       <feGaussianBlur in="output" stdDeviation="0.35"></feGaussianBlur>
+    </filter>
+    <!-- 浏览厅卡片液态玻璃折射滤镜（cover-flow card liquid glass） -->
+    <filter id="cf-card-glass-filter" color-interpolation-filters="sRGB" x="-8%" y="-8%" width="116%" height="116%">
+      <!-- 边缘折射：turbulence 噪声 + 径向渐变遮罩限制仅边缘位移，中心清晰不失真 -->
+      <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" seed="7" result="noise"/>
+      <!-- 径向遮罩：中心(50% 50%)=黑色(0位移)，边缘=白色(全位移) -->
+      <radialGradient id="cf-glass-edge-mask-grad" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#000" stop-opacity="0"/>
+        <stop offset="60%" stop-color="#000" stop-opacity="0.15"/>
+        <stop offset="92%" stop-color="#fff" stop-opacity="0.85"/>
+        <stop offset="100%" stop-color="#fff" stop-opacity="1"/>
+      </radialGradient>
+      <feImage href="#cf-glass-edge-mask-grad" result="edgeMask" x="0" y="0" width="350" height="525"/>
+      <feColorMatrix in="edgeMask" type="matrix" values="
+        0 0 0 0 0
+        0 0 0 0 0
+        0 0 0 0 0
+        1 0 0 0 0" result="edgeMaskAlpha"/>
+      <feComposite in="noise" in2="edgeMaskAlpha" operator="arithmetic" k1="1" k2="0" k3="0" k4="0" result="maskedNoise"/>
+      <!-- 微量位移：scale=4 仅在边缘区域生效（中心 maskedNoise≈0） -->
+      <feDisplacementMap in="SourceGraphic" in2="maskedNoise" scale="4" xChannelSelector="R" yChannelSelector="G" result="disp"/>
+      <!-- 原图与折射图混合：中心100%原图，边缘渐进混合折射 -->
+      <feComposite in="SourceGraphic" in2="disp" operator="arithmetic" k1="1" k2="0" k3="0.6" k4="0" result="blended"/>
+      <!-- 极微弱整体模糊模拟玻璃介质散射 -->
+      <feGaussianBlur in="blended" stdDeviation="0.25" result="output"/>
     </filter>
   </defs>
 </svg>
@@ -16606,6 +16645,8 @@ function renderHomePersonalPoster() {
   }
 }
 function setHomePosterImage(src, toastText) {
+  // T134-f Layer3：影视态下禁止音乐侧修改海报图（"用当前封面"等按钮触发）
+  if (document.body && document.body.classList.contains('video-space-active')) return;
   homePosterState.image = String(src || '');
   var saved = saveHomePosterState();
   renderHomePersonalPoster();
@@ -16668,6 +16709,8 @@ function cancelHomePosterQuoteEdit() {
   if (wrap) wrap.classList.remove('editing');
 }
 function saveHomePosterQuote() {
+  // T134-f Layer5：影视态下禁止音乐态文案保存（防止遗留的保存按钮引用覆盖视频文案）
+  if (document.body && document.body.classList.contains('video-space-active')) return;
   var input = document.getElementById('home-poster-quote-input');
   var next = input ? input.value : '';
   next = String(next || '').trim().slice(0, 80);
@@ -16692,6 +16735,8 @@ function handleHomePosterQuoteKey(e) {
   }
 }
 function resetHomePoster() {
+  // T134-f Layer6：影视态下禁止音乐态重置海报
+  if (document.body && document.body.classList.contains('video-space-active')) return;
   homePosterState = defaultHomePosterState();
   try { localStorage.removeItem(HOME_POSTER_STORE_KEY); } catch (e) {}
   cancelHomePosterQuoteEdit();
@@ -16969,9 +17014,30 @@ function pickHomeLibraryPlaylist(playlists) {
     return (Math.max(0, Number(b.trackCount) || 0) - Math.max(0, Number(a.trackCount) || 0));
   })[0] || null;
 }
+// 跨态连线（2026-08-05）：音乐态「影视空间」卡展示影视态左侧个人海报。
+//   来源：① SFV.home.getUserVideoPoster().url（运行时 posterStore，可能尚未异步加载）
+//        ② localStorage['stellaflix-video-poster'].url（兜底，与 home.js 持久键一致）
+//   与音乐态 homePosterState 完全独立，互不影响。
+function getVideoLeftPoster() {
+  try {
+    if (window.StellaflixVideo && window.StellaflixVideo.home && typeof window.StellaflixVideo.home.getUserVideoPoster === 'function') {
+      var p = window.StellaflixVideo.home.getUserVideoPoster();
+      if (p && p.url) return p.url;
+    }
+    if (window.localStorage) {
+      var raw = window.localStorage.getItem('stellaflix-video-poster');
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        if (parsed && (parsed.url || parsed.poster)) return parsed.url || parsed.poster;
+      }
+    }
+  } catch (e) { /* ignore */ }
+  return '';
+}
 function renderHomeDiscover() {
-  // 影视态下首页由 public/video/home.js 接管；不早退会被音乐侧事件覆写影视文案。
+  // 影视态下首页由 public/video/home.js 接管；双重守卫（state + body class）防止任何路径绕过
   if (window.StellaflixVideo && window.StellaflixVideo.state && window.StellaflixVideo.state.isVideo()) return;
+  if (document.body && document.body.classList.contains('video-space-active')) return;
   var sub = document.getElementById('home-subtitle');
   var loggedOutHome = !homeDiscoverState.loggedIn && !hasAnyPlatformLogin();
   var weather = homeWeatherRadioState.weather;
@@ -17040,7 +17106,7 @@ function renderHomeDiscover() {
     setHomeArt('home-daily-art', '', 280);
     setHomeArt('home-private-art', '', 280);
     setHomeArt('home-continue-art', summary.recent && summary.recent.cover, 280);
-    setHomeArt('home-video-art', '', 280);
+    setHomeArt('home-video-art', getVideoLeftPoster(), 280);
     setHomeArt('home-library-art', '', 280);
   } else {
     if (dailyTitle) dailyTitle.textContent = daily ? daily.name : '每日推荐';
@@ -17053,7 +17119,7 @@ function renderHomeDiscover() {
     setHomeArt('home-daily-art', daily && daily.cover, 280);
     setHomeArt('home-private-art', cardSongB && cardSongB.cover || daily && daily.cover || summary.recent && summary.recent.cover || playlistItem && playlistItem.cover, 280);
     setHomeArt('home-continue-art', summary.recent && summary.recent.cover || playlistItem && playlistItem.cover, 280);
-    setHomeArt('home-video-art', '', 280);
+    setHomeArt('home-video-art', getVideoLeftPoster(), 280);
     setHomeArt('home-library-art', cardSongC && cardSongC.cover || summary.topSong && summary.topSong.cover || summary.recent && summary.recent.cover || podcastItem && podcastItem.cover, 280);
   }
   renderHomePersonalPoster();
@@ -19954,7 +20020,10 @@ function bindVolumeControls() {
     wrap.addEventListener('mouseleave', closeVolumePanelSoon);
   }
   if (slider) {
-    slider.addEventListener('input', function(){ setVolume(slider.value, true); });
+    slider.addEventListener('input', function(){
+      if (window.StellaflixVideo && StellaflixVideo.player && StellaflixVideo.player.isOpen && StellaflixVideo.player.isOpen()) { StellaflixVideo.player.setVolume(parseFloat(slider.value)); return; }
+      setVolume(slider.value, true);
+    });
     slider.addEventListener('focus', keepVolumePanelOpen);
     slider.addEventListener('blur', closeVolumePanelSoon);
     slider.addEventListener('change', function(){ showToast('音量 ' + Math.round(targetVolume * 100) + '%'); });
@@ -20475,7 +20544,11 @@ async function playQueueAt(idx, opts) {
   safePlaybackStep('quality-ui', updatePlaybackQualityUi);
   safePlaybackStep('cinema-track-profile', function(){ resetCinemaTrackProfile(song); });
   safePlaybackStep('empty-home', function(){ if (!opts.preserveHomeState) updateEmptyHomeVisibility(); });
-  safePlaybackStep('home-poster', renderHomePersonalPoster);
+  // T134-f Layer1：包装回调——影视态下彻底拦截音乐态海报/文案覆盖（双重保险：回调入口 + 函数内部守卫）
+  safePlaybackStep('home-poster', function(){
+    if (document.body && document.body.classList.contains('video-space-active')) return;
+    renderHomePersonalPoster();
+  });
   safePlaybackStep('track-ui', function(){
     document.getElementById('hint').classList.add('hidden');
     document.getElementById('thumb-title').textContent = song.name;
@@ -22331,6 +22404,7 @@ function setProgressVisual(percent) {
   if (thumb) thumb.style.left = percent + '%';
 }
 function updatePlaybackProgressUi() {
+  if (window.StellaflixVideo && StellaflixVideo.player && StellaflixVideo.player.isOpen && StellaflixVideo.player.isOpen()) return;
   var durationSec = getPlaybackDurationSeconds();
   var currentSec = getPlaybackCurrentSeconds();
   if (durationSec > 0 && currentSec > durationSec) currentSec = durationSec;
@@ -22371,6 +22445,11 @@ function seekFromProgressPointer(e, emitParticles) {
   var bar = document.getElementById('progress-bar');
   var rect = bar.getBoundingClientRect();
   var ratio = clampRange((e.clientX - rect.left) / rect.width, 0, 1);
+  if (window.StellaflixVideo && StellaflixVideo.player && StellaflixVideo.player.isOpen && StellaflixVideo.player.isOpen()) {
+    StellaflixVideo.player.seek(ratio);
+    if (emitParticles) emitProgressDragParticles(e.clientX, rect.top + rect.height / 2);
+    return;
+  }
   audio.currentTime = ratio * durationSec;
   setProgressVisual(ratio * 100);
   syncBeatMapPlaybackCursor(audio.currentTime);

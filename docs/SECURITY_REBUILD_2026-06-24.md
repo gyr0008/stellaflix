@@ -1,4 +1,4 @@
-# Mineradio Security Rebuild Log - 2026-06-24
+# Stellaflix Security Rebuild Log - 2026-06-24
 
 ## Context
 

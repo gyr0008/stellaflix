@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 132 116" width="132" height="116" role="img" aria-label="The Movie Database">
+  <g fill="#01b4e4" font-family="'Helvetica Neue', Arial, 'PingFang SC', 'Microsoft YaHei', sans-serif" font-weight="700" font-style="italic">
+    <text x="14" y="30" font-size="22" letter-spacing="1.5">THE</text>
+    <text x="10" y="70" font-size="44" letter-spacing="1">MOVIE</text>
+    <text x="14" y="102" font-size="22" letter-spacing="1.5"><tspan fill="#ffd54f" dx="0">—</tspan><tspan dx="6">DB</tspan></text>
+  </g>
+</svg>

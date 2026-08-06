@@ -77,7 +77,7 @@
       '</div>' +
 
       /* ---- 片源管理分区 ---- */
-      '<div class="sfv-section-label">CMS10 片源</div>' +
+      '<div class="sfv-section-label">片源</div>' +
       '<div class="sfv-src-form">' +
         '<div class="sfv-input-row"><label>名称</label><input class="sfv-src-name" type="text" placeholder="可留空，默认取域名"></div>' +
         '<div class="sfv-input-row"><label>接口地址</label><input class="sfv-src-api" type="text" placeholder="如 https://.../api.php/provide/vod"></div>' +
@@ -86,15 +86,15 @@
       '<div class="sfv-section-label">已添加片源</div>' +
       '<div class="sfv-src-list"></div>' +
 
-      /* ---- 规则管理分区（Kazumi）---- */
-      '<div class="sfv-section-label">Kazumi 搜索规则</div>' +
+      /* ---- 规则管理分区 ---- */
+      '<div class="sfv-section-label">规则</div>' +
       '<div class="sfv-rules-notice">' +
-        '导入 Kazumi 格式的搜索规则后，搜索会并行查询这些站点（与 CMS10 片源互补）。' +
+        '导入搜索规则后，搜索会并行查询这些站点（与 CMS10 片源互补）。' +
         '规则文件为 .json 格式，可从规则库获取或手动编写。' +
       '</div>' +
       '<div class="sfv-rules-form">' +
         '<div class="sfv-form-actions">' +
-          '<button type="button" class="sfv-btn-secondary sfv-rule-import"><span>📂</span> 导入规则文件</button>' +
+          '<button type="button" class="sfv-btn-secondary sfv-rule-import">导入规则文件</button>' +
           '<input type="file" id="sfv-rule-file" accept=".json,application/json" hidden>' +
           '<span class="sfv-src-hint sfv-rule-hint"></span>' +
         '</div>' +
@@ -113,7 +113,10 @@
     var html = '';
     for (var i = 0; i < list.length; i++) {
       var s = list[i];
-      html += '<div class="sfv-src-item" data-sid="' + esc(s.id) + '">' +
+      /* 圆点初始态：未启用=灰(默认)；启用=灰(待自动检查更新为绿/红) */
+      var dotCls = s.enabled ? '' : '';
+      html += '<div class="sfv-src-item' + (s.enabled ? ' enabled' : '') + '" data-sid="' + esc(s.id) + '" data-enabled="' + (s.enabled ? '1' : '0') + '">' +
+        '<span class="sfv-src-dot' + dotCls + '"></span>' +
         '<div class="sfv-src-item-main">' +
           '<div class="sfv-src-item-name">' + esc(s.name) + '</div>' +
           '<div class="sfv-src-item-api">' + esc(s.api) + '</div>' +
@@ -146,11 +149,14 @@
     var html = '';
     for (var i = 0; i < rules.length; i++) {
       var r = rules[i];
-      html += '<div class="sfv-src-item sfv-rule-item" data-rid="' + esc(r.name || r.id || i) + '">' +
+      /* 规则圆点：未启用=灰(默认)；启用且完整=绿；启用但不完整=红 */
+      var rDotCls = '';
+      if (r.enabled) { rDotCls = (r.valid !== false) ? ' status-ok' : ' status-bad'; }
+      html += '<div class="sfv-src-item sfv-rule-item' + (r.enabled ? ' enabled' : '') + '" data-rid="' + esc(r.name || r.id || i) + '">' +
+        '<span class="sfv-src-dot' + rDotCls + '"></span>' +
         '<div class="sfv-src-item-main">' +
           '<div class="sfv-src-item-name">' + esc(r.name) + '</div>' +
-          '<div class="sfv-src-item-api">' + (r.searchMode || 'xpath') + ' · ' + (r.baseUrl || '—') + (r.valid ? '' : ' · <span style="color:rgba(255,150,140,.9)">不完整</span>') + '</div>' +
-          '<div class="sfv-src-item-state">' + (r.enabled ? '已启用' : '已停用') + '</div>' +
+          '<div class="sfv-src-item-api">' + (r.searchMode || 'xpath') + ' · ' + (r.baseUrl || '—') + (r.valid ? '' : ' · <span class="sfv-rule-warn">不完整</span>') + '</div>' +
         '</div>' +
         '<div class="sfv-src-item-ops">' +
           '<button type="button" class="fx-mini-btn sfv-rule-toggle">' + (r.enabled ? '停用' : '启用') + '</button>' +
@@ -272,17 +278,20 @@
         var src = null;
         for (var j = 0; j < all2.length; j++) if (all2[j].id === sid) src = all2[j];
         if (!src) return;
+        var dotEl = item.querySelector('.sfv-src-dot');
         t.disabled = true;
         if (stateEl) { stateEl.textContent = '测试中…'; stateEl.className = 'sfv-src-item-state'; }
-        SFV.sources.testSource(src).then(function (r) {
+        SFV.sources.testSource(src).then(function (testResult) {
           t.disabled = false;
-          if (!stateEl) return;
-          if (r.ok) {
-            stateEl.textContent = '可用 · 返回 ' + r.count + ' 条 · ' + r.ms + 'ms';
-            stateEl.className = 'sfv-src-item-state ok';
+          item.classList.remove('ok', 'bad');
+          if (testResult.ok) {
+            setDotStatus(dotEl, 'ok');
+            item.classList.add('ok');
+            if (stateEl) { stateEl.textContent = '可用 · 返回 ' + testResult.count + ' 条 · ' + testResult.ms + 'ms'; stateEl.className = 'sfv-src-item-state ok'; }
           } else {
-            stateEl.textContent = '不可用：' + reasonText(r.reason);
-            stateEl.className = 'sfv-src-item-state bad';
+            setDotStatus(dotEl, 'bad');
+            item.classList.add('bad');
+            if (stateEl) { stateEl.textContent = '不可用：' + reasonText(testResult.reason); stateEl.className = 'sfv-src-item-state bad'; }
           }
         });
       }
@@ -333,6 +342,63 @@
     }
   }
 
+  // ---------------------------------------------------------------- 自动状态检查
+
+  /* 设置圆点三态色 */
+  function setDotStatus(dotEl, status) {
+    if (!dotEl) return;
+    dotEl.classList.remove('status-ok', 'status-bad');
+    if (status === 'ok') dotEl.classList.add('status-ok');
+    else if (status === 'bad') dotEl.classList.add('status-bad');
+  }
+
+  /* 对所有已启用片源发起轻量探测，结果驱动圆点着色（绿=通 / 红=断）。
+   * 串行执行避免并发风暴；仅探测 enabled 源，disabled 保持灰。 */
+  function autoCheckStatus() {
+    if (!listEl) return;
+    var items = listEl.querySelectorAll('.sfv-src-item[data-enabled="1"]');
+    if (!items.length) return;
+    /* 先重置所有已启用圆点为灰色（待检查态） */
+    for (var k = 0; k < items.length; k++) {
+      var d = items[k].querySelector('.sfv-src-dot');
+      setDotStatus(d, '');
+    }
+    /* 串行探测 */
+    var idx = 0;
+    function next() {
+      if (idx >= items.length) return;
+      var item = items[idx++];
+      var sid = item.getAttribute('data-sid');
+      var dot = item.querySelector('.sfv-src-dot');
+      var stateEl = item.querySelector('.sfv-src-item-state');
+      var all = SFV.sources.getSources();
+      var src = null;
+      for (var j = 0; j < all.length; j++) { if (all[j].id === sid) { src = all[j]; break; } }
+      if (!src) { next(); return; }
+      if (stateEl) { stateEl.textContent = '检测中…'; stateEl.className = 'sfv-src-item-state'; }
+      SFV.sources.testSource(src).then(function (testResult) {
+        /* item/dot/stateEl 已被外层 next() 循环闭包捕获 */
+        if (!dot) return;
+        item.classList.remove('ok', 'bad');
+        if (testResult.ok) {
+          setDotStatus(dot, 'ok');
+          item.classList.add('ok');
+          if (stateEl) { stateEl.textContent = '可用 · ' + testResult.count + ' 条 · ' + testResult.ms + 'ms'; stateEl.className = 'sfv-src-item-state ok'; }
+        } else {
+          setDotStatus(dot, 'bad');
+          item.classList.add('bad');
+          if (stateEl) { stateEl.textContent = '不可用：' + reasonText(testResult.reason); stateEl.className = 'sfv-src-item-state bad'; }
+        }
+        next();
+      }).catch(function (testErr) {
+        if (dot) setDotStatus(dot, 'bad');
+        if (stateEl) { stateEl.textContent = '检测失败'; stateEl.className = 'sfv-src-item-state bad'; }
+        next();
+      });
+    }
+    next();
+  }
+
   // ---------------------------------------------------------------- 分页切换
 
   function activateOwnPage() {
@@ -353,6 +419,8 @@
     }
     renderList();
     renderRulesList();
+    /* 延迟 300ms 自动检查已启用源状态（等 DOM 渲染完毕） */
+    setTimeout(function () { autoCheckStatus(); }, 300);
   }
 
   // 包装全局 setFxPanelTab：原函数白名单不含本页 key，会静默回落到 presets。

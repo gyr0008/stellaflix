@@ -387,8 +387,8 @@ Function StellaflixNormalizeInstallDir
   ${EndIf}
 
   StrLen $1 "$0"
-  StrCpy $2 "$0" 10 -10
-  ${If} $1 < 10
+  StrCpy $2 "$0" 11 -11
+  ${If} $1 < 11
   ${OrIf} $2 != "\Stellaflix"
   ${AndIf} $2 != "\stellaflix"
     StrCpy $0 "$0\Stellaflix"
@@ -749,8 +749,8 @@ Function StellaflixValidateInstallDir
   ${EndIf}
 
   StrLen $0 "$INSTDIR"
-  StrCpy $1 "$INSTDIR" 10 -10
-  ${If} $0 < 10
+  StrCpy $1 "$INSTDIR" 11 -11
+  ${If} $0 < 11
   ${OrIf} $1 != "\Stellaflix"
   ${AndIf} $1 != "\stellaflix"
     MessageBox MB_ICONSTOP|MB_OK "安装目录必须是独立的 Stellaflix 文件夹。请选择一个上级目录，安装器会自动创建 Stellaflix 子文件夹。"
@@ -940,8 +940,8 @@ Function un.StellaflixNormalizeInstallDir
   ${EndIf}
 
   StrLen $1 "$0"
-  StrCpy $2 "$0" 10 -10
-  ${If} $1 < 10
+  StrCpy $2 "$0" 11 -11
+  ${If} $1 < 11
   ${OrIf} $2 != "\Stellaflix"
   ${AndIf} $2 != "\stellaflix"
     StrCpy $0 "$0\Stellaflix"

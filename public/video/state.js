@@ -22,7 +22,11 @@
   function applyBodyClass() {
     var body = getBody();
     if (!body || !body.classList) return;
-    body.classList.toggle('video-space-active', spaceMode === 'video');
+    var isVideo = spaceMode === 'video';
+    body.classList.toggle('video-space-active', isVideo);
+    /* T137：同步 html 元素 class（供影视态专用规则使用） */
+    var root = document.documentElement;
+    if (root) root.classList.toggle('video-space-active', isVideo);
   }
 
   function persist() {

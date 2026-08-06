@@ -143,7 +143,7 @@
       +       '<div class="fx-section-label">一键主题</div>'
       +       '<div class="fx-seg" id="sfv-theme-seg">'
       +         '<button type="button" data-theme="kvideo" class="active">KVideo 玻璃</button>'
-      +         '<button type="button" data-theme="mineradio">Mineradio 玻璃</button>'
+      +         '<button type="button" data-theme="mineradio">Stellaflix 玻璃</button>'
       +       '</div>'
       +       '<div class="fx-section-label">外壳颜色</div>'
       +       colorRow('sfv-shell-bg', '容器背景', true)

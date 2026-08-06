@@ -1,0 +1,66 @@
+name: Release
+
+# 最小注入发布流程（对齐 Kazumi：源码留空 + CI secrets 注入产物）。
+# 触发：推送 v* 标签（如 v1.1.3）。
+# 凭证：仓库 Settings → Secrets 配置 DANDANAPI_APPID / DANDANAPI_KEY
+#       （用于 afterPack 注入 DanDanPlay 凭证到打包副本）。
+# 发布：用 GitHub 自带 GITHUB_TOKEN（需 repo Settings → Actions → General
+#       勾选 "Read and write permissions"），不再依赖用户自配 GH_TOKEN PAT。
+# 未设置 DANDANAPI_* 时 afterPack 自动跳过注入，打包副本保持 ''（用户本地自配）。
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-win:
+    runs-on: windows-latest
+    # 让 GITHUB_TOKEN 能创建/更新 Release
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Windows installer (afterPack 注入 DanDanPlay 凭证)
+        env:
+          DANDANAPI_APPID: ${{ secrets.DANDANAPI_APPID }}
+          DANDANAPI_KEY: ${{ secrets.DANDANAPI_KEY }}
+          # 显式关闭 implicit publish；曾经因 GH_TOKEN 权限不足导致整个 build
+          # exit 1，注入逻辑根本没跑到。build 失败可独立重试，不影响凭证注入。
+          ELECTRON_BUILDER_PUBLISH: never
+        run: npm run build:win -- --publish=never
+
+      - name: Upload build artifacts (兜底)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stellaflix-win
+          path: |
+            dist/*.exe
+            dist/*.blockmap
+            dist/latest.yml
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Publish GitHub Release
+        if: success()
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            dist/*.exe
+            dist/*.blockmap
+            dist/latest.yml

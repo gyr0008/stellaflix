@@ -7869,16 +7869,21 @@ const server = http.createServer(async (req, res) => {
       // HLS 资源自适应 MIME 覆盖：部分 CDN 将分片伪装为 .png/.jpg 等非视频扩展名，
       // 原样透传其 Content-Type 会导致 hls.js 拒绝解码（预期 video/* 或 application/octet-stream）。
       // 此处按 URL 扩展名智能覆盖，确保 hls.js 能正确消费。
+      // 例外：上游明确返回 image/*（如 TMDB 海报 image.tmdb.org）保留 MIME，
+      // 否则 CSS background-image / <img> 无法识别为图片；该覆盖仅针对「CDN 伪装视频分片」。
       var ct = up.headers.get('content-type') || 'application/octet-stream';
       var lower = (target || '').toLowerCase();
-      if (/\.(m3u8|m3u)(\?|#|$)/i.test(lower)) {
-        ct = 'application/vnd.apple.mpegurl';            // HLS 播放列表
-      } else if (/\.(ts|m4s|aac|mp4)(\?|#|$)/i.test(lower)) {
-        ct = 'video/mp2t';                                 // 标准 fMP4 / TS 分片
-      } else if (/\.(png|jpg|jpeg|gif|webp|ico|bmp)(\?|#|$)/i.test(lower)) {
-        // CDN 伪装分片：以图片扩展名传输实际为 MPEG-TS/fMP4 的字节
-        // 用 octet-stream 让 hls.js 按内容自检而非被 image/* 误导拒绝
-        ct = 'application/octet-stream';
+      var upstreamIsImage = ct && ct.indexOf('image/') === 0;
+      if (!upstreamIsImage) {
+        if (/\.(m3u8|m3u)(\?|#|$)/i.test(lower)) {
+          ct = 'application/vnd.apple.mpegurl';            // HLS 播放列表
+        } else if (/\.(ts|m4s|aac|mp4)(\?|#|$)/i.test(lower)) {
+          ct = 'video/mp2t';                                 // 标准 fMP4 / TS 分片
+        } else if (/\.(png|jpg|jpeg|gif|webp|ico|bmp)(\?|#|$)/i.test(lower)) {
+          // CDN 伪装分片：以图片扩展名传输实际为 MPEG-TS/fMP4 的字节
+          // 用 octet-stream 让 hls.js 按内容自检而非被 image/* 误导拒绝
+          ct = 'application/octet-stream';
+        }
       }
       const out = {
         'Content-Type': ct,
@@ -7888,8 +7893,10 @@ const server = http.createServer(async (req, res) => {
       const cl = up.headers.get('content-length'); if (cl) out['Content-Length'] = cl;
       const cr = up.headers.get('content-range'); if (cr) out['Content-Range'] = cr;
       res.writeHead(up.status, out);
+      // 22:4x：TMDB 海报代理诊断日志 → 用户 npm start 终端可见 image.tmdb.org 是否拉取成功
+      if (upstreamIsImage) console.log('[Proxy-IMG]', up.status, ct, target);
       const reader = up.body.getReader();
-      while (true) { const c = await reader.read(); if (c.done) break; res.write(c.value); }
+      while (true) { const c = await reader.read(); if (c.done) break; res.write(Buffer.from(c.value)); }
       res.end();
     } catch (err) { console.error('[Proxy]', err); res.writeHead(502); res.end(); }
     return;

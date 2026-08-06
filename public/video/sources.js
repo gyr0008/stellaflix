@@ -25,6 +25,8 @@
 
   var NS = 'stellaflix-video-';
   var KEY_SOURCES = NS + 'sources';
+  var KEY_DETAIL_CACHE = NS + 'detail-cache';
+  var CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 缓存快照 7 天
 
   var DEFAULT_TIMEOUT = 12000;
 
@@ -80,12 +82,24 @@
       return out;
     }
     out.ok = true;
+    var mirrors = [];
+    if (Array.isArray(input.mirrors)) {
+      input.mirrors.forEach(function (m) {
+        var mapi = String(m == null ? '' : m).trim();
+        if (!mapi) return;
+        try {
+          var mu = new global.URL(mapi);
+          if (mu.protocol === 'http:' || mu.protocol === 'https:') mirrors.push(mu.href);
+        } catch (e) { /* 忽略非法镜像 */ }
+      });
+    }
     out.source = {
       id: input.id || genId(),
       name: name || u.hostname,
       api: u.href,
       enabled: input.enabled === false ? false : true,
       addedAt: input.addedAt || Date.now(),
+      mirrors: mirrors,
     };
     return out;
   }
@@ -169,7 +183,11 @@
   }
 
   function buildDetailUrl(source, ids) {
-    return appendQuery(source.api, { ac: 'detail', ids: ids });
+    return buildDetailUrlWithApi(source.api, ids);
+  }
+
+  function buildDetailUrlWithApi(api, ids) {
+    return appendQuery(api, { ac: 'detail', ids: ids });
   }
 
   // ---------------------------------------------------------------- 解析
@@ -211,6 +229,37 @@
       }
     }
     return result;
+  }
+
+  /**
+   * 统计 playUrl 的最大分源集数（与 parsePlayUrl 同一切分逻辑，但只计数不解析）。
+   * 用于「结构识别」过滤：竖屏短剧通常 60–100+ 集，普通剧集 20–50，电影 1。
+   * 注意：CMS10 不提供单集时长，故只能用集数近似识别。
+   * @param {string} playUrl - vod_play_url（$$$ 分源，# 分集）
+   * @returns {number} 最大分源的有效集数（无播放地址返回 0）
+   */
+  function countEpisodes(playUrl) {
+    if (!playUrl) return 0;
+    var groups = String(playUrl).split('$$$');
+    var max = 0;
+    for (var g = 0; g < groups.length; g++) {
+      var raw = groups[g];
+      if (!raw) continue;
+      var parts = raw.split('#');
+      var cnt = 0;
+      for (var i = 0; i < parts.length; i++) {
+        var seg = parts[i];
+        if (!seg) continue;
+        var at = seg.indexOf('$');
+        var url = at < 0 ? seg : seg.slice(at + 1);
+        url = String(url).trim();
+        if (!url) continue;
+        if (!/^https?:/i.test(url)) continue; // 与 parsePlayUrl 一致：丢弃非 http(s)
+        cnt++;
+      }
+      if (cnt > max) max = cnt;
+    }
+    return max;
   }
 
   /**
@@ -306,6 +355,68 @@
     return p;
   }
 
+  // ---------------------------------------------------------------- 详情缓存快照
+  function readDetailCache(key) {
+    var all = readJSON(KEY_DETAIL_CACHE, {});
+    return all[key] || null;
+  }
+  function writeDetailCache(key, data) {
+    var all = readJSON(KEY_DETAIL_CACHE, {});
+    all[key] = data;
+    writeJSON(KEY_DETAIL_CACHE, all);
+  }
+  function cacheValid(ts) {
+    return !!ts && (Date.now() - ts) < CACHE_TTL;
+  }
+
+  /**
+   * 依次尝试多个 URL，返回首个成功的 JSON。
+   */
+  function fetchFirstJson(urls, timeout) {
+    return new Promise(function (resolve, reject) {
+      var i = 0;
+      var lastErr = null;
+      function tryNext() {
+        if (i >= urls.length) {
+          reject(lastErr || new Error('all-urls-failed'));
+          return;
+        }
+        fetchJson(urls[i++], timeout).then(resolve).catch(function (e) {
+          lastErr = e;
+          tryNext();
+        });
+      }
+      tryNext();
+    });
+  }
+
+  /**
+   * 对单个媒体/episode URL 做轻量 HEAD 探测。
+   * 部分 CDN 对 HEAD 返回 405，仍视为「可响应」；超时/网络错误视为失效。
+   * @returns {Promise<{ok:boolean, status:number, reason:string|null}>}
+   */
+  function testUrl(url, timeout) {
+    var ms = timeout || 5000;
+    if (typeof global.fetch !== 'function') return Promise.resolve({ ok: false, status: 0, reason: 'fetch-unavailable' });
+    var ctrl = null, timer = null;
+    var opts = { method: 'HEAD' };
+    if (typeof global.AbortController === 'function') {
+      ctrl = new global.AbortController();
+      opts.signal = ctrl.signal;
+    }
+    var p = global.fetch(proxied(url), opts).then(function (res) {
+      // 405 Method Not Allowed 说明服务器在线但不支持 HEAD，仍算可达
+      return { ok: res.ok || res.status === 405, status: res.status, reason: null };
+    }).catch(function (e) {
+      return { ok: false, status: 0, reason: (e && e.message) ? e.message : 'error' };
+    });
+    if (ctrl) {
+      timer = global.setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, ms);
+      p = p.then(function (v) { global.clearTimeout(timer); return v; }, function (e) { global.clearTimeout(timer); throw e; });
+    }
+    return p;
+  }
+
   /**
    * 连通性测试：请求一页列表，能解析出数组即视为可用。
    * @returns {Promise<{ok:boolean, count:number, reason:string|null, ms:number}>}
@@ -334,9 +445,15 @@
     var list = opts.sources || getEnabledSources();
     if (!list.length) return Promise.resolve({ items: [], errors: [], noSource: true });
 
+    // 纯排除模型：排除维度在 online.js 层客户端过滤，此处不再接收年份服务端过滤。
+    // 保留 filters 透传位（未来若片源支持分类/地区服务端排除可在此启用），当前仅作占位。
+    var filters = opts.filters || {};
     var errors = [];
     var jobs = list.map(function (src) {
-      return fetchJson(buildListUrl(src, { ac: 'videolist', wd: kw, pg: opts.pg || 1 }), opts.timeout)
+      return fetchJson(buildListUrl(src, {
+        ac: 'videolist', wd: kw, pg: opts.pg || 1,
+        h: filters.year != null ? filters.year : null
+      }), opts.timeout)
         .then(function (json) {
           return extractList(json).map(function (raw) { return normalizeVod(raw, src); })
             .filter(Boolean);
@@ -356,24 +473,37 @@
 
   /**
    * 取详情（含播放地址）。搜索结果已带 playUrl 时可跳过。
-   * @returns {Promise<{ok:boolean, vod:Object|null, plays:Array, reason:string|null}>}
+   * 支持镜像回退与缓存快照：主 API 与镜像均失败时，返回未过期的缓存 plays。
+   * @returns {Promise<{ok:boolean, vod:Object|null, plays:Array, reason:string|null, fromCache?:boolean}>}
    */
   function detail(source, vodId, timeout) {
     var n = normalizeSource(source);
     if (!n.ok) return Promise.resolve({ ok: false, vod: null, plays: [], reason: n.reason });
-    return fetchJson(buildDetailUrl(n.source, vodId), timeout).then(function (json) {
+    var cacheKey = n.source.id + ':' + vodId;
+    var cache = readDetailCache(cacheKey);
+
+    var urls = [buildDetailUrl(n.source, vodId)];
+    (n.source.mirrors || []).forEach(function (m) { urls.push(buildDetailUrlWithApi(m, vodId)); });
+
+    return fetchFirstJson(urls, timeout).then(function (json) {
       var list = extractList(json);
       if (!list.length) return { ok: false, vod: null, plays: [], reason: 'not-found' };
       var vod = normalizeVod(list[0], n.source);
       if (!vod) return { ok: false, vod: null, plays: [], reason: 'invalid-record' };
-      return { ok: true, vod: vod, plays: parsePlayUrl(vod.playFrom, vod.playUrl), reason: null };
+      var plays = parsePlayUrl(vod.playFrom, vod.playUrl);
+      writeDetailCache(cacheKey, { plays: plays, sourceId: n.source.id, vodId: vodId, ts: Date.now() });
+      return { ok: true, vod: vod, plays: plays, reason: null };
     }).catch(function (e) {
+      if (cache && cacheValid(cache.ts)) {
+        return { ok: true, vod: null, plays: cache.plays || [], reason: null, fromCache: true };
+      }
       return { ok: false, vod: null, plays: [], reason: (e && e.message) || 'error' };
     });
   }
 
   SFV.sources = {
     KEY: KEY_SOURCES,
+    CACHE_KEY: KEY_DETAIL_CACHE,
     // 存储
     getSources: getSources,
     getEnabledSources: getEnabledSources,
@@ -385,12 +515,15 @@
     // 纯函数
     buildListUrl: buildListUrl,
     buildDetailUrl: buildDetailUrl,
+    buildDetailUrlWithApi: buildDetailUrlWithApi,
     parsePlayUrl: parsePlayUrl,
+    countEpisodes: countEpisodes,
     normalizeVod: normalizeVod,
     extractList: extractList,
     dedupe: dedupe,
     // IO
     testSource: testSource,
+    testUrl: testUrl,
     search: search,
     detail: detail,
   };

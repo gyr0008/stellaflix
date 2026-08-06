@@ -33,7 +33,7 @@ function makeEl(tag) {
     tagName: (tag || 'div').toUpperCase(),
     _class: '',
     _html: '',
-    style: {}, attributes: {}, children: [], parentNode: null,
+    style: { setProperty() {}, removeProperty() {}, getPropertyValue() { return ''; } }, attributes: {}, children: [], parentNode: null,
     textContent: '', value: '', src: '', alt: '', placeholder: '', type: '', id: '',
     loading: '',
     _listeners: {},
@@ -258,23 +258,7 @@ section('B. source-adapter 进度键透传（直链路径）');
   const flagBtn = findEl(overlay, 'sfv-flag-btn');
   assert(flagBtn.classList.contains('on'), '详情页心动按钮反映已标记');
 
-  // 搜索流程
-  opened.length = 0;
-  SFV.model.clearHistory();
-  ON.openSearch();
-  await tick();
-  const srchInput = findEl(overlay, 'sfv-browse-search-input');
-  const srchBtn = findEl(overlay, 'sfv-browse-search-btn');
-  srchInput.value = '测试';
-  srchBtn.click();
-  await tick(); await tick();
-  const searchCards = findAll(findEl(overlay, 'sfv-browse-body'), 'sfv-card');
-  assert(searchCards.length === 1, '搜索结果渲染出卡片');
-  searchCards[0].click();
-  await tick(); await tick();
-  const eps2 = findAll(findEl(overlay, 'sfv-browse-body'), 'sfv-ep');
-  assert(eps2.length === 1, '搜索结果进入详情并解析剧集');
-
+  // [清理] 旧搜索通道（open()/sfv-browse-search-* 已废弃）已移除；搜索统一走全页 openSearchPage/doInlineSearch
   runStaticTests();
 })();
 

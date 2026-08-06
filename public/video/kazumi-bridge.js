@@ -115,8 +115,15 @@
    * 跨所有启用规则搜索，归一化为 Stellaflix 网格 item 形状。
    * @returns {Promise<{items:Array, errors:Array<{ruleName:string,reason:string}>}>}
    */
-  async function search(keyword) {
+  async function search(keyword, opts) {
+    opts = opts || {};
     var kw = String(keyword == null ? '' : keyword).trim();
+    // 透传 Kazumi 查询 DSL（tag/season/score/rank/weekday）：
+    // 规则引擎支持的生效，不支持则整串作为关键词搜索（best-effort，符合分层生效方案）。
+    if (opts.filters && SFV.SearchFilterCore) {
+      var dsl = SFV.SearchFilterCore.SearchParser.fromFilterState(opts.filters);
+      if (dsl) kw = (kw ? (kw + ' ') : '') + dsl;
+    }
     if (!kw) return { items: [], errors: [] };
     var rules = getEnabledSearchRules();
     if (!rules.length) return { items: [], errors: [] };

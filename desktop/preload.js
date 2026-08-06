@@ -63,6 +63,10 @@ contextBridge.exposeInMainWorld('desktopWindow', {
   },
   // 影视态 home 自定义海报持久化（userData 文件存储，绕开 localStorage 配额/端口 origin 问题）
   videoPoster: (action, payload) => ipcRenderer.invoke('stellaflix-video-poster', action, payload || null),
+  // 影视模块追片/片单/历史海报本地缓存（TMDB 海报持久化，避免网络不可达白图）
+  posterCache: (action, payload) => ipcRenderer.invoke('stellaflix-poster-cache', action, payload || null),
+  // 原生图片选择对话框（替代 <input type="file"> .click()，Electron 下更可靠）
+  pickImage: () => ipcRenderer.invoke('stellaflix-pick-image'),
 });
 
 window.addEventListener('DOMContentLoaded', () => {

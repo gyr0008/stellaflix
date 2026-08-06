@@ -106,11 +106,121 @@
     });
   }
 
-  // 便捷：按标题取第一个匹配的海报+简介（番名归一化可在此复用）
+  // 便捷：按标题取最相关的**有海报的** TMDB 匹配
+  //
+  // 核心原则：宁可无海报（🎬），也不要把不相关内容的海报错配给当前条目。
+  // 策略：原始标题搜 → 清洗后(保留季数)重试 → 仍无则 null
   function bestMatch(title) {
-    return search(title).then(function (list) {
-      return list && list.length ? list[0] : null;
+    if (!title) return Promise.resolve(null);
+    var q = String(title).trim();
+    return findBestMatch(q).then(function (m) {
+      if (m) return m;
+      var clean = cleanTitle(q);
+      if (clean && clean !== q) return findBestMatch(clean);
+      return null;
     });
+  }
+
+  /**
+   * 从 TMDB 搜索结果中选取最佳匹配。
+   *
+   * 算法：
+   *   1. 对每个结果计算与查询词的标题相关性得分（0~1）
+   *   2. 按得分降序排列
+   *   3. 在高相关性结果（score ≥ 0.45）中找第一个有 poster 的
+   *   4. 若高相关结果均无 poster → 返回 null（显示 🎬，不降级到低相关+有图）
+   *   5. 若最高分结果本身就是低相关（< 0.30）→ 返回 null（查询词在 TMDB 无有效匹配）
+   *
+   * 这解决了「盲取首个有 poster 者」导致的不同剧/不同季共用同一张热门海报的问题。
+   */
+  function findBestMatch(query) {
+    return search(query).then(function (list) {
+      if (!list || !list.length) return null;
+
+      // 评分 & 排序
+      var scored = [];
+      for (var i = 0; i < list.length; i++) {
+        scored.push({
+          item: list[i],
+          score: titleScore(query, list[i].title) +
+                 titleScore(query, list[i].originalTitle || '') * 0.7
+        });
+      }
+      scored.sort(function (a, b) { return b.score - a.score; });
+
+      // 最高分太低 → TMDB 根本没有相关内容，直接放弃
+      if (scored[0].score < 0.30) return null;
+
+      // 在高相关区间（score ≥ 0.45）中找有 poster 的
+      var bestWithPoster = null;
+      for (var j = 0; j < scored.length; j++) {
+        if (scored[j].item.poster) {
+          if (scored[j].score >= 0.45) return scored[j].item;
+          // 低相关但有图 → 记为备选，但不优先返回
+          if (!bestWithPoster) bestWithPoster = scored[j].item;
+        }
+        // 一旦分数降到 0.25 以下，后续更不可能有好的，提前退出
+        if (scored[j].score < 0.25) break;
+      }
+
+      // 高相关区全部无 poster → 返回 null（🎬）优于错配海报
+      // 仅当完全没有高相关结果时才用备选
+      return bestWithPoster; // 可能为 null
+    });
+  }
+
+  /**
+   * 计算查询词与候选标题的相关性得分（0 ~ 1）。
+   *
+   * 评分规则（按优先级）：
+   *   - 完全一致（忽略空格/大小写）：1.0
+   *   - 一方包含另一方（子串匹配）：0.85
+   *   - 去空格后字符重叠率 × 长度惩罚因子：0.15 ~ 0.70
+   */
+  function titleScore(query, candidate) {
+    if (!query || !candidate) return 0;
+    var q = query.replace(/\s+/g, '').toLowerCase();
+    var c = candidate.replace(/\s+/g, '').toLowerCase();
+    if (!q || !c) return 0;
+
+    // 完全一致
+    if (q === c) return 1.0;
+
+    // 子串包含
+    if (c.indexOf(q) >= 0) return 0.85;       // 候选包含查询（如"画江湖之不良人第六季"含"第六季"）
+    if (q.indexOf(c) >= 0) return 0.80;       // 查询包含候选
+
+    // 字符重叠率
+    var qLen = q.length;
+    var cLen = c.length;
+    var hits = 0;
+    for (var i = 0; i < qLen; i++) {
+      if (c.indexOf(q.charAt(i)) >= 0) hits++;
+    }
+    var rawRatio = hits / qLen;
+
+    // 长度惩罚：候选标题比查询长很多时，重叠率要打折
+    // 例：查"不良人"，候选"画江湖之不良人"——虽然字符全命中，但候选多了很多无关字
+    var lenPenalty = qLen <= cLen ? (qLen / cLen) : (cLen / qLen);
+
+    return rawRatio * rawRatio * lenPenalty; // 平方让高分更高、低分更低
+  }
+
+  /**
+   * 清洗规则源标题——仅去除纯噪音，**保留季数**。
+   * 去掉：语言/格式/括号备注/规则源前缀。保留：第X季/Season X/Sx。
+   * 例："一人之下 第二季 日语版" → "一人之下 第二季"
+   *     "一人之下 第一季（动态漫）" → "一人之下"
+   *     "动态漫画 一人之下" → "一人之下"
+   */
+  function cleanTitle(t) {
+    return t
+      .replace(/\s*[(（][^)）]*[)）]\s*/g, ' ')        // 括号备注：（动态漫）、(日语版)
+      // 季数已保留——不再删除，避免不同季退化成同一搜索词导致海报雷同
+      .replace(/\s*(日语版|国语版|普通话版|双语版)\s*/g, '') // 语言
+      .replace(/\s*(动态漫?|动态漫画)\s*/g, '')           // 格式
+      .replace(/点击查看\s*[:：]?\s*/g, '')               // 规则源前缀
+      .replace(/\s{2,}/g, ' ').trim();                    // 压缩空格
   }
 
   // 热门/流行列表（用于电影/动漫分页默认网格，无需搜索词）
@@ -202,7 +312,13 @@
     if (!cfg.apiKey) return Promise.reject(new Error('TMDB_KEY_REQUIRED'));
     if (!id) return Promise.reject(new Error('TMDB_NO_ID'));
     var path = '/' + (mediaType === 'tv' ? 'tv' : 'movie') + '/' + id;
-    return request(path, { append_to_response: 'credits,similar' }).then(function (r) {
+    // 并行：主详情(credits,similar) + 图片(默认返回全语言 backdrops，不受 language 过滤)
+    return Promise.all([
+      request(path, { append_to_response: 'credits,similar' }),
+      request(path + '/images', {})
+    ]).then(function (arr) {
+      var r = arr[0];
+      var imgRes = arr[1] || {};
       var cast = (r.credits && r.credits.cast ? r.credits.cast : []).slice(0, 12).map(function (c) {
         return {
           id: c.id,
@@ -214,7 +330,6 @@
       var similar = normalizeList(r.similar || {}).slice(0, 18);
       var rt = r.runtime || (r.episode_run_time && r.episode_run_time[0]) || 0;
       var genres = (r.genres || []).map(function (g) { return g.name; });
-      // Phase 2 v2 详情页扩展：logo（production_companies）+ 所属合集（belongs_to_collection）
       var companies = (r.production_companies || []).map(function (c) {
         return { id: c.id, name: c.name || '', logo: posterUrl(c.logo_path, 'w342') };
       });
@@ -222,11 +337,21 @@
         ? { id: r.belongs_to_collection.id, name: r.belongs_to_collection.name || '', poster: posterUrl(r.belongs_to_collection.poster_path, 'w342') }
         : null;
       return {
+        // 详情页 HEADER / 标题所需（2026-08-06 重设计接入）
+        title: r.title || r.name || '',
+        originalTitle: r.original_title || r.original_name || '',
+        voteAverage: r.vote_average || 0,
+        releaseDate: r.release_date || r.first_air_date || '',
+        overview: r.overview || '',
+        poster: posterUrl(r.poster_path, 'w500'),
         backdrop: posterUrl(r.backdrop_path, 'w1280'),
         runtime: rt,
         genres: genres,
         cast: cast,
         similar: similar,
+        images: {
+          backdrops: (imgRes.backdrops || []).slice(0, 12).map(function (b) { return { file_path: b.file_path }; })
+        },
         companies: companies,
         collection: collection
       };

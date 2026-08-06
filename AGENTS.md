@@ -1,8 +1,8 @@
-# Mineradio Project Rules
+# Stellaflix Project Rules
 
 ## Project Identity
 
-Mineradio 是 Windows Electron 桌面音乐播放器，核心体验包括搜索、播放、歌单、歌词、3D 歌单架、粒子视觉预设、DIY 视觉控制台和 GitHub 自动更新。
+Stellaflix 是 Windows Electron 桌面音乐播放器，核心体验包括搜索、播放、歌单、歌词、3D 歌单架、粒子视觉预设、DIY 视觉控制台和 GitHub 自动更新。
 
 **当前正在进行影视模块改造**（双态同构：音乐空间 / 影视空间），详见 `docs/VIDEO_MODULE_PLAN.md`。
 
@@ -17,7 +17,7 @@ Mineradio 是 Windows Electron 桌面音乐播放器，核心体验包括搜索�
 
 ## Start Every New Thread Here
 
-新对话开始处理 Mineradio 前，必须先确认当前目录是：
+新对话开始处理 Stellaflix 前，必须先确认当前目录是：
 
 ```powershell
 C:\Users\Administrator\Desktop\Mineradio-Extended-1.1.2-extended.1
@@ -138,4 +138,3 @@ GitHub CLI / `gh auth` / Release 上传需要代理时，优先使用可用本�
 - 删减一律用**隐藏 DOM**（如 EQ、镜头晃动），**禁止删除节点**，保证切回音乐态时完整无损。
 - **默认配置中不得内置任何影视源站点**（`api_site` 留空），全部由用户手动导入。
 - 新增 `body.video-space-active` 状态类时，须与现有 24 个 body 状态类逐一核对组合效果，重点防闪烁。
-- **影视详情页（2026-08-05 落地）**：v2 暗色全屏详情页 `public/video/detail-v2.js` 已取代 Phase 1.5「即将上线」降级 toast；所有进详情路径经 `online.js renderDetail` 单一汇聚点转发 `SFV.detailV2.build`。`openDetail` 米白页保留用于搜索结果详情 + 跨源修复兜底。

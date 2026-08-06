@@ -4,7 +4,7 @@
  * 严格对齐 DanDanPlay 开放弹幕网络 API（base: https://api.dandanplay.net，GPL 兼容使用）。
  * 认证：自 2025-01-30 起强制认证，采用「签名验证模式」：
  *   X-Signature = base64( sha256( AppId + Timestamp + Path + AppSecret ) )
- *   请求头：X-AppId / X-Signature / X-Timestamp
+ *   请求头：X-Auth / X-AppId / X-Signature / X-Timestamp
  * 所有请求经本应用 /api/proxy 转发（解决浏览器 CORS），认证头由代理白名单透传。
  *
  * 合规红线：AppId / AppSecret 由用户自行向弹弹play申请并配置于本地（localStorage），
@@ -17,11 +17,15 @@
 
   var DEFAULT_BASE = 'https://api.dandanplay.net';
 
-  // ====== 默认凭证（发布时替换，对齐 Kazumi mortis.dart 模式）======
-  // 开发/调试阶段为空（用户需自行配置）；正式发布前替换为从 dev.dandanplay.com 申请的凭证。
-  // 替换方式：构建脚本 sed/ci 把下面两个字符串替换为真实值。
-  var DEFAULT_APP_ID = '';       // ← 发布时替换为真实 AppId
-  var DEFAULT_APP_SECRET = '';   // ← 发布时替换为真实 AppSecret
+  // ====== 默认凭证（构建期注入，对齐 Kazumi dandan_credentials.dart 模式）======
+  // 源码中这两个占位符**始终为空**，绝不硬编码任何明文凭证（合规红线 + GPLv3）。
+  // 真正的 AppId / AppSecret 由构建期(afterPack) 从环境变量注入**打包副本**：
+  //   DANDANAPI_APPID / DANDANAPI_KEY   （命名对齐 Kazumi，值与 Kazumi 无关）
+  // 注入方式：build/after-pack.js 读环境变量 → 正则替换下方占位符 '' 为真实值。
+  //   源码工作树永远留空（零污染）；未设置环境变量时打包副本保持 ''，由用户在
+  //   设置面板自行配置（AppId/AppSecret 存于 localStorage）。
+  var DEFAULT_APP_ID = '';       // 注入点：打包期(afterPack) 读取 DANDANAPI_APPID 替换（勿在源码硬编码）
+  var DEFAULT_APP_SECRET = '';   // 注入点：打包期(afterPack) 读取 DANDANAPI_KEY 替换（勿在源码硬编码）
 
   var cfg = {
     baseUrl: DEFAULT_BASE,
@@ -58,6 +62,7 @@
     var ts = Math.floor(Date.now() / 1000);
     return defaultSha256Base64(cfg.appId + ts + apiPath + cfg.appSecret).then(function (sig) {
       return {
+        'X-Auth': '1',
         'X-AppId': cfg.appId,
         'X-Signature': sig,
         'X-Timestamp': String(ts)

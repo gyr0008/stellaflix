@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add a persistent, default-off ten-band equalizer with presets and automatic clipping protection to every Mineradio playback source.
+**Goal:** Add a persistent, default-off ten-band equalizer with presets and automatic clipping protection to every Stellaflix playback source.
 
 **Architecture:** Put preset data, state normalization, state transitions, and headroom calculation in a small UMD module that can run in the browser and Node tests. Keep Web Audio graph construction and bottom-bar UI wiring in the existing player page, inserting the equalizer after the existing analysers and before the existing master volume gain.
 
@@ -774,15 +774,15 @@ git commit -m "docs: explain equalizer controls"
 npm run build:win:dir
 ```
 
-Expected: exit code 0 and `dist/win-unpacked/Mineradio.exe` exists.
+Expected: exit code 0 and `dist/win-unpacked/Stellaflix.exe` exists.
 
 - [ ] **Step 2: Launch the built executable**
 
 ```powershell
-Start-Process -FilePath (Resolve-Path 'dist/win-unpacked/Mineradio.exe')
+Start-Process -FilePath (Resolve-Path 'dist/win-unpacked/Stellaflix.exe')
 ```
 
-Expected: Mineradio opens visibly without a startup error so the acceptance steps can be performed.
+Expected: Stellaflix opens visibly without a startup error so the acceptance steps can be performed.
 
 - [ ] **Step 3: Verify default and persistence behavior**
 

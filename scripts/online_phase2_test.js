@@ -169,30 +169,43 @@ function findAllByClass(node, cls, out) {
 (async function () {
   console.log('=== Phase 2 online.js 接线集成测试 ===\n');
 
+  // ---- 注入搜索页 DOM 桩（取代已废弃的浏览层 inline 搜索栏）----
+  const byId = {};
+  function injectEl(id, tag) {
+    const n = makeEl(tag);
+    n.id = id;
+    byId[id] = n;
+    return n;
+  }
+  injectEl('sfv-search-page', 'div');
+  injectEl('sfv-search-input', 'input');
+  injectEl('sfv-search-result-area', 'div');
+  injectEl('sfv-history-drop', 'div');
+  injectEl('sfv-history-drop-list', 'div');
+  g.document.getElementById = (id) => (id in byId ? byId[id] : null);
+
   // 间谍：记录 SFV.ui.toast 调用（详情页占位 toast）
   const toastCalls = [];
   const origToast = SFV.ui.toast;
   SFV.ui.toast = function (msg) { toastCalls.push(msg); if (origToast) origToast(msg); };
 
-  // 打开影视浏览层
+  // 打开影视浏览层（创建 overlay，供详情渲染宿主）
   SFV.online.open();
   const overlay = findByClass(g.document.body, 'sfv-browse');
   ok(!!overlay, 'online.open() 创建了浏览层 (sfv-browse)');
   ok(overlay && overlay._classes.has('sfv-show'), '浏览层带 sfv-show（已显示）');
 
-  // 触发搜索：填充输入 + 点击搜索按钮
-  const input = findByClass(overlay, 'sfv-browse-search-input');
-  const btn = findByClass(overlay, 'sfv-browse-search-btn');
-  ok(!!input && !!btn, '找到搜索输入框与搜索按钮');
-  input.value = 'hero';
-  btn.click();
+  // 打开全页搜索并触发新搜索流（doInlineSearch 取代旧 doSearch / 浏览层搜索栏）
+  SFV.online.openSearchPage();
+  ok(byId['sfv-search-page']._classes.has('sfv-search-open'), 'openSearchPage 给 #sfv-search-page 加 sfv-search-open');
+  SFV.online.doInlineSearch('hero');
 
   // 等待 Promise.all 解析
   await new Promise(r => setTimeout(r, 80));
 
-  const body = findByClass(overlay, 'sfv-browse-body');
-  const grid = findByClass(body, 'sfv-grid');
-  ok(!!grid, '搜索后渲染出网格 (sfv-grid)');
+  const resultArea = byId['sfv-search-result-area'];
+  const grid = findByClass(resultArea, 'sfv-grid');
+  ok(!!grid, '搜索后结果区渲染出网格 (sfv-grid)');
   if (grid) {
     const cards = grid.children.filter(c => c._classes.has('sfv-card'));
     ok(cards.length === 2, '网格含 2 张卡片（CMS 1 + Kazumi 1），实得 ' + cards.length);

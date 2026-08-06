@@ -17,7 +17,7 @@
    - 本轮（q-2「仅做占位页」）已交付：online.js 新增 `renderPlaceholder()`，handleNavAction 的 movie/anime 改走 `open({mode:'placeholder'})`，player.css 新增 `.sfv-placeholder` + `.sfv-browse--placeholder`（隐藏自带搜索栏/操作按钮）。
    - 原有 renderCategory/renderGrid（心动/片单/收藏/历史）**不受影响**（#0「别的分页都不变」）。
 4. **DIY 网格改造整体延后**至后续轮次（本轮回退，仅占位）：
-   - lyrics tab 面板（18 色 / KVideo+Mineradio 外壳 / 卡片标题连线）暂不实现；
+   - lyrics tab 面板（18 色 / KVideo+Stellaflix 外壳 / 卡片标题连线）暂不实现；
    - q-1「复用现有歌词控件驱动卡片标题字体/颜色」、q-3「18 色用歌词 tab 源码真实值」仍作为后续方案基础；
    - `public/video/grid-diy.js`、`player.css` 的 13 个 `--sfv-*` 变量、`online.js` 的 `applyGridDiyToBody()` **保留为休眠脚手架**（index.html 未加载 grid-diy.js，故运行时零生效），待后续轮次重新接线。
 
@@ -116,13 +116,13 @@ fx-panel (控制台)
 | 选项 | 说明 | 视觉特征 |
 |------|------|---------|
 | **KVideo 玻璃** | 白底浅灰半透明 + 深色文字 + 大圆角 + 海报 24px 内边距 | 浅色液态玻璃 |
-| **Mineradio 玻璃** | 复用现有 `--glass-*` + 青色强调 + 全出血海报 | 暗青玻璃（当前默认外观）|
+| **Stellaflix 玻璃** | 复用现有 `--glass-*` + 青色强调 + 全出血海报 | 暗青玻璃（当前默认外观）|
 
 > 一键切换 = 一次性写入下方全部变量为对应预设值；**之后仍暴露全部颜色参数供微调**。
 
 ### 5.2 全部可 DIY 参数（颜色 + 几何）
 
-| 参数 | KVideo 预设值 | Mineradio 预设值 | 范围 | CSS 变量 |
+| 参数 | KVideo 预设值 | Stellaflix 预设值 | 范围 | CSS 变量 |
 |------|--------------|-----------------|------|----------|
 | 容器背景 | `rgba(255,255,255,0.95)` | `rgba(255,255,255,0.04)` | 颜色+透明度 | `--sfv-card-bg` |
 | 容器边框色 | `rgba(0,0,0,0.06)` | `rgba(255,255,255,0.09)` | 颜色+透明度 | `--sfv-card-border` |
@@ -171,7 +171,7 @@ fx-panel (控制台)
 3. 颜色选择器 + 透明度滑块 + 数值滑块绑定
 4. 参数变更 → 写入 `.sfv-browse-body` CSS 变量 → 网格实时重绘
 5. localStorage 读写（`stellaflix-grid-diy-prefs`）
-6. 重置按钮 + 一键主题切换（KVideo / Mineradio）
+6. 重置按钮 + 一键主题切换（KVideo / Stellaflix）
 7. 启动时从 localStorage 恢复并应用
 
 **localStorage 数据结构（v1）**：
@@ -241,7 +241,7 @@ fx-panel (控制台)
 ## 八、验收标准
 
 1. **[P0]** lyrics tab 内正确渲染 DIY 折叠分区（三子 Tab + 全部控件），原有歌词内容共存不丢失
-2. **[P0]** 一键「KVideo 玻璃 / Mineradio 玻璃」切换后卡片视觉立即切换，且仍可微调全部颜色
+2. **[P0]** 一键「KVideo 玻璃 / Stellaflix 玻璃」切换后卡片视觉立即切换，且仍可微调全部颜色
 3. **[P0]** 调整列数/最小宽度/间距/圆角等参数后网格**实时响应**无需刷新
 4. **[P0]** 关闭重开，参数保持（localStorage 生效）
 5. **[P0]** 任一「重置」恢复对应 KVideo 默认值
@@ -257,11 +257,11 @@ fx-panel (控制台)
 
 | # | 事项 | 当前方案 | 状态 |
 |---|------|---------|------|
-| 1 | 需求复述完整性 | 已覆盖：挂载(lyrics tab 共存)、三子 Tab、18 真实色、KVideo/Mineradio 一键+全暴露、固定列数、min 180、默认 2:3 | 待确认 |
+| 1 | 需求复述完整性 | 已覆盖：挂载(lyrics tab 共存)、三子 Tab、18 真实色、KVideo/Stellaflix 一键+全暴露、固定列数、min 180、默认 2:3 | 待确认 |
 | 2 | 导入/导出配置 | v1 暂不实现 | 待确认 |
-| 3 | Mineradio 玻璃是否暴露全部颜色 | **是**（一键预设 + 仍可微调全部参数）— Request 8 已定 | 已定 |
+| 3 | Stellaflix 玻璃是否暴露全部颜色 | **是**（一键预设 + 仍可微调全部参数）— Request 8 已定 | 已定 |
 | 4 | 网格列数响应式 | **固定列数，无断点自适应** — Request 8 已定 | 已定 |
-| 5 | 「海报 24px 边缘」解释 | 实现为卡片**内部 padding**（`--sfv-card-padding`，KVideo=24px / Mineradio=0px） | 待确认 |
+| 5 | 「海报 24px 边缘」解释 | 实现为卡片**内部 padding**（`--sfv-card-padding`，KVideo=24px / Stellaflix=0px） | 待确认 |
 | 6 | 默认页面背景为浅白 #f2f4f7 | 即 KVideo 白底风格，影视态浏览页默认浅色（与音乐态暗色并存） | 待确认 |
 
 *确认后进入 Craft 模式生成 `grid-diy.js` + `player.css` 改动 + `online.js` 改动。*

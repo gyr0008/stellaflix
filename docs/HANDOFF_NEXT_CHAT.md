@@ -1,4 +1,4 @@
-# Mineradio Next Chat Handoff
+# Stellaflix Next Chat Handoff
 
 更新时间：2026-06-24
 

@@ -1,4 +1,4 @@
-# Mineradio Extended 形态工坊实现计划
+# Stellaflix Extended 形态工坊实现计划
 
 日期：2026-07-04
 

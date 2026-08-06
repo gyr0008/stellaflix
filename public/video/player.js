@@ -26,7 +26,16 @@
   var subtitleRenderer = null, subFileInput = null; // 字幕渲染器 / 本地字幕选择器
   var playNextFn = null, modeBtn = null;            // 连播：下一集回调 / 模式按钮
   var hideTimer = null, lastSpeedIdx = 1, lastSaveAt = 0;
-  var danmakuLayer = null, danmakuEngine = null;    // 弹幕覆盖层 / 弹幕引擎实例
+  var danmakuLayer = null, danmakuEngine = null;
+  var currentMeta = null;            // 当前播放元信息（标题/副标题/封面/id/embed 标志）
+  var _posterCachedKey = null;       // 已触发自动海报缓存的进度键（同 key 仅缓存一次，省流量）
+  var _watchKey = null;              // 当前累计观看时长的进度键（切集重置）
+  var _watchedSeconds = 0;           // 累计实际播放时长（秒），暂停不计、拖拽不计
+  var _lastTickTs = 0;               // 上次 timeupdate 时间戳（用于累加真实播放时长）
+  var _isPlaying = false;            // 是否处于播放状态（play/pause 跟踪）
+  var playlistTracks = null;         // 剧集列表（online.js 注入，用于 prev/next 导航）
+  var playlistIndex = -1;            // 当前集在 playlistTracks 中的索引
+  var playEpisodeAtFn = null;        // 实际起播某一集回调（online.js 注册，需走源解析）    // 弹幕覆盖层 / 弹幕引擎实例
 
   function getDoc() { return global.document; }
 
@@ -93,6 +102,15 @@
     if (global.CustomEvent && global.dispatchEvent) {
       try {
         global.dispatchEvent(new global.CustomEvent('sfv:render-pause', { detail: { paused: !!paused } }));
+      } catch (e) { /* 无监听方则忽略 */ }
+    }
+  }
+
+  // 播放器事件广播：供 player-controller.js 桥接底部控制器
+  function emitPlayerEvent(name, detail) {
+    if (global.CustomEvent && global.dispatchEvent) {
+      try {
+        global.dispatchEvent(new global.CustomEvent(name, { detail: detail || {} }));
       } catch (e) { /* 无监听方则忽略 */ }
     }
   }
@@ -219,12 +237,46 @@
     return b;
   }
 
+  // 观看累计实际播放时长 ≥ 3 分钟（180s）自动把 TMDB 海报缓存到本地，
+  // 缓存成功后回写 history.pic，减少「接着看」等场景再次请求 TMDB 的耗时/失败。
+  // 语义：仅播放状态累加（pause 不计），拖拽跳变不计入。同 key 仅触发一次（poster-cache 已命中则直接返回）。
+  function checkPosterAutoCache() {
+    var km = currentMeta && currentMeta.key;
+    var pm = currentMeta && (currentMeta.cover || currentMeta.pic) || '';
+    if (_posterCachedKey !== km && _watchedSeconds >= 180 && km && pm && pm.indexOf('data:') !== 0 &&
+        SFV.posterCache && typeof SFV.posterCache.cache === 'function') {
+      SFV.posterCache.cache(km, pm).then(function (dataUrl) {
+        if (dataUrl && dataUrl !== pm) {
+          _posterCachedKey = km; // 仅成功才标记去重，失败下次重试
+          if (SFV.model && typeof SFV.model.updateHistoryPic === 'function') {
+            SFV.model.updateHistoryPic(km, dataUrl);
+          }
+        }
+      });
+    }
+  }
+
+  // 切集（key 变化）重置累计观看计时与去重标记
+  function resetWatchTracker(key) {
+    if (_watchKey !== key) {
+      _watchKey = key;
+      _watchedSeconds = 0;
+      _posterCachedKey = null;
+    }
+  }
+
   function wireVideoEvents() {
     videoEl.addEventListener('loadedmetadata', updateTime);
     videoEl.addEventListener('timeupdate', function () {
       updateTime();
       var now = Date.now();
       if (now - lastSaveAt > 4000) { lastSaveAt = now; saveProgress(); }
+      // 播放状态才累加实际观看时长；拖拽时 currentTime 跳变但时间差极小，不虚增
+      if (_isPlaying) {
+        _watchedSeconds += (now - _lastTickTs) / 1000;
+        _lastTickTs = now;
+      }
+      checkPosterAutoCache();
       var sr = getSubRenderer();
       if (sr) sr.update(videoEl.currentTime);
       if (danmakuEngine) danmakuEngine.update(videoEl.currentTime);
@@ -232,8 +284,21 @@
     videoEl.addEventListener('seeked', function () {
       if (danmakuEngine) danmakuEngine.update(videoEl.currentTime);
     });
-    videoEl.addEventListener('play', function () { setPlayIcon(true); });
-    videoEl.addEventListener('pause', function () { setPlayIcon(false); saveProgress(); });
+    videoEl.addEventListener('play', function () {
+      setPlayIcon(true);
+      resetWatchTracker(currentMeta && currentMeta.key);
+      _isPlaying = true;
+      _lastTickTs = Date.now();
+    });
+    videoEl.addEventListener('pause', function () {
+      setPlayIcon(false);
+      if (_isPlaying) {
+        _watchedSeconds += (Date.now() - _lastTickTs) / 1000;
+        _isPlaying = false;
+      }
+      saveProgress();
+      checkPosterAutoCache();
+    });
     videoEl.addEventListener('ended', onMediaEnded);
     videoEl.addEventListener('error', function () {
       if (global.console) global.console.warn('[SFV player] media error for', currentId);
@@ -263,9 +328,15 @@
     var onMove = function () {
       if (!overlay) return;
       overlay.classList.remove('sfv-idle');
+      var b = getDoc().body;
+      if (b && b.classList.contains('video-player-active')) b.classList.remove('video-player-idle');
       clearTimeout(hideTimer);
       hideTimer = setTimeout(function () {
-        if (overlay && SFV.state && SFV.state.getSpace() === 'video') overlay.classList.add('sfv-idle');
+        if (overlay && SFV.state && SFV.state.getSpace() === 'video') {
+          overlay.classList.add('sfv-idle');
+          var bb = getDoc().body;
+          if (bb && bb.classList.contains('video-player-active')) bb.classList.add('video-player-idle');
+        }
       }, 3000);
     };
     overlay.addEventListener('mousemove', onMove);
@@ -290,6 +361,58 @@
     var m = Math.floor(sec / 60), s = sec % 60;
     return m + ':' + (s < 10 ? '0' + s : s);
   }
+
+  // ---- 元信息 / 剧集导航（供 player-controller.js 桥接底部控制器）----
+  function setCurrentMeta(m) {
+    currentMeta = m || { id: currentId, embed: false };
+    if (playlistTracks) {
+      currentMeta.hasPrev = playlistIndex > 0;
+      currentMeta.hasNext = playlistIndex < playlistTracks.length - 1;
+    }
+    return currentMeta;
+  }
+  function setMeta(m) {
+    if (!m) return currentMeta;
+    currentMeta = currentMeta || {};
+    for (var k in m) { if (Object.prototype.hasOwnProperty.call(m, k)) currentMeta[k] = m[k]; }
+    if (playlistTracks) {
+      currentMeta.hasPrev = playlistIndex > 0;
+      currentMeta.hasNext = playlistIndex < playlistTracks.length - 1;
+    }
+    emitPlayerEvent('sfv:player-meta', currentMeta);
+    return currentMeta;
+  }
+  function getMeta() { return currentMeta; }
+  function getSpeed() {
+    if (videoEl && videoEl.playbackRate) return videoEl.playbackRate;
+    return SPEED_STEPS[lastSpeedIdx] || 1;
+  }
+  function setVolume(v) {
+    if (!videoEl) return;
+    v = Math.max(0, Math.min(1, parseFloat(v) || 0));
+    videoEl.volume = v;
+    videoEl.muted = (v === 0);
+  }
+  function getVolume() { return videoEl ? (videoEl.volume || 0) : 0; }
+  function setPlaylist(tracks, index) {
+    playlistTracks = (tracks && tracks.length) ? tracks : null;
+    playlistIndex = playlistTracks ? (index | 0) : -1;
+    if (currentMeta) setCurrentMeta(currentMeta);
+    emitPlayerEvent('sfv:player-meta', currentMeta);
+  }
+  function setPlayEpisodeAt(fn) { playEpisodeAtFn = (typeof fn === 'function') ? fn : null; }
+  function playEpisodeAt(i) {
+    if (!playlistTracks || i < 0 || i >= playlistTracks.length) return false;
+    if (typeof playEpisodeAtFn !== 'function') return false;
+    playlistIndex = i;
+    if (currentMeta) setCurrentMeta(currentMeta);
+    emitPlayerEvent('sfv:player-meta', currentMeta);
+    try { playEpisodeAtFn(i, playlistTracks[i]); return true; } catch (e) { return false; }
+  }
+  function playPrevEpisode() { return playEpisodeAt(playlistIndex - 1); }
+  function playNextEpisode() { return playEpisodeAt(playlistIndex + 1); }
+  function hasPrevEpisode() { return !!(playlistTracks && playlistIndex > 0); }
+  function hasNextEpisode() { return !!(playlistTracks && playlistIndex < playlistTracks.length - 1); }
 
   function openFile(file) {
     if (!file) return false;
@@ -316,6 +439,8 @@
     SFV.state.setSpace('video');
     overlay.classList.add('sfv-show');
     emitRenderPause(true);
+    setCurrentMeta({ id: id, title: (file.name || id), embed: false });
+    emitPlayerEvent('sfv:player-open', currentMeta);
     var p = videoEl.play();
     if (p && p.catch) p.catch(function () {});
     return true;
@@ -405,6 +530,8 @@
     if (danmakuEngine) danmakuEngine.load([]); // 换片清空上一部弹幕
     playNextFn = null; // 换片默认无下一集；online.js 起播成功后会重新注册
     currentId = id;
+    currentMeta = { id: id, title: title || id, embed: false };
+    emitPlayerEvent('sfv:player-open', currentMeta); // 所有 URL 播放路径（直链/HLS/FLV）的统一入口
     restoreProgress();
     var sp = getSettings().speed;
     if (sp) videoEl.playbackRate = sp;
@@ -429,6 +556,7 @@
     var id = opts.id || ('url:' + url);
     currentUrl = url;
     prepareForPlay(id, opts.title);
+    if (opts.subtitle || opts.cover) setMeta({ subtitle: opts.subtitle || '', cover: opts.cover || '' });
     videoEl.src = url;
     var p = videoEl.play();
     if (p && p.catch) p.catch(function () {});
@@ -437,6 +565,7 @@
 
   function close() {
     if (!overlay) return;
+    emitPlayerEvent('sfv:player-close', {});
     saveProgress();
     clearEmbed(); // 移除可能存活的解析器 iframe
     clearSubtitle();
@@ -589,6 +718,8 @@
     }
     SFV.state.setSpace('video');
     overlay.classList.add('sfv-show');
+    setCurrentMeta({ id: currentId, title: opts.title || currentId, embed: true });
+    emitPlayerEvent('sfv:player-open', currentMeta);
     emitRenderPause(true);
     return true;
   }
@@ -689,6 +820,19 @@
     getVideoEl: getVideoEl,
     setCurrentUrl: setCurrentUrl,
     prepareForPlay: prepareForPlay,
+    setCurrentMeta: setCurrentMeta,
+    setMeta: setMeta,
+    getMeta: getMeta,
+    getSpeed: getSpeed,
+    setVolume: setVolume,
+    getVolume: getVolume,
+    setPlaylist: setPlaylist,
+    setPlayEpisodeAt: setPlayEpisodeAt,
+    playEpisodeAt: playEpisodeAt,
+    playPrevEpisode: playPrevEpisode,
+    playNextEpisode: playNextEpisode,
+    hasPrevEpisode: hasPrevEpisode,
+    hasNextEpisode: hasNextEpisode,
     // ---- 弹幕控制 API ----
     danmaku: {
       // 载入弹幕列表（DanmakuEntry[]），会重置引擎从头播放
