@@ -36,11 +36,19 @@ const kz = (title) => ({
 });
 
 console.log('cleanTitleForAgg:');
-expect('空格差异归一',
+expect('空格差异归一（同季）',
   Core.cleanTitleForAgg('一人之下 第一季') === Core.cleanTitleForAgg('一人之下第一季'));
-expect('动态漫括号归一',
-  Core.cleanTitleForAgg('一人之下 第一季') === Core.cleanTitleForAgg('一人之下 第一季（动态漫）'));
-expect('季数标记归一',
+expect('括号内源噪声归一（同季）',
+  Core.cleanTitleForAgg('一人之下 第一季（1080P国语版）') === Core.cleanTitleForAgg('一人之下第一季'));
+expect('不同季不能合并',
+  Core.cleanTitleForAgg('一人之下 第一季') !== Core.cleanTitleForAgg('一人之下 第二季'));
+expect('剧场版与 TV 不能合并',
+  Core.cleanTitleForAgg('一人之下 剧场版') !== Core.cleanTitleForAgg('一人之下 第一季'));
+expect('OVA/SP 保留为独立版本',
+  Core.cleanTitleForAgg('进击的巨人 OVA') !== Core.cleanTitleForAgg('进击的巨人'));
+expect('动态漫版与动画版不能合并',
+  Core.cleanTitleForAgg('一人之下 第一季（动态漫）') !== Core.cleanTitleForAgg('一人之下 第一季'));
+expect('标点后缀归一',
   Core.cleanTitleForAgg('你的名字。') === Core.cleanTitleForAgg('你的名字'));
 expect('语言/画质噪声归一',
   Core.cleanTitleForAgg('进击的巨人 国语版1080P') === Core.cleanTitleForAgg('进击的巨人'));
@@ -59,11 +67,23 @@ expect('混合卡 isKazumi = false（CMS 优先）', merged[0].isKazumi === fals
 expect('主 pic 取自首个非空', merged[0].pic === 'http://a.jpg');
 expect('保留清洗身份键', typeof merged[0]._localKey === 'string');
 
+const diffSeason = Core.aggregateByLocalKey([
+  cms('一人之下 第一季', '2016'),
+  cms('一人之下 第二季', '2017')
+]);
+expect('不同季不合并（2 张卡）', diffSeason.length === 2);
+
+const movieVsTv = Core.aggregateByLocalKey([
+  cms('一人之下 第一季', '2016'),
+  cms('一人之下 剧场版', '2024')
+]);
+expect('剧场版与 TV 不合并（2 张卡）', movieVsTv.length === 2);
+
 const diffYear = Core.aggregateByLocalKey([
   cms('一人之下 第一季', '2016', 'http://a.jpg'),
   cms('一人之下 第一季', '2021', 'http://b.jpg')
 ]);
-expect('不同年份不合并（2 张卡）', diffYear.length === 2);
+expect('同年份不同季已分开，同季不同年份也不合并（2 张卡）', diffYear.length === 2);
 
 const onlyKz = Core.aggregateByLocalKey([kz('灵笼'), kz('灵笼')]);
 expect('纯 Kazumi 同标题合并为 1 张卡', onlyKz.length === 1);

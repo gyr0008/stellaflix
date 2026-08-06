@@ -1477,11 +1477,18 @@
     var ps = [];
     for (var i = 0; i < CONC; i++) ps.push(worker());
     return Promise.all(ps).then(function () {
-      // 二次合并：按 tmdbId|mediaType（精确身份键）
+      // 二次合并：按 tmdbId|mediaType|seasonMarker（精确身份键）。
+      // 注意：TMDB 的 TV id 是整个剧集的 id，不是单季 id；同一 TV 系列的不同季
+      // 会返回相同 tmdbId|mediaType，必须再拼上从标题提取的季数/版本标记，否则
+      // 会把「一人之下 第一季」和「第二季」误合并成一张卡。
       var tmap = {}; var torder = [];
       aggs.forEach(function (a) {
+        var markers = '';
+        if (SFV.SearchFilterCore && SFV.SearchFilterCore.extractIdentityMarkers) {
+          markers = SFV.SearchFilterCore.extractIdentityMarkers(a.title || '');
+        }
         var tk = (a._tmdb && a._tmdb.id != null)
-          ? (a._tmdb.id + '|' + a._tmdb.mediaType)
+          ? (a._tmdb.id + '|' + a._tmdb.mediaType + '|' + markers)
           : ('local:' + a._localKey);
         if (!tmap[tk]) { tmap[tk] = a; torder.push(tk); return; }
         var prev = tmap[tk];

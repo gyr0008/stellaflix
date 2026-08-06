@@ -20,7 +20,6 @@
  *   - 点击：Raycaster 命中大平面→取 UV→col/row（全局）→index→onCardClick（单张海报进播放）。
  *   - 卡片绘制管线 = 「Canvas 2D 画 → CanvasTexture → 贴平面合成」，与歌单架 buildOneCard 同款。
  *   - 透明透出首页星空：覆盖层永久透明；大卡材质 depthTest:false（同歌单架）+ renderOrder 排序。
- *   - 湖光：真·镜像倒影（共享大画布纹理，仅多一张翻转 mesh，显存友好）。
  *   - 响应式网格（Request 2 规格）：<640→2列, 640–767→3列, 768–1023→4列, ≥1024→5列；
  *     容器内边距/间隙：默认16px, ≥640→24px, ≥1024→32px；网格最大宽度 1280（画布逻辑宽封顶）。
  *   - 过渡：向心淡出(scale 1→0) → 卸载，全部手写 rAF lerp，**零 GSAP**。
@@ -62,12 +61,10 @@
   var onCardClick = null;
   var loadPageFn = null;            // 分类感知翻页加载器（湖光浏览厅注入）
   var savedOrbit = null;
-  var lakeMesh = null;              // 湖面辉光带
   var items = [];                   // 所有已加载海报 meta（跨页，只 append，不切页）
   var pageNo = 0, loading = false;
 
   var wallMesh = null, wallCanvas = null, wallTexture = null;
-  var wallReflMesh = null, wallReflMat = null;
   var gridCols = 4;
   var totalRows = 1;                // 全局网格总行数（供 raycast 命中坐标换算）
   var canvasW = WALL_CANVAS_W, canvasH = WALL_CANVAS_W, wallAspect = 1;
@@ -357,7 +354,7 @@
     });
   }
 
-  // 按画布宽高比缩放世界尺寸，并封顶宽度；同时定位湖面
+  // 按画布宽高比缩放世界尺寸，并封顶宽度
   // 注意：WALL_H_WORLD 固定 → 卡的大小稳定，只滑窗不缩放
   function fitWall() {
     if (!wallMesh) return;
@@ -369,11 +366,6 @@
     }
     wallMesh.position.set(0, 0, 0);
     wallMesh.scale.set(W_world, H_world, 1);
-    if (wallReflMesh) {
-      wallReflMesh.position.set(0, -(H_world / 2 + 0.12), 0);
-      wallReflMesh.scale.set(W_world, -H_world, 1);
-    }
-    if (lakeMesh) lakeMesh.position.set(0, -(H_world / 2 + 0.10), 0);
   }
 
   // 建单张大卡（1 主平面 + 1 倒影平面，共享纹理）—— 只建一次，永不重建
@@ -394,15 +386,6 @@
     wallMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), mat);
     wallMesh.renderOrder = 6;        // 绘制于背景（紫球/粒子）之上
     group.add(wallMesh);
-
-    // 湖光：真·镜像倒影（共享大画布纹理，仅多一张翻转 mesh）
-    wallReflMat = new THREE.MeshBasicMaterial({
-      map: wallTexture, transparent: true, opacity: 0.30,
-      depthTest: false, depthWrite: false, side: THREE.DoubleSide
-    });
-    wallReflMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), wallReflMat);
-    wallReflMesh.renderOrder = 5;    // 在卡片之下、背景之上
-    group.add(wallReflMesh);
 
     drawWindow();
     fitWall();
@@ -435,12 +418,6 @@
       wallMesh.rotation.y = tiltY;
       wallMesh.material.opacity = wallOpacity;
       wallMesh.scale.set(W_world * wallScaleCur, H_world * wallScaleCur, 1);
-    }
-    if (wallReflMesh) {
-      wallReflMesh.rotation.x = tiltX + breath;
-      wallReflMesh.rotation.y = tiltY;
-      wallReflMesh.material.opacity = Math.max(0, wallOpacity * 0.30);
-      wallReflMesh.scale.set(W_world * wallScaleCur, -H_world * wallScaleCur, 1);
     }
     if (Math.abs(wallOpacityTarget - wallOpacity) > EPS ||
         Math.abs(wallScaleTarget - wallScaleCur) > EPS ||
@@ -480,12 +457,6 @@
       if (wallMesh.geometry && wallMesh.geometry.dispose) wallMesh.geometry.dispose();
       if (wallMesh.material) wallMesh.material.dispose();
       wallMesh = null;
-    }
-    if (wallReflMesh) {
-      if (wallReflMesh.parent) wallReflMesh.parent.remove(wallReflMesh);
-      if (wallReflMesh.geometry && wallReflMesh.geometry.dispose) wallReflMesh.geometry.dispose();
-      if (wallReflMesh.material) wallReflMesh.material.dispose();
-      wallReflMesh = null;
     }
     if (wallTexture && wallTexture.dispose) {
       try { wallTexture.dispose(); textureDisposed++; } catch (e) {}
@@ -654,28 +625,6 @@
   }
 
   // ============================================================
-  //  湖面辉光带（暗示水线）
-  // ============================================================
-  function addLakeFloor() {
-    if (!THREE || !group || lakeMesh) return;
-    var cv = global.document.createElement('canvas');
-    cv.width = 256; cv.height = 128;
-    var ctx = cv.getContext('2d');
-    var g = ctx.createLinearGradient(0, 0, 0, 128);
-    g.addColorStop(0, 'rgba(130,175,255,0.18)');
-    g.addColorStop(0.5, 'rgba(40,80,140,0.06)');
-    g.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, 256, 128);
-    var tex = new THREE.CanvasTexture(cv);
-    var mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.5, depthWrite: false, side: THREE.DoubleSide });
-    lakeMesh = new THREE.Mesh(new THREE.PlaneGeometry(26, 14), mat);
-    lakeMesh.rotation.x = -Math.PI / 2;
-    lakeMesh.position.set(0, -(H_world / 2 + 0.10), 0);
-    lakeMesh.renderOrder = 4;
-    group.add(lakeMesh);
-  }
-
-  // ============================================================
   //  激活 / 反激活
   // ============================================================
   function switchMedia(newMedia) {
@@ -731,8 +680,7 @@
 
     group = new THREE.Group();
     scene.add(group);
-    makeWall();            // 建单张大卡 + 倒影 + 绘制 + 适配（只建一次）
-    addLakeFloor();        // 湖面（用 H_world 定位）
+    makeWall();            // 建单张大卡 + 绘制 + 适配（只建一次）
     attachPointer();
 
     try {
@@ -752,7 +700,6 @@
     disposeWall();
     clearImageCache();
     restoreOrbit();
-    lakeMesh = null;
     group = null;
   }
   function deactivate() {

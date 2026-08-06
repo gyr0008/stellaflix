@@ -1430,6 +1430,7 @@ body:not(.video-space-active) .sfv-fx-page { display: none !important; }
 .sfv-browse-status { text-align: center; color: #6e6e73; font-size: 12px; padding: 16px 0 4px; }
 .sfv-browse-status--click { cursor: pointer; color: rgba(var(--fc-accent-rgb), .9); }
 .sfv-browse-foot {
+  display: none; /* 用户要求隐藏 TMDB 署名条（2026-08-06） */
   text-align: center; color: rgba(255,255,255,.6); font-size: 10.5px; line-height: 1.5;
   padding: 10px 16px 22px;
   background: rgba(8,10,16,.55);
@@ -2771,41 +2772,45 @@ body.sfv-plex-immersive #sfv-nav { display: none !important; }
 }
 .sfv-plex-content { position: relative; z-index: 2; }
 
+/* 用户要求 2026-08-06 17:24 — 胶囊位置与左侧参考图一致，胶囊整体下移 */
 .sfv-plex-back {
-  position: fixed; top: 20px; left: 20px; z-index: 5;
+  position: fixed; top: 36px; left: 20px; z-index: 5;
   width: 52px; height: 52px; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer; color: #fff; font-size: 24px;
-  background: rgba(12,16,22,.42);
-  border: 1px solid rgba(255,255,255,.18);
+  /* 参照 100856：浅色珍珠白玻璃，无厚重阴影 */
+  background: rgba(255,255,255,.18);
+  border: 1px solid rgba(255,255,255,.28);
   backdrop-filter: blur(16px) saturate(150%);
   -webkit-backdrop-filter: blur(16px) saturate(150%);
-  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  box-shadow: 0 2px 8px rgba(0,0,0,.18);
   transition: background .2s ease, transform .2s ease;
 }
-.sfv-plex-back:hover { background: rgba(12,16,22,.62); }
+.sfv-plex-back:hover { background: rgba(255,255,255,.26); }
 .sfv-plex-back:active { transform: scale(.94); }
 
 .sfv-plex-win {
-  position: fixed; top: 22px; right: 20px; z-index: 5;
+  position: fixed; top: 38px; right: 20px; z-index: 5;
   display: inline-flex; align-items: stretch;
-  height: 42px; border-radius: 999px; overflow: hidden;
-  background: rgba(12,16,22,.42);
+  /* 差异①：缩小到与左侧参考图一致(REF 高29 → 30, 每按钮37 → 38) */
+  height: 30px; border-radius: 999px; overflow: hidden;
+  /* 差异③：底色从 .14 浅蓝紫 → .06 接近透明白雾，让海报背景透出(REF 感) */
+  background: rgba(255,255,255,.06);
   border: 1px solid rgba(255,255,255,.18);
-  backdrop-filter: blur(16px) saturate(150%);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
-  box-shadow: 0 8px 24px rgba(0,0,0,.35);
+  color: #0d121a;
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 0 2px 10px rgba(0,0,0,.16);
 }
 .sfv-plex-win button {
-  width: 52px; height: 100%; border: 0; margin: 0; padding: 0;
-  background: transparent; color: #fff; cursor: pointer;
+  width: 38px; height: 100%; border: 0; margin: 0; padding: 0;
+  background: transparent; color: inherit; cursor: pointer;
   display: inline-flex; align-items: center; justify-content: center;
-  font-size: 15px; border-left: 1px solid rgba(255,255,255,.10);
+  font-size: 15px;
   transition: background .15s ease;
 }
-.sfv-plex-win button:first-child { border-left: 0; }
-.sfv-plex-win button:hover { background: rgba(255,255,255,.14); }
-.sfv-plex-win button:active { background: rgba(255,255,255,.24); }
+.sfv-plex-win button:hover { background: rgba(13,18,26,.10); }
+.sfv-plex-win button:active { background: rgba(13,18,26,.18); }
 
 .sfv-plex-header { padding: 340px 50px 0; max-width: 1180px; }
 

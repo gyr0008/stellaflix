@@ -36,9 +36,11 @@
     edit:     svg('<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/>'),
     audio:    svg('<path d="M4 6h16M4 12h16M4 18h16"/>'),
     download: svg('<path d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14"/>'),
-    min:      svg('<path d="M5 12h14"/>'),
-    max:      svg('<path d="M5 5h14v14H5z"/>'),
-    close:    svg('<path d="M6 6l12 12M18 6L6 18"/>')
+    // Plex 窗口控制专用图标 —— 差异②：放大到 20px 并加粗 stroke，
+    // 让 − □ × 在窄胶囊里也清晰(参照左侧参考图粗体图标)
+    min:      '<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="4" rx="2" fill="currentColor"/></svg>',
+    max:      '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2.5" stroke="currentColor" stroke-width="2.4"/></svg>',
+    close:    '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 6 L18 18 M18 6 L6 18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg>'
   };
 
   // 追片 6 态（未追=null + model.js 的 5 态枚举）

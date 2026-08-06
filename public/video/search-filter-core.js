@@ -65,36 +65,66 @@
   // 这里再做一层「清洗标题 + 年份」归并，把异构源合为一张卡。
   // ------------------------------------------------------------------
 
-  // 噪声词：从标题中剥离后不影响作品身份（版本/语言/画质/季数标记等）。
-  // 注意：用数组逐个整体替换，避免误删单独汉字（如「版」字本身）。
-  var TITLE_NOISE = [
-    '第1季', '第一季', '第2季', '第二季', '第3季', '第三季', '第4季', '第四季',
-    '第5季', '第五季', '第6季', '第六季', '第7季', '第七季', '第8季', '第八季',
-    '第9季', '第九季', '第10季', '第十季',
+  // 多源结果聚合身份键清洗
+  // 原则：
+  // 1. 「源噪声」（语言/画质/源标识）只影响播放体验，不影响作品身份，应去掉。
+  // 2. 「身份标记」（第X季/剧场版/OVA/SP/特别篇/番外/动态漫/动画版…）代表不同
+  //    作品或不同版本，必须保留并归一化，否则会把不同季合并成一张卡。
+  // ------------------------------------------------------------------
+
+  // 源噪声：整体替换，避免误伤正常汉字。
+  var SOURCE_NOISE = [
     '国语版', '国配', '国粤', '粤语', '日语版', '日语', '双语', '中英', '简体',
     '繁体', '中字', '高清', 'HD', '1080P', '1080p', '720P', '720p', '4K', '4k',
-    '修复版', '未删减', '完整版', '独家', '会员', '抢先', '预告', 'PV', '动态漫',
-    '动态漫画', '动画版', '剧场版', 'OVA', 'SP', '特别篇', '番外', '合集', '全集'
+    '修复版', '未删减', '完整版', '独家', '会员', '抢先', '预告', 'PV', '合集', '全集'
   ];
 
-  // 清洗标题用于聚合身份键：去空白/括号内容/季数/噪声词/分隔符，转小写。
+  // 季数正则：第1季 / 第一季 / 第十季 等
+  var SEASON_RE = /第([0-9一二三四五六七八九十百]+)季/g;
+  // 身份标记：剧场版/OVA/SP/特别篇/番外/动态漫/动画版等影响作品身份的版本词
+  var EDITION_RE = /(剧场版|电影版|OVA|SP|特别篇|番外|前传|后传|外传|动态漫画|动态漫|动画版|漫画版|真人版|真人电影|网络剧|网剧版|网络电影|TV版|tv版| tv版| TV版)/g;
+
+  // 从标题提取并归一化身份标记（第X季 → Sx，其余保留小写）。
+  function extractIdentityMarkers(s) {
+    var markers = [];
+    var map = {
+      '一': '1', '二': '2', '三': '3', '四': '4', '五': '5',
+      '六': '6', '七': '7', '八': '8', '九': '9', '十': '10', '百': '100'
+    };
+    s.replace(SEASON_RE, function (m, p1) {
+      markers.push('S' + (map[p1] || p1));
+      return '';
+    });
+    s.replace(EDITION_RE, function (m) {
+      markers.push(m.toLowerCase().replace(/\s+/g, ''));
+      return '';
+    });
+    return markers.sort().join('+');
+  }
+
+  // 清洗标题用于聚合身份键：保留季数/版本标记，仅去掉源噪声与空白/分隔符。
   function cleanTitleForAgg(t) {
     if (!t) return '';
     var s = String(t).trim();
     // 去全角/半角空白
     s = s.replace(/[　\s]+/g, '');
+    // 提取身份标记（在去除括号之前，避免括号内标记丢失）
+    var markers = extractIdentityMarkers(s);
     // 去括号及括号内内容（含中文「（）」、英文「()」、方头「【】」）
     s = s.replace(/[（(][^（）()]*[)）]/g, '');
     s = s.replace(/[【][^【】]*[】]/g, '');
-    // 去「第X季」类季数标记（中英文数字）
-    s = s.replace(/第[0-9一二三四五六七八九十百]+季/g, '');
-    // 去噪声词（整体匹配，gi）
-    for (var i = 0; i < TITLE_NOISE.length; i++) {
-      s = s.split(TITLE_NOISE[i]).join('');
+    // 再次去掉已提取过的身份标记本体
+    s = s.replace(SEASON_RE, '');
+    s = s.replace(EDITION_RE, '');
+    // 去源噪声
+    for (var i = 0; i < SOURCE_NOISE.length; i++) {
+      s = s.split(SOURCE_NOISE[i]).join('');
     }
     // 去残留分隔符
     s = s.replace(/[·・\-—_~.。・]/g, '');
-    return s.toLowerCase();
+    s = s.toLowerCase();
+    // 身份键 = 基础标题 [+ 标记]
+    return markers ? (s + '|' + markers) : s;
   }
 
   // 把单个搜索结果项拆分为「统一 variant 描述」数组。
@@ -321,7 +351,8 @@
     sortLabel: sortLabel,
     typeLabel: typeLabel,
     cleanTitleForAgg: cleanTitleForAgg,
-    aggregateByLocalKey: aggregateByLocalKey
+    aggregateByLocalKey: aggregateByLocalKey,
+    extractIdentityMarkers: extractIdentityMarkers
   };
 
   if (typeof module !== 'undefined' && module.exports) {
