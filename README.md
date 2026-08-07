@@ -1,11 +1,11 @@
-# Mineradio 扩展版
+# Stellaflix音乐影视双形态
 
-![Mineradio 暗场启动页](./docs/assets/readme/cinema-beat-smoke.png)
+![Stellaflix 暗场启动页](./docs/assets/readme/cinema-beat-smoke.png)
 
 > 非官方二创版本，基于 [XxHuberrr/Mineradio](https://github.com/XxHuberrr/Mineradio)。
 > 本仓库用于在尊重原作者和 GPL-3.0 授权的前提下，维护更多音源、歌单导入和个性化体验扩展。
 
-Mineradio 扩展版是一款 Windows 桌面沉浸式音乐播放器。原版 Mineradio 已经提供天气电台、搜索播放、歌词舞台、粒子视觉和 3D 歌单架；本扩展版在此基础上补充酷狗概念版、普通酷狗音乐、汽水音乐歌单导入、个性化 Home 面板和更自由的 DIY 视觉工坊。
+Stellaflix是一款 Windows 桌面沉浸式音乐播放器。提供天气电台、搜索播放、歌词舞台、粒子视觉和 3D 歌单架；本项目在此基础上补充本地播放，内置音源。并且实现音乐影视双形态。
 
 ## 和原版的关系
 
@@ -19,7 +19,7 @@ Mineradio 扩展版是一款 Windows 桌面沉浸式音乐播放器。原版 Min
 
 普通用户请进入最新版 Release，只下载安装包：
 
-[下载 Mineradio 扩展版最新版](https://github.com/gyr0008/stellaflix/releases/latest)
+[下载 Stellaflix最新版](https://github.com/gyr0008/stellaflix/releases/latest)
 
 请下载文件名类似下面的安装包：
 
@@ -75,7 +75,7 @@ Stellaflix-1.1.2-Setup.exe
 
 ## 交流群
 
-欢迎对 Mineradio 扩展版感兴趣的朋友加群交流使用体验、问题反馈和二创想法。
+欢迎对 Stellaflix感兴趣的朋友加群交流使用体验、问题反馈和二创想法。
 
 二维码会定期过期，如果图片失效，请以仓库后续更新为准。
 
