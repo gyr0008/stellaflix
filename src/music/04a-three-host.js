@@ -774,25 +774,28 @@ function animate() {
   sampleRenderPerf(now, dt);
   uniforms.uTime.value += dt;
   if (isMainSceneCoveredBySplash()) {
-    // === 编译提前启动（不再等待 splash-play）===
-    // 利用入场动画的 ~1s + splash 剩余 ~2s 完成编译，彻底消除结束时卡顿
-    // 方案B (2026-08-19): 拆批编译 —— 收集去重材质后每 4 帧编译 1 个 program
-
-    // 编译初始化：在 uniforms 就绪后立即开始，不等 splash-play
-    if (!shaderCompileKicked && scene && camera && !sfvRenderPaused) {
+    // B (2026-08-18): entrance-first sequencing.
+    // Entrance animation plays on compositor (not paused); heavy shader compile
+    // only starts after .splash-play is set (entrance done), so GPU/main stay free.
+    if (!document.body.classList.contains('splash-play')) {
+      return; // entrance in progress: keep GPU/main free
+    }
+    // Entrance done → start batched compile
+    if (!shaderCompileKicked && scene && camera) {
       shaderCompileKicked = true;
       markAppPerf('splash-render-start');
       shaderCompileQueue = collectShaderCompileQueue();
-    } else if (!shaderCompileQueue && !shaderCompileDone && scene && camera && !sfvRenderPaused) {
-      shaderCompileQueue = collectShaderCompileQueue(); // 补交：场景可能晚于首帧构建
+    } else if (!shaderCompileQueue && !shaderCompileDone && scene && camera) {
+      shaderCompileQueue = collectShaderCompileQueue();
     }
-    // 渐进式编译：即使入场动画进行中也在后台编译（每 4 帧 1 个，不阻塞入场）
+    // Compile one material per N frames (frame budget: skip if prev compile took > 8ms)
     if (shaderCompileQueue && typeof renderer.compile === 'function') {
       if (shaderCompileCooldown > 0) {
         shaderCompileCooldown--;
       } else {
+        var _t0 = performance.now();
         var _item = shaderCompileQueue.shift();
-        shaderCompileCooldown = 3; // 编译 1 个后休 3 帧
+        shaderCompileCooldown = 3;
         if (_item && _item.host) {
           if (!_compileTmpScene) _compileTmpScene = new THREE.Scene();
           try {
@@ -802,14 +805,17 @@ function animate() {
             else if (_item.host.isSprite) _probe = new THREE.Sprite(_item.material);
             else _probe = new THREE.Mesh(_item.host.geometry, _item.material);
             _compileTmpScene.add(_probe);
-            renderer.compile(_compileTmpScene, camera); // 仅编译该材质的 program
+            renderer.compile(_compileTmpScene, camera);
             _compileTmpScene.remove(_probe);
           } catch (e) {}
         }
+        var _elapsed = performance.now() - _t0;
+        // Frame budget: if compile took > 12ms, increase cooldown to let animation catch up
+        if (_elapsed > 12) shaderCompileCooldown = 6;
+        else if (_elapsed > 8) shaderCompileCooldown = 4;
       }
-      if (!shaderCompileQueue.length) shaderCompileQueue = null; // 全部提交完 → 进入轮询确认
+      if (!shaderCompileQueue.length) shaderCompileQueue = null;
     }
-    // 轮询编译完成状态
     if (parallelShaderCompileExt) {
       var _allLinked = false;
       var _progCount = 0;
@@ -817,7 +823,6 @@ function animate() {
         _allLinked = true;
         _progCount = 1;
       } else if (shaderCompileQueue) {
-        // 拆批提交未完成——不判定 done
       } else if (shaderPollSkipCount > 0) {
         shaderPollSkipCount--;
       } else {
@@ -837,88 +842,23 @@ function animate() {
           window.__sfvShaderCompileDone = true;
           try { window.dispatchEvent(new CustomEvent('sfv:shader-compile-done')); } catch (e) {}
         }
-      }
-    } else {
-      // 无扩展：renderer.compile 是同步的，编译完成即标记
-      if (!shaderCompileDone && !shaderCompileQueue && shaderCompileKicked) {
-        shaderCompileDone = true;
-        markAppPerf('splash-render-end');
-        window.__sfvShaderCompileDone = true;
-        try { window.dispatchEvent(new CustomEvent('sfv:shader-compile-done')); } catch (e) {}
-      }
-    }
-    // === 渲染等待 splash-play，但编译已在进行 ===
-    if (!document.body.classList.contains('splash-play')) {
-      return; // 入场动画进行中：只编译，不渲染
-    }
-    // 入场完成 + 编译完成 → 渲染
-    if (parallelShaderCompileExt) {
-      if (shaderCompileDone && now - splashWarmRenderLast > 520) {
-        splashWarmRenderLast = now;
-        renderer.render(scene, camera);
-      }
-    } else {
-      if (shaderCompileDone && now - splashWarmRenderLast > 520) {
-        splashWarmRenderLast = now;
-        renderer.render(scene, camera);
-      }
-    }
-    return;
-  }
-  // === splash 结束后：如果编译还没完成，继续编译但跳过主渲染 ===
-  if (!shaderCompileDone) {
-    if (shaderCompileQueue && typeof renderer.compile === 'function') {
-      if (shaderCompileCooldown > 0) {
-        shaderCompileCooldown--;
-      } else {
-        var _item2 = shaderCompileQueue.shift();
-        shaderCompileCooldown = 3;
-        if (_item2 && _item2.host) {
-          if (!_compileTmpScene) _compileTmpScene = new THREE.Scene();
-          try {
-            var _probe2;
-            if (_item2.host.isPoints) _probe2 = new THREE.Points(_item2.host.geometry, _item2.material);
-            else if (_item2.host.isLine) _probe2 = new THREE.Line(_item2.host.geometry, _item2.material);
-            else if (_item2.host.isSprite) _probe2 = new THREE.Sprite(_item2.material);
-            else _probe2 = new THREE.Mesh(_item2.host.geometry, _item2.material);
-            _compileTmpScene.add(_probe2);
-            renderer.compile(_compileTmpScene, camera);
-            _compileTmpScene.remove(_probe2);
-          } catch (e) {}
+        if (now - splashWarmRenderLast > 520) {
+          splashWarmRenderLast = now;
+          renderer.render(scene, camera);
         }
       }
-      if (!shaderCompileQueue.length) shaderCompileQueue = null;
-      // 轮询完成状态
-      if (parallelShaderCompileExt) {
-        if (shaderPollSkipCount > 0) shaderPollSkipCount--;
-        else {
-          shaderPollSkipCount = 2;
-          var _al = true, _pc = 0;
-          if (renderer.programs && typeof renderer.programs.forEach === 'function') {
-            renderer.programs.forEach(function (wp) {
-              _pc++;
-              if (wp && wp.program && _gl.getProgramParameter(wp.program, parallelShaderCompileExt.COMPLETION_STATUS_KHR) === false) _al = false;
-            });
-          }
-          if (_al && _pc > 0) {
-            shaderCompileDone = true;
-            window.__sfvShaderCompileDone = true;
-            try { window.dispatchEvent(new CustomEvent('sfv:shader-compile-done')); } catch (e) {}
-          }
-        }
-      } else {
-        if (!shaderCompileQueue) {
+    } else {
+      if (now - splashWarmRenderLast > 520) {
+        splashWarmRenderLast = now;
+        if (!shaderCompileDone) {
+          markAppPerf('splash-render-start');
           shaderCompileDone = true;
           window.__sfvShaderCompileDone = true;
           try { window.dispatchEvent(new CustomEvent('sfv:shader-compile-done')); } catch (e) {}
         }
+        renderer.render(scene, camera);
+        markAppPerf('splash-render-end');
       }
-    }
-    // 编译中：保持上下文，跳过分频渲染
-    if (now - splashWarmRenderLast > 520) {
-      splashWarmRenderLast = now;
-      _gl.clearColor(0, 0, 0, 0);
-      _gl.clear(_gl.COLOR_BUFFER_BIT);
     }
     return;
   }
