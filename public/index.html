@@ -2789,6 +2789,113 @@ html:fullscreen #adaptive-corner-overlay{display:none!important}
     </div>
   </div>
 
+  <div class="fx-fold" id="fx-sonic-fold">
+    <div class="fx-fold-head" onclick="document.getElementById('fx-sonic-fold').classList.toggle('open')">
+      <span class="fx-fold-title"><strong>音域回响 · Ajin</strong><small>地形 / 频谱 / 方块</small></span><span class="arrow">▶</span>
+    </div>
+    <div class="fx-fold-body">
+      <div class="fx-section-label" id="fx-sonic-ground-section">音域地形</div>
+      <div class="fx-slider"><label>地面起伏</label><input id="fx-sonicamp" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider"><label>起伏速度</label><input id="fx-sonicspeed" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider"><label>地形密度</label><input id="fx-sonicdensity" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider"><label>地面范围</label><input id="fx-sonicrange" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider"><label>歌词避让</label><input id="fx-soniclower" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider"><label>地面远近</label><input id="fx-sonicdepth" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider"><label>地形自转</label><input id="fx-sonicautorotate" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-section-label" id="fx-sonic-audio-section">音域频谱</div>
+      <div class="fx-toggle-grid sonic-audio-toggle-grid" id="sonic-audio-toggle-grid" hidden>
+        <div class="fx-toggle" id="t-sonicAudioMonitorEnabled" onclick="toggleFx('sonicAudioMonitorEnabled')">
+          <span>实时频谱</span><span class="dot"></span>
+        </div>
+        <div class="fx-toggle" id="t-sonicAudioAutoTrack" onclick="toggleFx('sonicAudioAutoTrack')">
+          <span>Kick 自动</span><span class="dot"></span>
+        </div>
+      </div>
+      <div class="sonic-audio-monitor" id="sonic-audio-monitor" hidden>
+        <div class="sonic-audio-monitor-head">
+          <button class="fx-mini-btn ghost" id="sonic-audio-monitor-toggle" type="button">频谱面板</button>
+          <div class="sonic-audio-meter"><span id="sonic-audio-meter-fill"></span></div>
+          <small id="sonic-audio-monitor-label">AUTO 1-4</small>
+        </div>
+        <div class="sonic-audio-monitor-panel" id="sonic-audio-monitor-panel">
+          <canvas id="sonic-audio-monitor-canvas" width="320" height="108"></canvas>
+        </div>
+      </div>
+      <div class="fx-slider" hidden><label>Kick 灵敏</label><input id="fx-sonicaudiosensitivity" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider" hidden><label>范围起点</label><input id="fx-sonicaudiobandstart" type="range" min="0" max="510"
+          step="1"><output></output></div>
+      <div class="fx-slider" hidden><label>范围终点</label><input id="fx-sonicaudiobandend" type="range" min="2" max="512"
+          step="1"><output></output></div>
+      <div class="fx-slider" hidden><label>触发阈值</label><input id="fx-sonicaudiothreshold" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider" hidden><label>触发力度</label><input id="fx-sonicaudiopulse" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider" hidden><label>中心低频</label><input id="fx-sonicsubbass" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider" hidden><label>低频重量</label><input id="fx-sonicbass" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider" hidden><label>慢波流动</label><input id="fx-soniclowmid" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider" hidden><label>方向流</label><input id="fx-sonicmid" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider" hidden><label>尖峰</label><input id="fx-sonichighmid" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider" hidden><label>闪光触发</label><input id="fx-sonicpresence" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider" hidden><label>边缘微闪</label><input id="fx-sonicbrilliance" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider" hidden><label>空气颗粒</label><input id="fx-sonicair" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-section-label" id="fx-sonic-color-section">音域颜色</div>
+      <div class="lyric-color-row" id="sonic-ground-base-row">
+        <input id="sonic-ground-base-picker" class="lyric-color-picker" type="color" value="#05070c" title="地形暗部">
+        <div class="fx-color-row-label">地形暗部<small id="sonic-ground-base-value">#05070C</small></div>
+        <button class="fx-mini-btn ghost" type="button" onclick="resetSonicGroundColor('sonicGroundBaseColor')">默认</button>
+      </div>
+      <div class="lyric-color-row" id="sonic-ground-cool-row">
+        <input id="sonic-ground-cool-picker" class="lyric-color-picker" type="color" value="#0066ff" title="冷色峰值">
+        <div class="fx-color-row-label">冷色峰值<small id="sonic-ground-cool-value">#0066FF</small></div>
+        <button class="fx-mini-btn ghost" type="button" onclick="resetSonicGroundColor('sonicGroundCoolColor')">默认</button>
+      </div>
+      <div class="lyric-color-row" id="sonic-ground-warm-row">
+        <input id="sonic-ground-warm-picker" class="lyric-color-picker" type="color" value="#ff3c19" title="暖色峰值">
+        <div class="fx-color-row-label">暖色峰值<small id="sonic-ground-warm-value">#FF3C19</small></div>
+        <button class="fx-mini-btn ghost" type="button" onclick="resetSonicGroundColor('sonicGroundWarmColor')">默认</button>
+      </div>
+      <div class="lyric-color-row" id="sonic-ground-accent-row">
+        <input id="sonic-ground-accent-picker" class="lyric-color-picker" type="color" value="#33e6ff" title="涟漪高光">
+        <div class="fx-color-row-label">涟漪高光<small id="sonic-ground-accent-value">#33E6FF</small></div>
+        <button class="fx-mini-btn ghost" type="button" onclick="resetSonicGroundColor('sonicGroundAccentColor')">默认</button>
+      </div>
+      <div class="fx-slider"><label>音域光强</label><input id="fx-sonicglow" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-section-label" id="fx-sonic-floating-section">音域方块</div>
+      <div class="fx-toggle-grid" id="sonic-floating-toggle-grid">
+        <div class="fx-toggle" id="t-sonicGroundFloatingEnabled" onclick="toggleFx('sonicGroundFloatingEnabled')">
+          <span>浮空方块</span><span class="dot"></span>
+        </div>
+      </div>
+      <div class="fx-slider"><label>方块数量</label><input id="fx-sonicfloatcount" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider"><label>方块强度</label><input id="fx-sonicfloatintensity" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider"><label>方块小值</label><input id="fx-sonicfloatmin" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider"><label>方块大值</label><input id="fx-sonicfloatmax" type="range" min="0" max="100"
+          step="1"><output></output></div>
+      <div class="fx-slider"><label>方块速度</label><input id="fx-sonicfloatspeed" type="range" min="0" max="100"
+          step="1"><output></output></div>
+    </div>
+  </div>
+
   <div class="fx-advanced" id="fx-advanced">
     <div class="fx-advanced-head" onclick="document.getElementById('fx-advanced').classList.toggle('open')">
       <span>高级参数</span><span class="arrow">▶</span>
@@ -2817,6 +2924,46 @@ html:fullscreen #adaptive-corner-overlay{display:none!important}
       <div class="fx-slider"><label>溢光强度</label><input id="fx-bloom" type="range" min="0" max="1.6" step="0.01"><output></output></div>
       <div class="fx-slider"><label>离散感</label><input id="fx-scatter" type="range" min="0" max="0.5" step="0.01"><output></output></div>
       <div class="fx-slider"><label>背景压缩</label><input id="fx-bgfade" type="range" min="0" max="1.2" step="0.01"><output></output></div>
+
+      <!-- ===== 启动与退出 ===== -->
+      <div class="fx-section-label">启动与退出</div>
+      <div class="fx-seg" id="close-behavior-seg" title="关闭按钮点击后的行为">
+        <button data-close-behavior="tray">最小化到托盘</button>
+        <button data-close-behavior="exit">直接退出</button>
+      </div>
+      <div class="fx-toggle-grid">
+        <div class="fx-toggle" id="t-startupAutoplay" title="启动时自动播放上次歌曲"><span>启动自动播放</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-startupFastSkip" title="启动时跳过开屏动画，直接进入"><span>秒启动跳过开屏</span><span class="dot"></span></div>
+      </div>
+      <div class="fx-seg" id="startup-resume-mode-seg" title="恢复播放时的行为">
+        <button data-startup-resume-mode="resume">按进度继续</button>
+        <button data-startup-resume-mode="restart">重播整首</button>
+      </div>
+
+      <!-- ===== 播放输出 ===== -->
+      <div class="fx-section-label">播放输出</div>
+      <div class="fx-toggle-grid">
+        <div class="fx-toggle" id="t-audioOutputRouting" title="音频输出设备与路由面板"><span>音频路由面板</span><span class="dot"></span></div>
+      </div>
+
+      <!-- ===== 内存管理 ===== -->
+      <div class="fx-section-label">内存管理</div>
+      <div class="fx-toggle-grid">
+        <div class="fx-toggle" id="t-autoMemoryTrim" title="自动压缩播放器与释放系统内存"><span>自动内存压缩</span><span class="dot"></span></div>
+      </div>
+
+      <!-- ===== 实验功能 ===== -->
+      <div class="fx-section-label">实验功能</div>
+      <div class="fx-toggle-grid">
+        <div class="fx-toggle" id="t-wallpaperMode" title="完整桌面模式：窗口设为桌面层"><span>完整桌面模式</span><span class="dot"></span></div>
+      </div>
+
+      <!-- ===== 其他设置 ===== -->
+      <div class="fx-section-label">其他设置</div>
+      <div class="fx-toggle-grid">
+        <div class="fx-toggle" id="t-autoSortUncategorized" title="自动将未分类的控件归入对应分组"><span>自动分类未分类</span><span class="dot"></span></div>
+      </div>
+
     </div>
   </div>
 
@@ -3422,6 +3569,7 @@ html:fullscreen #adaptive-corner-overlay{display:none!important}
           <!-- #22 Wallpaper Engine renderer modules (ported from Mineradio 2.1.0 07-fx/03-wallpaper-engine-library.js, Tier1 renamed). Classic scripts; init deferred to DOM-ready via video/bootstrap.js. -->
                 <script src="/assets/bundled-update-summary.js"></script>
                 <script src="/assets/music.js"></script>
+<script src="/assets/system-preferences.js"></script>
 <script>
 (function(){
   var SFV_SCRIPTS = [
@@ -3430,6 +3578,15 @@ html:fullscreen #adaptive-corner-overlay{display:none!important}
     "video/poster-cache.js",
     "video/dispatch.js",
     "video/model.js",
+    // #22 Wallpaper Engine renderer modules must load BEFORE bootstrap.js so init() can find the globals
+    "video/wallpaper-engine/wallpaper-engine-state.js",
+    "video/wallpaper-engine/wallpaper-engine-capture.js",
+    "video/wallpaper-engine/wallpaper-engine-bridge.js",
+    "video/wallpaper-engine/wallpaper-engine-capture-result.js",
+    "video/wallpaper-engine/wallpaper-engine-glass.js",
+    "video/wallpaper-engine/wallpaper-engine-playback.js",
+    "video/wallpaper-engine/wallpaper-engine-library.js",
+    "video/wallpaper-engine/wallpaper-engine-ui.js",
     "video/bootstrap.js",
     "video/nav.js",
     "video/player-core.js",
@@ -3535,15 +3692,8 @@ html:fullscreen #adaptive-corner-overlay{display:none!important}
     "video/source-picker-captcha.js",
     "video/hall.js",
     "video/page-collections.js",
-    "video/watch-history.js",
-    "video/wallpaper-engine/wallpaper-engine-state.js",
-    "video/wallpaper-engine/wallpaper-engine-capture.js",
-    "video/wallpaper-engine/wallpaper-engine-bridge.js",
-    "video/wallpaper-engine/wallpaper-engine-capture-result.js",
-    "video/wallpaper-engine/wallpaper-engine-glass.js",
-    "video/wallpaper-engine/wallpaper-engine-playback.js",
-    "video/wallpaper-engine/wallpaper-engine-library.js",
-    "video/wallpaper-engine/wallpaper-engine-ui.js"
+    "video/watch-history.js"
+    // Wallpaper Engine scripts already loaded above (before bootstrap.js)
   ];
   var CAP = [];
   var docAdd = null, winAdd = null, wrapped = false;
@@ -3569,6 +3719,15 @@ html:fullscreen #adaptive-corner-overlay{display:none!important}
         try{ c.l.call(c.w==='d'?document:window, {type:'DOMContentLoaded', target:(c.w==='d'?document:window)}); }catch(e){ console.error('[SFV-lazy] init err', e); }
       });
       CAP.length = 0;
+      // #22 Safety net: ensure Wallpaper Engine is initialized even if bootstrap.js boot() was skipped
+      // (e.g. when document.readyState was already 'complete' and DOMContentLoaded listener fired
+      // before the wallpaper engine global functions were available).
+      if (typeof initializeWallpaperEngineLibrary === 'function') {
+        try { initializeWallpaperEngineLibrary(); }
+        catch (e) { console.error('[Wallpaper Engine] late init error', e); }
+      } else {
+        console.warn('[Wallpaper Engine] initializeWallpaperEngineLibrary not found at load completion');
+      }
       return;
     }
     var sc=document.createElement('script');
@@ -3584,11 +3743,14 @@ html:fullscreen #adaptive-corner-overlay{display:none!important}
 <script src="/assets/local-library.js"></script>
 <script src="/assets/local-playlists.js"></script>
 <script src="/assets/globals-bridge.js"></script>
+<script src="/assets/performance-control.js"></script>
+<script src="/assets/memory-manager.js"></script>
 <script src="/assets/04a-three-host.js"></script>
 <script src="/assets/04b-shelf-3d.js"></script>
 <script src="/assets/04c-lyrics.js"></script>
 <script src="/assets/04d-audio-beat.js"></script>
 <script src="/assets/04e-audio-engine.js"></script>
+<script src="/assets/04f-sonic-topography.js"></script>
 <script src="/assets/08-fx-visual.js"></script>
 <!-- T144：自适应圆角渲染端兜底，覆盖 Windows DWM 可能残留的白/灰直角 -->
 <script src="adaptive-corners-renderer.js"></script>

@@ -12,7 +12,7 @@
 // ===== 08 region A (legacy 657-848) =====
 // fx 状态: 预设 + 主滑块 + 开关 + 三态
 var fxDefaults = {
-  preset: 0,            // 0=emily cover, 1=tunnel, 2=orbit, 3=void, 4=vinyl, 5=wallpaper, 6=skull
+  preset: 0,            // 0=emily cover, 1=tunnel, 2=orbit, 3=void, 4=vinyl, 5=wallpaper, 6=skull, 7=sonic topography (音域回响·Ajin)
   intensity: 0.85,
   cinemaShake: 0.5,
   depth: 1.0,
@@ -85,6 +85,41 @@ var fxDefaults = {
   performanceQuality: 'high',
   liveBackgroundKeep: false,
   cam: 'off',
+  // === Preset 7 (音域回响·作者Ajin / Sonic Topography) 默认值 ===
+  sonicGroundAmplitude: 50,
+  sonicGroundMotionSpeed: 50,
+  sonicGroundDensity: 46,
+  sonicGroundRange: 82,
+  sonicGroundLower: 68,
+  sonicGroundDepth: 62,
+  sonicGroundAutoRotate: 50,
+  sonicGroundColorMode: 'cover',
+  sonicGroundBaseColor: '#05070c',
+  sonicGroundCoolColor: '#0066ff',
+  sonicGroundWarmColor: '#ff3c19',
+  sonicGroundAccentColor: '#33e6ff',
+  sonicGroundGlow: 20,
+  sonicGroundSubBass: 90,
+  sonicGroundBass: 92,
+  sonicGroundLowMid: 50,
+  sonicGroundMid: 50,
+  sonicGroundHighMid: 50,
+  sonicGroundPresence: 25,
+  sonicGroundBrilliance: 50,
+  sonicGroundAir: 48,
+  sonicGroundFloatingEnabled: true,
+  sonicGroundFloatingIntensity: 36,
+  sonicGroundFloatingMinSize: 9,
+  sonicGroundFloatingMaxSize: 12,
+  sonicGroundFloatingSpeed: 59,
+  sonicGroundFloatingCount: 80,
+  sonicAudioMonitorEnabled: true,
+  sonicAudioAutoTrack: true,
+  sonicAudioSensitivity: 100,
+  sonicAudioBandStart: 1,
+  sonicAudioBandEnd: 4,
+  sonicAudioThreshold: 32,
+  sonicAudioPulseStrength: 62
 };
 var PACKAGED_DEFAULT_USER_FX_ARCHIVE_NAME = '默认测试';
 var PACKAGED_DEFAULT_USER_FX_ARCHIVE_EXPORTED_AT = 1782276031784;
@@ -168,7 +203,42 @@ var PACKAGED_DEFAULT_FX_SNAPSHOT = Object.freeze({
   shelfOpacity: 1,
   shelfBgOpacity: 0.9,
   shelfAccentColor: '#ffffff',
-  cam: 'off'
+  cam: 'off',
+  // === Preset 7 (音域回响·作者Ajin / Sonic Topography) 默认值 ===
+  sonicGroundAmplitude: 50,
+  sonicGroundMotionSpeed: 50,
+  sonicGroundDensity: 46,
+  sonicGroundRange: 82,
+  sonicGroundLower: 68,
+  sonicGroundDepth: 62,
+  sonicGroundAutoRotate: 50,
+  sonicGroundColorMode: 'cover',
+  sonicGroundBaseColor: '#05070c',
+  sonicGroundCoolColor: '#0066ff',
+  sonicGroundWarmColor: '#ff3c19',
+  sonicGroundAccentColor: '#33e6ff',
+  sonicGroundGlow: 20,
+  sonicGroundSubBass: 90,
+  sonicGroundBass: 92,
+  sonicGroundLowMid: 50,
+  sonicGroundMid: 50,
+  sonicGroundHighMid: 50,
+  sonicGroundPresence: 25,
+  sonicGroundBrilliance: 50,
+  sonicGroundAir: 48,
+  sonicGroundFloatingEnabled: true,
+  sonicGroundFloatingIntensity: 36,
+  sonicGroundFloatingMinSize: 9,
+  sonicGroundFloatingMaxSize: 12,
+  sonicGroundFloatingSpeed: 59,
+  sonicGroundFloatingCount: 80,
+  sonicAudioMonitorEnabled: true,
+  sonicAudioAutoTrack: true,
+  sonicAudioSensitivity: 100,
+  sonicAudioBandStart: 1,
+  sonicAudioBandEnd: 4,
+  sonicAudioThreshold: 32,
+  sonicAudioPulseStrength: 62
 });
 function clonePackagedDefaultFxSnapshot() {
   return Object.assign({}, PACKAGED_DEFAULT_FX_SNAPSHOT);

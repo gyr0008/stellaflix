@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, screen, session, globalShortcut, dialog, protocol, desktopCapturer } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, screen, session, globalShortcut, dialog, protocol, desktopCapturer, Tray, Menu, nativeImage } = require('electron');
 const os = require('os');
 const net = require('net');
 const path = require('path');
@@ -12,10 +12,9 @@ const { bindWindowCornerShape, setCornerShapeLocked } = require('./window-corner
 let mainWindowCornerShape = null;
 
 const { WallpaperEngineLibrary, registerWallpaperEngineScheme } = require('./wallpaper-engine-library');
-// 2026-08-16: Wallpaper Engine 默认完全禁用，避免某些壁纸触发 GPU/解码崩溃导致 Stellaflix 闪屏/卡顿。
-// 只有显式设置 STELLAFLIX_ENABLE_WALLPAPER=1 且未设置 STELLAFLIX_DISABLE_WALLPAPER=1 时才启用。
-const WALLPAPER_ENGINE_ENABLED = process.env.STELLAFLIX_ENABLE_WALLPAPER === '1'
-  && process.env.STELLAFLIX_DISABLE_WALLPAPER !== '1';
+// 2026-08-19: 移植自 Mineradio 2.1.0 — Wallpaper Engine 默认启用
+// 保留环境变量覆盖能力：STELLAFLIX_DISABLE_WALLPAPER=1 可显式禁用
+const WALLPAPER_ENGINE_ENABLED = process.env.STELLAFLIX_DISABLE_WALLPAPER !== '1';
 const WallpaperEngineRuntime = WALLPAPER_ENGINE_ENABLED
   ? require('./wallpaper-engine-runtime').WallpaperEngineRuntime
   : null;
@@ -52,6 +51,11 @@ let htmlFullscreenActive = false;
 let windowFullscreenActive = false;
 let mainWindowStateTimer = null;
 const registeredGlobalHotkeys = new Map();
+
+// 2026-08-19: 移植自 Mineradio 2.1.0 — 系统托盘与关闭行为
+let appTray = null;
+let closeBehaviorPreference = 'exit'; // 'exit' | 'tray'
+let trayContextMenu = null;
 
 const WINDOWED_ASPECT = 16 / 9;
 const WINDOWED_SCALE = 3 / 4;
@@ -338,6 +342,128 @@ function focusMainWindow() {
   mainWindow.focus();
   sendWindowState(mainWindow);
   return true;
+}
+
+// ============================================================
+// 系统托盘与关闭行为 (移植自 Mineradio 2.1.0)
+// ============================================================
+
+function createOrUpdateTray() {
+  // 只在 Windows 上创建托盘
+  if (process.platform !== 'win32') return null;
+
+  if (appTray && !appTray.isDestroyed()) {
+    appTray.destroy();
+    appTray = null;
+  }
+
+  // 尝试加载图标
+  let trayIcon = null;
+  if (fs.existsSync(APP_ICON_ICO)) {
+    try {
+      trayIcon = nativeImage.createFromPath(APP_ICON_ICO);
+    } catch (e) {}
+  }
+  if (!trayIcon || trayIcon.isEmpty()) {
+    // 创建简单的 16x16 透明图标
+    trayIcon = nativeImage.createEmpty();
+  }
+
+  appTray = new Tray(trayIcon);
+  appTray.setToolTip(APP_NAME);
+
+  // 创建右键菜单
+  trayContextMenu = Menu.buildFromTemplate([
+    { label: '显示主窗口', click: () => focusMainWindow() },
+    { type: 'separator' },
+    {
+      label: '关闭行为',
+      submenu: [
+        {
+          label: '最小化到托盘',
+          type: 'radio',
+          checked: closeBehaviorPreference === 'tray',
+          click: () => { closeBehaviorPreference = 'tray'; persistCloseBehavior(); rebuildTrayMenu(); }
+        },
+        {
+          label: '直接退出',
+          type: 'radio',
+          checked: closeBehaviorPreference === 'exit',
+          click: () => { closeBehaviorPreference = 'exit'; persistCloseBehavior(); rebuildTrayMenu(); }
+        }
+      ]
+    },
+    { type: 'separator' },
+    { label: '退出 Stellaflix', click: () => { appQuitting = true; app.quit(); } }
+  ]);
+
+  appTray.setContextMenu(trayContextMenu);
+
+  appTray.on('click', () => {
+    if (mainWindow && mainWindow.isVisible()) {
+      mainWindow.hide();
+    } else {
+      focusMainWindow();
+    }
+  });
+
+  return appTray;
+}
+
+function rebuildTrayMenu() {
+  if (!appTray || appTray.isDestroyed()) return;
+  // 简单方式：重新创建整个菜单
+  appTray.destroy();
+  createOrUpdateTray();
+}
+
+function destroyTray() {
+  if (appTray && !appTray.isDestroyed()) {
+    appTray.destroy();
+    appTray = null;
+  }
+}
+
+function persistCloseBehavior() {
+  try {
+    const prefFile = path.join(app.getPath('userData'), 'preferences.json');
+    let prefs = {};
+    if (fs.existsSync(prefFile)) {
+      try { prefs = JSON.parse(fs.readFileSync(prefFile, 'utf8')); } catch (e) {}
+    }
+    prefs.closeBehavior = closeBehaviorPreference;
+    fs.writeFileSync(prefFile, JSON.stringify(prefs, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('[closeBehavior] Failed to persist:', e.message);
+  }
+}
+
+function loadCloseBehavior() {
+  try {
+    const prefFile = path.join(app.getPath('userData'), 'preferences.json');
+    if (fs.existsSync(prefFile)) {
+      const prefs = JSON.parse(fs.readFileSync(prefFile, 'utf8'));
+      if (prefs.closeBehavior === 'tray' || prefs.closeBehavior === 'exit') {
+        closeBehaviorPreference = prefs.closeBehavior;
+      }
+    }
+  } catch (e) {}
+}
+
+// 处理窗口关闭请求
+function handleWindowClose(mainWin) {
+  if (!mainWin || mainWin.isDestroyed()) return;
+
+  if (closeBehaviorPreference === 'tray' && process.platform === 'win32') {
+    // 最小化到托盘
+    mainWin.hide();
+    mainWin.setSkipTaskbar(true);
+    createOrUpdateTray();
+  } else {
+    // 直接退出
+    appQuitting = true;
+    mainWin.close();
+  }
 }
 
 function getUpdateDownloadDir() {
@@ -2427,7 +2553,20 @@ ipcMain.handle('desktop-window-get-state', (event) => {
 });
 
 ipcMain.handle('desktop-window-close', (event) => {
-  getSenderWindow(event)?.close();
+  const win = getSenderWindow(event);
+  if (win) handleWindowClose(win);
+});
+
+// 2026-08-19: 移植自 Mineradio 2.1.0 — 关闭行为 IPC
+ipcMain.handle('stellaflix-set-close-behavior', (_event, behavior) => {
+  closeBehaviorPreference = behavior === 'tray' ? 'tray' : 'exit';
+  persistCloseBehavior();
+  if (appTray) rebuildTrayMenu();
+  return { ok: true, closeBehavior: closeBehaviorPreference };
+});
+
+ipcMain.handle('stellaflix-get-close-behavior', () => {
+  return { closeBehavior: closeBehaviorPreference };
 });
 
 ipcMain.handle('stellaflix-hotkeys-configure-global', (_event, bindings) => {
@@ -3217,8 +3356,14 @@ async function createWindow() {
   mainWindow.on('unmaximize', () => sendWindowState(mainWindow));
   mainWindow.on('minimize', () => sendWindowState(mainWindow));
   mainWindow.on('restore', () => sendWindowState(mainWindow));
-  mainWindow.on('show', () => sendWindowState(mainWindow));
-  mainWindow.on('hide', () => sendWindowState(mainWindow));
+  mainWindow.on('show', () => {
+    sendWindowState(mainWindow);
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('desktop-window-shown');
+  });
+  mainWindow.on('hide', () => {
+    sendWindowState(mainWindow);
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('desktop-window-hidden');
+  });
   mainWindow.on('focus', () => sendWindowState(mainWindow));
   mainWindow.on('blur', () => sendWindowState(mainWindow));
   mainWindow.on('move', () => { scheduleWindowStateSend(mainWindow); if (wallpaperEngineRuntime) scheduleWallpaperEngineHostBoundsRestart(mainWindow, 'bounds-changed'); });
@@ -3296,6 +3441,13 @@ if (!gotSingleInstanceLock) {
   });
 
   app.whenReady().then(async () => {
+    // 2026-08-19: 加载关闭行为偏好
+    loadCloseBehavior();
+    // 如果是托盘模式，预创建托盘
+    if (closeBehaviorPreference === 'tray' && process.platform === 'win32') {
+      createOrUpdateTray();
+    }
+
     screen.on('display-metrics-changed', () => {
       positionDesktopLyricsWindow();
       if (wallpaperRuntime) wallpaperRuntime.reconcileDisplay('display-metrics-changed').catch(() => {});
@@ -3317,6 +3469,12 @@ if (!gotSingleInstanceLock) {
   });
 
   app.on('window-all-closed', () => {
+    // 2026-08-19: 移植自 Mineradio 2.1.0 — 支持系统托盘模式
+    if (process.platform === 'win32' && closeBehaviorPreference === 'tray' && appTray) {
+      // 托盘模式下不退出，保持托盘运行
+      appTray.setToolTip(`${APP_NAME} (后台运行)`);
+      return;
+    }
     if (process.platform !== 'darwin') app.quit();
   });
 
@@ -3326,6 +3484,8 @@ if (!gotSingleInstanceLock) {
     clearWallpaperEngineCaptureGrant();
     if (wallpaperEngineLibrary) wallpaperEngineLibrary.dispose();
     if (wallpaperEngineRuntime) wallpaperEngineRuntime.dispose();
+    // 2026-08-19: 清理托盘
+    destroyTray();
     appQuitting = true;
     if (localServer?.setCustomSourceBridge) localServer.setCustomSourceBridge(null);
     customSourceAudioProxy?.clear();

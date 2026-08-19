@@ -12893,6 +12893,7 @@ var presetMeta = [
   { name: '唱片', desc: '唱片 · 圆形封面' },
   { name: '星河', desc: '壁纸粒子 · 音乐律动' },
   { name: '安魂', desc: '骷髅·YUI7W', descHtml: '骷髅·<span class="pc-yui7w">YUI7W</span>' },
+  { name: '音域回响', nameHtml: '音域回响 <span class="pc-name-en">Sonic-Topography</span>', desc: '作者 Ajin', descHtml: '作者 <span class="pc-author-ajin">Ajin</span>' },
 ];
 var presetIcons = [
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 14c3-2 5-2 8 0s5 2 8 0M3 10c3-2 5-2 8 0s5 2 8 0M3 18c3-2 5-2 8 0s5 2 8 0"/></svg>',
@@ -12902,8 +12903,9 @@ var presetIcons = [
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.4"/><path d="M16.5 5.2c2.1.9 3.4 2.4 4 4.5"/><path d="M18.8 3.2l1.5 4.8"/></svg>',
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 15c2.2-4.4 4.4-4.4 6.6 0s4.4 4.4 6.6 0S20.6 10.6 23 15"/><path d="M3 9c2.2 2.2 4.4 2.2 6.6 0s4.4-2.2 6.6 0S20.6 11.2 23 9"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/></svg>',
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.2h4v6.2h4.2v3.8H14v7.6h-4v-7.6H5.8V9.4H10z"/></svg>',
+  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/><path d="M3 12c2-2.5 4-2.5 6 0s4 2.5 6 0 4-2.5 6 0"/><path d="M3 6c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><circle cx="18" cy="5" r="1.2" fill="currentColor"/></svg>',
 ];
-var presetDisplayOrder = [0, 6, 5, 4, 2, 1, 3];
+var presetDisplayOrder = [0, 6, 7, 5, 4, 2, 1, 3];
 var lyricColorPresets = [
   { name:'雾蓝', color:'#a9b8c8' },
   { name:'银蓝', color:'#9db8cf' },
@@ -15645,6 +15647,10 @@ function setPreset(p, opts) {
   fx.preset = p;
   if (changed && prev === SKULL_PRESET_INDEX && p !== SKULL_PRESET_INDEX) clearSkullPresetResidue();
   if (p === SKULL_PRESET_INDEX) loadSkullParticleAsset();
+  // Preset 7 (音域回响·Ajin) 钩子: 切入时确保层挂载, 切出时清场
+  if (changed && typeof MineradioSonicTopography !== 'undefined' && MineradioSonicTopography.onPresetChange) {
+    MineradioSonicTopography.onPresetChange(prev, p, { scene: scene, fx: fx });
+  }
   uniforms.uPreset.value = p;
   refreshPresetGrid();
   if (changed && !opts.skipTransition) triggerPresetParticleTransition(prev, p);
@@ -15656,8 +15662,9 @@ function setPreset(p, opts) {
     else if (p === 4) { orbit.userRadius = 6.5; orbit.userPhi = 0.04; orbit.userTheta = 0.0; orbit.baselineRadius = 6.5; orbit.baselinePhi = 0.04; }
     else if (p === 5) { orbit.userRadius = 9.4; orbit.userPhi = 0.34; orbit.userTheta = -0.52; orbit.baselineRadius = 9.4; orbit.baselinePhi = 0.34; }
     else if (p === 6) { orbit.userRadius = 7.4; orbit.userPhi = 0.10; orbit.userTheta = 0.18; orbit.baselineRadius = 7.4; orbit.baselinePhi = 0.10; }
+    else if (p === 7) { orbit.userRadius = 9.6; orbit.userPhi = 0.22; orbit.userTheta = -0.18; orbit.baselineRadius = 9.6; orbit.baselinePhi = 0.22; }
     else              { orbit.userRadius = 6.6; orbit.userPhi = 0.08; orbit.userTheta = 0.0; orbit.baselineRadius = 6.6; orbit.baselinePhi = 0.08; }
-    orbit.baselineTheta = p === 5 ? -0.52 : (p === 6 ? 0.18 : 0.0);
+    orbit.baselineTheta = p === 5 ? -0.52 : (p === 6 ? 0.18 : (p === 7 ? -0.18 : 0.0));
   }
   if (changed && !opts.silent) showToast('视觉预设: ' + presetMeta[p].name);
   var shouldCommitPlaybackPreset = !!opts.commitPlaybackPreset || !opts.noSave;
@@ -15827,6 +15834,34 @@ function updateFxInputs() {
   setRange('fx-bloom', fx.bloomStrength);
   setRange('fx-scatter', fx.scatter);
   setRange('fx-bgfade', fx.bgFade);
+  // Preset 7 (音域回响·Ajin) 滑块同步
+  setRange('fx-sonicamp', fx.sonicGroundAmplitude == null ? 50 : fx.sonicGroundAmplitude);
+  setRange('fx-sonicspeed', fx.sonicGroundMotionSpeed == null ? 50 : fx.sonicGroundMotionSpeed);
+  setRange('fx-sonicdensity', fx.sonicGroundDensity == null ? 46 : fx.sonicGroundDensity);
+  setRange('fx-sonicrange', fx.sonicGroundRange == null ? 82 : fx.sonicGroundRange);
+  setRange('fx-soniclower', fx.sonicGroundLower == null ? 68 : fx.sonicGroundLower);
+  setRange('fx-sonicdepth', fx.sonicGroundDepth == null ? 62 : fx.sonicGroundDepth);
+  setRange('fx-sonicautorotate', fx.sonicGroundAutoRotate == null ? 50 : fx.sonicGroundAutoRotate);
+  setRange('fx-sonicglow', fx.sonicGroundGlow == null ? 20 : fx.sonicGroundGlow);
+  setRange('fx-sonicsubbass', fx.sonicGroundSubBass == null ? 90 : fx.sonicGroundSubBass);
+  setRange('fx-sonicbass', fx.sonicGroundBass == null ? 92 : fx.sonicGroundBass);
+  setRange('fx-soniclowmid', fx.sonicGroundLowMid == null ? 50 : fx.sonicGroundLowMid);
+  setRange('fx-sonicmid', fx.sonicGroundMid == null ? 50 : fx.sonicGroundMid);
+  setRange('fx-sonichighmid', fx.sonicGroundHighMid == null ? 50 : fx.sonicGroundHighMid);
+  setRange('fx-sonicpresence', fx.sonicGroundPresence == null ? 25 : fx.sonicGroundPresence);
+  setRange('fx-sonicbrilliance', fx.sonicGroundBrilliance == null ? 50 : fx.sonicGroundBrilliance);
+  setRange('fx-sonicair', fx.sonicGroundAir == null ? 48 : fx.sonicGroundAir);
+  setRange('fx-sonicaudiosensitivity', fx.sonicAudioSensitivity == null ? 100 : fx.sonicAudioSensitivity);
+  setRange('fx-sonicaudiobandstart', fx.sonicAudioBandStart == null ? 1 : fx.sonicAudioBandStart);
+  setRange('fx-sonicaudiobandend', fx.sonicAudioBandEnd == null ? 4 : fx.sonicAudioBandEnd);
+  setRange('fx-sonicaudiothreshold', fx.sonicAudioThreshold == null ? 32 : fx.sonicAudioThreshold);
+  setRange('fx-sonicaudiopulse', fx.sonicAudioPulseStrength == null ? 62 : fx.sonicAudioPulseStrength);
+  setRange('fx-sonicfloatcount', fx.sonicGroundFloatingCount == null ? 80 : fx.sonicGroundFloatingCount);
+  setRange('fx-sonicfloatintensity', fx.sonicGroundFloatingIntensity == null ? 36 : fx.sonicGroundFloatingIntensity);
+  setRange('fx-sonicfloatmin', fx.sonicGroundFloatingMinSize == null ? 9 : fx.sonicGroundFloatingMinSize);
+  setRange('fx-sonicfloatmax', fx.sonicGroundFloatingMaxSize == null ? 12 : fx.sonicGroundFloatingMaxSize);
+  setRange('fx-sonicfloatspeed', fx.sonicGroundFloatingSpeed == null ? 59 : fx.sonicGroundFloatingSpeed);
+  if (typeof updateSonicGroundColorControls === 'function') updateSonicGroundColorControls();
   updateLyricGlowControls();
   // 同步开关
   document.getElementById('t-float').classList.toggle('on', fx.floatLayer);
@@ -15860,6 +15895,13 @@ function updateFxInputs() {
   if (shelfPodcastsToggle) shelfPodcastsToggle.classList.toggle('on', fx.shelfShowPodcasts !== false);
   var shelfMergeToggle = document.getElementById('t-shelfMergeCollections');
   if (shelfMergeToggle) shelfMergeToggle.classList.toggle('on', fx.shelfMergeCollections === true);
+  // Preset 7 (音域回响) 开关同步
+  var sonicAudioMonitorToggle = document.getElementById('t-sonicAudioMonitorEnabled');
+  if (sonicAudioMonitorToggle) sonicAudioMonitorToggle.classList.toggle('on', fx.sonicAudioMonitorEnabled !== false);
+  var sonicAudioAutoTrackToggle = document.getElementById('t-sonicAudioAutoTrack');
+  if (sonicAudioAutoTrackToggle) sonicAudioAutoTrackToggle.classList.toggle('on', fx.sonicAudioAutoTrack !== false);
+  var sonicGroundFloatingToggle = document.getElementById('t-sonicGroundFloatingEnabled');
+  if (sonicGroundFloatingToggle) sonicGroundFloatingToggle.classList.toggle('on', fx.sonicGroundFloatingEnabled !== false);
   var liveBackgroundKeepToggle = document.getElementById('t-liveBackgroundKeep');
   if (liveBackgroundKeepToggle) liveBackgroundKeepToggle.classList.toggle('on', fx.liveBackgroundKeep === true);
   updatePerformanceControls();
@@ -16004,7 +16046,7 @@ function fxPanelTargetForNode(node, current) {
   var inputId = fxPanelInputId(node);
   if (id === 'preset-grid' || id === 'shape-workshop' || id === 'sandbox-builder-grid' || id === 'user-archive-grid') return 'presets';
   if (id === 'fx-lyric-fold') return 'lyrics';
-  if (id === 'fx-overlay-fold' || id === 'fx-stage-fold') return 'motion';
+  if (id === 'fx-overlay-fold' || id === 'fx-stage-fold' || id === 'fx-sonic-fold') return 'motion';
   if (id === 'fx-advanced' || node.classList.contains('fx-actions')) return 'advanced';
   if (node.classList.contains('lyric-color-row') || node.classList.contains('cover-color-pop') || node.classList.contains('color-lab-pop') || node.classList.contains('cover-color-loupe')) return 'appearance';
   if (inputId === 'fx-bgopacity' || inputId === 'fx-glassaberration') return 'appearance';
@@ -16218,6 +16260,33 @@ function relabelFxPanelControls() {
   setFxSliderLabel('fx-bloom', '光晕强度');
   setFxSliderLabel('fx-scatter', '离散感');
   setFxSliderLabel('fx-bgfade', '背景压暗');
+  // Preset 7 (音域回响) 滑块标签
+  setFxSliderLabel('fx-sonicamp', '地面起伏');
+  setFxSliderLabel('fx-sonicspeed', '起伏速度');
+  setFxSliderLabel('fx-sonicdensity', '地形密度');
+  setFxSliderLabel('fx-sonicrange', '地面范围');
+  setFxSliderLabel('fx-soniclower', '歌词避让');
+  setFxSliderLabel('fx-sonicdepth', '地面远近');
+  setFxSliderLabel('fx-sonicautorotate', '地形自转');
+  setFxSliderLabel('fx-sonicglow', '音域光强');
+  setFxSliderLabel('fx-sonicsubbass', '中心低频');
+  setFxSliderLabel('fx-sonicbass', '低频重量');
+  setFxSliderLabel('fx-soniclowmid', '慢波流动');
+  setFxSliderLabel('fx-sonicmid', '方向流');
+  setFxSliderLabel('fx-sonichighmid', '尖峰');
+  setFxSliderLabel('fx-sonicpresence', '闪光触发');
+  setFxSliderLabel('fx-sonicbrilliance', '边缘微闪');
+  setFxSliderLabel('fx-sonicair', '空气颗粒');
+  setFxSliderLabel('fx-sonicaudiosensitivity', 'Kick 灵敏');
+  setFxSliderLabel('fx-sonicaudiobandstart', '范围起点');
+  setFxSliderLabel('fx-sonicaudiobandend', '范围终点');
+  setFxSliderLabel('fx-sonicaudiothreshold', '触发阈值');
+  setFxSliderLabel('fx-sonicaudiopulse', '触发力度');
+  setFxSliderLabel('fx-sonicfloatcount', '方块数量');
+  setFxSliderLabel('fx-sonicfloatintensity', '方块强度');
+  setFxSliderLabel('fx-sonicfloatmin', '方块小值');
+  setFxSliderLabel('fx-sonicfloatmax', '方块大值');
+  setFxSliderLabel('fx-sonicfloatspeed', '方块速度');
 }
 
 function getHotkeyDefaults() {
@@ -16573,6 +16642,11 @@ function bindFxPanel() {
     ['fx-lyricscale','lyricScale'],['fx-lyricx','lyricOffsetX'],['fx-lyricy','lyricOffsetY'],['fx-lyricz','lyricOffsetZ'],['fx-lyrictiltx','lyricTiltX'],['fx-lyrictilty','lyricTiltY'],
     ['fx-point','point'],['fx-speed','speed'],['fx-twist','twist'],
     ['fx-color','color'],['fx-bloom','bloomStrength'],['fx-scatter','scatter'],['fx-bgfade','bgFade'],
+    ['fx-sonicamp','sonicGroundAmplitude'],['fx-sonicspeed','sonicGroundMotionSpeed'],['fx-sonicdensity','sonicGroundDensity'],['fx-sonicrange','sonicGroundRange'],['fx-soniclower','sonicGroundLower'],['fx-sonicdepth','sonicGroundDepth'],['fx-sonicautorotate','sonicGroundAutoRotate'],
+    ['fx-sonicglow','sonicGroundGlow'],
+    ['fx-sonicsubbass','sonicGroundSubBass'],['fx-sonicbass','sonicGroundBass'],['fx-soniclowmid','sonicGroundLowMid'],['fx-sonicmid','sonicGroundMid'],['fx-sonichighmid','sonicGroundHighMid'],['fx-sonicpresence','sonicGroundPresence'],['fx-sonicbrilliance','sonicGroundBrilliance'],['fx-sonicair','sonicGroundAir'],
+    ['fx-sonicaudiosensitivity','sonicAudioSensitivity'],['fx-sonicaudiobandstart','sonicAudioBandStart'],['fx-sonicaudiobandend','sonicAudioBandEnd'],['fx-sonicaudiothreshold','sonicAudioThreshold'],['fx-sonicaudiopulse','sonicAudioPulseStrength'],
+    ['fx-sonicfloatcount','sonicGroundFloatingCount'],['fx-sonicfloatintensity','sonicGroundFloatingIntensity'],['fx-sonicfloatmin','sonicGroundFloatingMinSize'],['fx-sonicfloatmax','sonicGroundFloatingMaxSize'],['fx-sonicfloatspeed','sonicGroundFloatingSpeed'],
   ];
   ids.forEach(function(pair){
     var el = document.getElementById(pair[0]);
@@ -16674,6 +16748,17 @@ function bindFxPanel() {
     shelfAccentPicker.addEventListener('input', function(){ setShelfAccentColor(shelfAccentPicker.value, true); });
     shelfAccentPicker.addEventListener('change', function(){ showToast('歌单架颜色: ' + shelfAccentHex().toUpperCase()); });
   }
+  // Preset 7 (音域回响) 颜色选择器
+  var sonicGroundPickers = ['sonic-ground-base-picker', 'sonic-ground-cool-picker', 'sonic-ground-warm-picker', 'sonic-ground-accent-picker'];
+  sonicGroundPickers.forEach(function (id) {
+    var picker = document.getElementById(id);
+    if (!picker) return;
+    picker.addEventListener('input', function () { setSonicGroundColorFromPicker(id, picker.value, true); });
+    picker.addEventListener('change', function () {
+      var item = sonicGroundColorControl(id);
+      if (item && fx[item.key]) showToast(item.label + ': ' + normalizeHexColor(fx[item.key]).toUpperCase());
+    });
+  });
   var bgImageInput = document.getElementById('background-image-input');
   if (bgImageInput) {
     bgImageInput.addEventListener('change', function(e){
@@ -16801,7 +16886,7 @@ function toggleFx(key) {
   var toggle = document.getElementById(toggleId);
   if (toggle) toggle.classList.toggle('on', fx[key]);
   syncFxUniforms();
-  if (key === 'lyricCameraLock' || key === 'lyricGlow' || key === 'lyricGlowBeat' || key === 'lyricGlowParticles' || key === 'lyricNextLine' || key === 'bloom' || key === 'edge' || key === 'cinema' || key === 'desktopLyrics' || key === 'desktopLyricsClickThrough' || key === 'desktopLyricsCinema' || key === 'desktopLyricsHighlight' || key === 'wallpaperMode' || key === 'shelfShowPodcasts' || key === 'shelfMergeCollections' || key === 'liveBackgroundKeep') saveLyricLayout();
+  if (key === 'lyricCameraLock' || key === 'lyricGlow' || key === 'lyricGlowBeat' || key === 'lyricGlowParticles' || key === 'lyricNextLine' || key === 'bloom' || key === 'edge' || key === 'cinema' || key === 'desktopLyrics' || key === 'desktopLyricsClickThrough' || key === 'desktopLyricsCinema' || key === 'desktopLyricsHighlight' || key === 'wallpaperMode' || key === 'shelfShowPodcasts' || key === 'shelfMergeCollections' || key === 'liveBackgroundKeep' || key === 'sonicAudioMonitorEnabled' || key === 'sonicAudioAutoTrack' || key === 'sonicGroundFloatingEnabled') saveLyricLayout();
   if (key === 'floatLayer') { if (fx.floatLayer) createFloatLayer(); else destroyFloatLayer(); }
   if (key === 'desktopLyrics') applyDesktopLyricsState(true);
   if (key === 'desktopLyricsClickThrough' || key === 'desktopLyricsCinema' || key === 'desktopLyricsHighlight' || key === 'lyricNextLine') pushDesktopLyricsState(true);
@@ -16958,6 +17043,110 @@ function setShelfAccentColor(color, silent) {
 }
 function resetShelfAccentColor() {
   setShelfAccentColor(fxDefaults.shelfAccentColor || '#f4d28a');
+}
+
+// === Preset 7 (音域回响·Ajin / Sonic Topography) UI 同步函数 ===
+var SONIC_GROUND_COLOR_CONTROLS = [
+  { key: 'sonicGroundBaseColor', picker: 'sonic-ground-base-picker', value: 'sonic-ground-base-value', label: '地形暗部' },
+  { key: 'sonicGroundCoolColor', picker: 'sonic-ground-cool-picker', value: 'sonic-ground-cool-value', label: '冷色峰值' },
+  { key: 'sonicGroundWarmColor', picker: 'sonic-ground-warm-picker', value: 'sonic-ground-warm-value', label: '暖色峰值' },
+  { key: 'sonicGroundAccentColor', picker: 'sonic-ground-accent-picker', value: 'sonic-ground-accent-value', label: '涟漪高光' }
+];
+function sonicGroundColorControl(key) {
+  for (var i = 0; i < SONIC_GROUND_COLOR_CONTROLS.length; i++) {
+    if (SONIC_GROUND_COLOR_CONTROLS[i].key === key || SONIC_GROUND_COLOR_CONTROLS[i].picker === key) return SONIC_GROUND_COLOR_CONTROLS[i];
+  }
+  return null;
+}
+function sonicHexRgb(hex, fallback) {
+  hex = normalizeHexColor(hex || fallback || '#ffffff', fallback || '#ffffff').slice(1);
+  var n = parseInt(hex, 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+function sonicMixHex(a, b, t) {
+  var ca = sonicHexRgb(a, '#000000');
+  var cb = sonicHexRgb(b, '#ffffff');
+  t = clampRange(Number(t) || 0, 0, 1);
+  return '#' + [ca.r + (cb.r - ca.r) * t, ca.g + (cb.g - ca.g) * t, ca.b + (cb.b - ca.b) * t].map(function (v) {
+    return Math.round(clampRange(v, 0, 255)).toString(16).padStart(2, '0');
+  }).join('');
+}
+function sonicPaletteHex(value, fallback, minLum) {
+  if (typeof lyricPaletteColorToHex === 'function') return lyricPaletteColorToHex(value, fallback, minLum);
+  return normalizeHexColor(value || fallback, fallback);
+}
+function sonicRawPaletteHex(value, fallback) {
+  fallback = normalizeHexColor(fallback || '#ffffff', '#ffffff');
+  value = String(value || '').trim();
+  if (/^#[0-9a-fA-F]{3,6}$/.test(value)) return normalizeHexColor(value, fallback);
+  var m = value.match(/^rgba?\(\s*([.\d]+)\s*,\s*([.\d]+)\s*,\s*([.\d]+)/i);
+  if (m) {
+    return '#' + [m[1], m[2], m[3]].map(function (part) {
+      var n = Math.round(clampRange(parseFloat(part) || 0, 0, 255));
+      return n.toString(16).padStart(2, '0');
+    }).join('');
+  }
+  return fallback;
+}
+function sonicGroundCoverPreviewColors() {
+  var pal = stageLyrics && (stageLyrics.coverPalette || stageLyrics.palette) || {};
+  var primary = sonicPaletteHex(pal.primary || pal.secondary || pal.highlight, '#33e6ff', 0.42);
+  var secondary = sonicPaletteHex(pal.secondary || pal.primary || pal.highlight, '#7fd8ff', 0.40);
+  var highlight = sonicPaletteHex(pal.highlight || pal.primary || pal.secondary, '#ffd070', 0.48);
+  return {
+    sonicGroundBaseColor: sonicMixHex('#05070c', primary, 0.12),
+    sonicGroundCoolColor: primary,
+    sonicGroundWarmColor: highlight,
+    sonicGroundAccentColor: secondary
+  };
+}
+function updateSonicGroundColorControls() {
+  var customMode = fx.sonicGroundColorMode === 'custom';
+  var coverPreview = customMode ? null : sonicGroundCoverPreviewColors();
+  SONIC_GROUND_COLOR_CONTROLS.forEach(function (item) {
+    var fallback = fxDefaults[item.key] || '#33e6ff';
+    var color = customMode ? normalizeHexColor(fx[item.key] || fallback, fallback) : normalizeHexColor(coverPreview[item.key] || fallback, fallback);
+    var picker = document.getElementById(item.picker);
+    var value = document.getElementById(item.value);
+    if (picker) picker.value = color;
+    if (value && !customMode) value.textContent = '封面 ' + color.toUpperCase();
+    if (value) value.textContent = customMode ? color.toUpperCase() : '封面取色';
+  });
+  if (!customMode) {
+    SONIC_GROUND_COLOR_CONTROLS.forEach(function (item) {
+      var fallback = fxDefaults[item.key] || '#33e6ff';
+      var color = normalizeHexColor((coverPreview && coverPreview[item.key]) || fallback, fallback);
+      var value = document.getElementById(item.value);
+      if (value) value.textContent = '封面 ' + color.toUpperCase();
+    });
+  }
+}
+function setSonicGroundColor(key, color, silent) {
+  var item = sonicGroundColorControl(key);
+  if (!item) return;
+  var fallback = fxDefaults[item.key] || '#33e6ff';
+  fx.sonicGroundColorMode = 'custom';
+  fx[item.key] = normalizeHexColor(color || fallback, fallback);
+  updateSonicGroundColorControls();
+  syncFxUniforms();
+  saveLyricLayout();
+  if (!silent) showToast(item.label + ': ' + fx[item.key].toUpperCase());
+}
+function resetSonicGroundColor(key) {
+  var item = sonicGroundColorControl(key);
+  if (!item) return;
+  fx.sonicGroundColorMode = 'cover';
+  SONIC_GROUND_COLOR_CONTROLS.forEach(function (control) {
+    fx[control.key] = normalizeHexColor(fxDefaults[control.key] || '#33e6ff', '#33e6ff');
+  });
+  updateSonicGroundColorControls();
+  syncFxUniforms();
+  saveLyricLayout();
+  showToast('音域回响颜色: 封面取色');
+}
+function setSonicGroundColorFromPicker(pickerId, color, silent) {
+  var item = sonicGroundColorControl(pickerId);
+  if (item) setSonicGroundColor(item.key, color, silent);
 }
 
 function syncControlsAutoHideButton() {
