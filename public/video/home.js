@@ -471,7 +471,15 @@
     // T118：在 dispatch 监听 spacechange 之前先拍基线（install 阶段默认 music 态）
     captureMusicDefaults();
     SFV.dispatch.registerSlot(SLOT, { el: null, music: restoreMusic, video: render });
-    if (isVideoSpace()) render();
+    if (isVideoSpace()) {
+      render();
+      // 启动期影视态自渲染后，补一次顶栏高亮（否则需等 goHome() 调 setActiveNav 才高亮
+      // 导致「首页卡片有了但顶栏没亮 active=home」的视觉错位）。
+      try {
+        if (SFV.nav && typeof SFV.nav.paintActive === 'function') SFV.nav.paintActive('home');
+        else if (SFV.online && typeof SFV.online.setActiveNav === 'function') SFV.online.setActiveNav('home');
+      } catch (e) {}
+    }
   }
 
   function boot() {

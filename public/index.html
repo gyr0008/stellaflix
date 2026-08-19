@@ -1665,6 +1665,103 @@ body.shape-workshop-mode #canvas-container{opacity:1;filter:brightness(.92) satu
 .fx-advanced-body{margin-top:0}
 .fx-fold,.fx-advanced{background:rgba(255,255,255,.024)}
 
+/* ===== 播放输出模块样式 ===== */
+/* 音频折叠面板 - 可折叠 */
+#fx-fold-audio{background:rgba(255,255,255,.024);border:1px solid rgba(255,255,255,.055);border-radius:13px;padding:0}
+#fx-fold-audio .fx-fold-head{display:flex;justify-content:space-between;align-items:center;cursor:pointer;font-size:11.5px;color:rgba(255,255,255,.6);letter-spacing:.4px;padding:10px 14px;user-select:none}
+#fx-fold-audio .fx-fold-head:hover{color:#fff}
+#fx-fold-audio .fx-fold-body{display:none;padding:0 14px 14px}
+#fx-fold-audio.open .fx-fold-body{display:block}
+
+.audio-card{border-radius:12px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02);padding:12px 14px;margin-bottom:10px}
+.audio-card-title{font-size:12px;font-weight:700;color:rgba(255,255,255,.75);letter-spacing:.3px;margin-bottom:10px}
+.audio-card-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.audio-device-info{font-size:10.5px;color:rgba(255,255,255,.42);padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.03);margin-top:10px;line-height:1.6}
+
+/* MR 按钮 */
+.audio-mr-btn{display:inline-flex;align-items:center;justify-content:center;height:30px;padding:0 14px;border-radius:8px;border:1px solid rgba(0,245,212,.3);background:rgba(0,245,212,.08);color:#00f5d4;font-size:11px;font-weight:700;cursor:pointer;transition:all .15s}
+.audio-mr-btn:hover{background:rgba(0,245,212,.18);border-color:rgba(0,245,212,.5)}
+.audio-mr-sm{height:24px;padding:0 10px;font-size:10px}
+
+/* 路由 toggle */
+.audio-route-toggle{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:8px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);cursor:pointer;transition:all .15s}
+.audio-route-toggle:hover{background:rgba(255,255,255,.07)}
+.audio-route-toggle.active{border-color:rgba(0,245,212,.4);background:rgba(0,245,212,.1)}
+.audio-route-label{font-size:11px;color:rgba(255,255,255,.6)}
+.audio-route-toggle.active .audio-route-label{color:#00f5d4}
+.audio-route-dot{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.25);transition:all .15s}
+.audio-route-toggle.active .audio-route-dot{background:#00f5d4;box-shadow:0 0 8px rgba(0,245,212,.5)}
+
+/* 设备面板 */
+.audio-panel{margin-top:12px;border-radius:12px;border:1px solid rgba(255,255,255,.07);background:linear-gradient(180deg,rgba(14,15,20,.6),rgba(5,6,8,.6));padding:16px}
+.audio-panel-title{font-size:14px;font-weight:700;color:#fff;letter-spacing:.3px}
+.audio-panel-sub{font-size:11px;color:rgba(255,255,255,.4);margin-top:3px}
+.audio-panel-card{margin-top:14px;border-radius:10px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.02);padding:12px}
+.audio-panel-card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.audio-panel-card-head span{font-size:12px;font-weight:700;color:rgba(255,255,255,.7)}
+.audio-panel-card-btns{display:flex;gap:6px}
+.audio-panel-device-row{display:flex;align-items:center;gap:10px}
+.audio-current-device{flex:1;padding:10px 12px;border-radius:8px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)}
+.audio-device-name{font-size:11.5px;color:rgba(255,255,255,.8);font-weight:600}
+.audio-panel-desc{margin-top:10px;font-size:10.5px;color:rgba(255,255,255,.35);line-height:1.5}
+
+/* 路由矩阵模态框 */
+.audio-routing-modal{position:fixed;inset:0;z-index:1600;display:flex;align-items:center;justify-content:center}
+.audio-routing-mask{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)}
+.audio-routing-dialog{position:relative;width:min(680px,calc(100vw - 40px));max-height:min(620px,calc(100vh - 60px));overflow:auto;border-radius:18px;border:1px solid rgba(255,255,255,.12);background:linear-gradient(180deg,rgba(14,15,20,.98),rgba(5,6,8,.98));box-shadow:0 32px 100px rgba(0,0,0,.7),inset 0 1px 0 rgba(255,255,255,.08)}
+.audio-routing-head{display:flex;justify-content:space-between;align-items:flex-start;padding:18px 20px;border-bottom:1px solid rgba(255,255,255,.08)}
+.audio-routing-title{font-size:16px;font-weight:800;letter-spacing:.04em;color:#fff}
+.audio-routing-sub{margin-top:4px;font-size:11.5px;color:rgba(255,255,255,.5)}
+.audio-routing-close{width:32px;height:32px;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(255,255,255,.04);color:rgba(255,255,255,.66);font-size:18px;line-height:1;cursor:pointer}
+.audio-routing-close:hover{background:rgba(255,255,255,.1);color:#fff}
+.audio-routing-body{display:flex;gap:18px;padding:18px 20px}
+
+/* Source 区 */
+.audio-routing-source{width:180px;flex-shrink:0}
+.audio-routing-source-label{font-size:10px;font-weight:700;color:rgba(255,255,255,.3);letter-spacing:.1em;margin-bottom:10px}
+.audio-routing-source-card{border-radius:12px;border:1px solid rgba(0,245,212,.25);background:linear-gradient(135deg,rgba(0,245,212,.1),rgba(0,245,212,.04));padding:14px}
+.audio-routing-source-mr{display:inline-block;padding:3px 10px;border-radius:6px;background:rgba(0,245,212,.15);color:#00f5d4;font-size:10px;font-weight:700;letter-spacing:.05em}
+.audio-routing-source-name{margin-top:10px;font-size:13px;font-weight:700;color:#fff}
+.audio-routing-source-sub{display:flex;flex-direction:column;gap:3px;margin-top:12px;font-size:10px;color:rgba(255,255,255,.4);letter-spacing:.05em}
+.audio-routing-patch-status{color:rgba(255,255,255,.55);font-size:10.5px}
+
+/* Matrix 区 */
+.audio-routing-matrix{flex:1;min-width:0}
+.audio-routing-matrix-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+.audio-routing-matrix-head>div:first-child{font-size:13px;font-weight:700;color:#fff}
+.audio-routing-badges{display:flex;gap:6px;flex-wrap:wrap}
+.badge{padding:3px 10px;border-radius:6px;font-size:10px;font-weight:600;letter-spacing:.03em}
+.badge-primary{background:rgba(0,245,212,.12);color:#00f5d4;border:1px solid rgba(0,245,212,.25)}
+.badge-muted{background:rgba(255,255,255,.06);color:rgba(255,255,255,.45);border:1px solid rgba(255,255,255,.1)}
+.badge-danger{background:rgba(255,120,120,.1);color:rgba(255,150,150,.8);border:1px solid rgba(255,120,120,.2)}
+
+/* 通道列表 */
+.audio-routing-channels{display:flex;flex-direction:column;gap:12px}
+.audio-routing-channel{border-radius:10px;border:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02);overflow:hidden}
+.audio-routing-channel-head{display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(255,255,255,.02);border-bottom:1px solid rgba(255,255,255,.05)}
+.audio-routing-channel-num{width:22px;height:22px;border-radius:6px;background:rgba(0,245,212,.12);color:#00f5d4;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.audio-routing-channel-title{font-size:11.5px;font-weight:700;color:rgba(255,255,255,.75)}
+.audio-routing-channel-tag{font-size:10px;color:rgba(255,255,255,.35)}
+.audio-routing-channel-body{padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+.audio-routing-device-row{display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.02);border:1px solid rgba(255,255,255,.05);cursor:pointer;transition:all .15s}
+.audio-routing-device-row:hover{background:rgba(255,255,255,.05);border-color:rgba(0,245,212,.2)}
+.audio-routing-device-row.active{background:rgba(0,245,212,.06);border-color:rgba(0,245,212,.3)}
+.audio-routing-device-icon{width:24px;height:24px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700}
+.audio-routing-device-icon.out{background:rgba(0,245,212,.12);color:#00f5d4}
+.audio-routing-device-icon.mon{background:rgba(180,130,255,.12);color:#b080ff}
+.audio-routing-device-icon.mic{background:rgba(255,180,80,.12);color:#ffb050}
+.audio-routing-device-info{flex:1;min-width:0}
+.audio-routing-device-name{font-size:11.5px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.audio-routing-device-desc{font-size:10px;color:rgba(255,255,255,.4);margin-top:2px}
+.audio-routing-device-status{font-size:10px;color:rgba(255,255,255,.35)}
+
+/* Footer */
+.audio-routing-foot{display:flex;justify-content:center;gap:12px;padding:16px 20px;border-top:1px solid rgba(255,255,255,.08)}
+
+/* 折叠面板箭头动画 */
+.fx-fold-head .arrow{transition:transform .2s;font-size:9px}
+.fx-fold.open .fx-fold-head .arrow{transform:rotate(90deg)}
+
 .hotkey-modal{position:fixed;inset:0;z-index:1450;display:none;align-items:center;justify-content:center;padding:22px;background:rgba(0,0,0,.48);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
 .hotkey-modal.show{display:flex}
 .hotkey-dialog{width:min(760px,calc(100vw - 36px));max-height:min(720px,calc(100vh - 44px));overflow:auto;border-radius:18px;border:1px solid rgba(255,255,255,.12);background:linear-gradient(180deg,rgba(14,15,20,.96),rgba(5,6,8,.96));box-shadow:0 32px 110px rgba(0,0,0,.62),inset 0 1px 0 rgba(255,255,255,.08);padding:18px;color:#fff}
@@ -2896,37 +2993,255 @@ html:fullscreen #adaptive-corner-overlay{display:none!important}
     </div>
   </div>
 
+  <div class="fx-fold" id="fx-sonic-workshop-fold">
+    <div class="fx-fold-head" onclick="document.getElementById('fx-sonic-workshop-fold').classList.toggle('open')">
+      <span class="fx-fold-title"><strong>音域回响 · CmzYa</strong><small>Sonic-Workshop / Wallpaper Engine</small></span><span class="arrow">▶</span>
+    </div>
+    <div class="fx-fold-body">
+      <div class="fx-section-label" id="fx-sonic-workshop-section">音域回响·WE</div>
+      <div class="lyric-color-row" id="sonic-workshop-color-row">
+        <input id="sonic-workshop-cover-picker" class="lyric-color-picker" type="color" value="#cb6c89" title="WE theme color">
+        <div class="fx-color-row-label">WE 主题基色<small id="sonic-workshop-theme-value">封面取色</small></div>
+        <button class="fx-mini-btn ghost" id="sonic-workshop-cover-btn" type="button" onclick="setSonicWorkshopRegionColorMode('theme','cover')">封面</button>
+      </div>
+      <div class="lyric-color-row" id="sonic-workshop-base-row">
+        <input id="sonic-workshop-base-picker" class="lyric-color-picker" type="color" value="#16060f" title="WE terrain base">
+        <div class="fx-color-row-label">地形基色<small id="sonic-workshop-base-value">封面取色</small></div>
+        <button class="fx-mini-btn ghost" id="sonic-workshop-base-btn" type="button" onclick="setSonicWorkshopRegionColorMode('base','cover')">封面</button>
+      </div>
+      <div class="lyric-color-row" id="sonic-workshop-warm-row">
+        <input id="sonic-workshop-warm-picker" class="lyric-color-picker" type="color" value="#cb6c89" title="WE warm body">
+        <div class="fx-color-row-label">暖色主体<small id="sonic-workshop-warm-value">封面取色</small></div>
+        <button class="fx-mini-btn ghost" id="sonic-workshop-warm-btn" type="button" onclick="setSonicWorkshopRegionColorMode('warm','cover')">封面</button>
+      </div>
+      <div class="lyric-color-row" id="sonic-workshop-cool-row">
+        <input id="sonic-workshop-cool-picker" class="lyric-color-picker" type="color" value="#99c4ff" title="WE upper highlight">
+        <div class="fx-color-row-label">上层高光<small id="sonic-workshop-cool-value">封面取色</small></div>
+        <button class="fx-mini-btn ghost" id="sonic-workshop-cool-btn" type="button" onclick="setSonicWorkshopRegionColorMode('cool','cover')">封面</button>
+      </div>
+      <div class="lyric-color-row" id="sonic-workshop-ripple-row">
+        <input id="sonic-workshop-ripple-picker" class="lyric-color-picker" type="color" value="#f8d8ff" title="WE ripple light">
+        <div class="fx-color-row-label">波纹亮区<small id="sonic-workshop-ripple-value">封面取色</small></div>
+        <button class="fx-mini-btn ghost" id="sonic-workshop-ripple-btn" type="button" onclick="setSonicWorkshopRegionColorMode('ripple','cover')">封面</button>
+      </div>
+      <div class="lyric-color-row" id="sonic-workshop-peak-row">
+        <input id="sonic-workshop-peak-picker" class="lyric-color-picker" type="color" value="#99c4ff" title="WE peak highlight">
+        <div class="fx-color-row-label">峰值高光<small id="sonic-workshop-peak-value">封面取色</small></div>
+        <button class="fx-mini-btn ghost" id="sonic-workshop-peak-btn" type="button" onclick="setSonicWorkshopRegionColorMode('peak','cover')">封面</button>
+      </div>
+      <div class="fx-seg sonic-workshop-theme-seg" id="sonic-workshop-theme-seg">
+        <button data-sonic-workshop-theme="coral-mirage" onclick="setSonicWorkshopTheme('coral-mirage')">珊瑚</button>
+        <button data-sonic-workshop-theme="ocean-deep" onclick="setSonicWorkshopTheme('ocean-deep')">深海</button>
+        <button data-sonic-workshop-theme="arctic-aurora" onclick="setSonicWorkshopTheme('arctic-aurora')">冰蓝</button>
+        <button data-sonic-workshop-theme="cyber-forest" onclick="setSonicWorkshopTheme('cyber-forest')">翠绿</button>
+        <button data-sonic-workshop-theme="minimal-monochrome" onclick="setSonicWorkshopTheme('minimal-monochrome')">极简</button>
+      </div>
+      <div class="fx-section-label">音频响应</div>
+      <div class="fx-slider"><label>音频强度</label><input id="fx-sonicworkshop-intensity" type="range" min="0.3" max="2.5" step="0.01"><output></output></div>
+      <div class="fx-slider"><label>响应范围</label><input id="fx-sonicworkshop-range" type="range" min="0.3" max="2.0" step="0.01"><output></output></div>
+      <div class="fx-slider"><label>峰值强度</label><input id="fx-sonicworkshop-peak" type="range" min="0" max="1.4" step="0.01"><output></output></div>
+      <div class="fx-slider"><label>输入增益</label><input id="fx-sonicworkshop-gain" type="range" min="40" max="100" step="1"><output></output></div>
+    </div>
+  </div>
+
   <div class="fx-advanced" id="fx-advanced">
     <div class="fx-advanced-head" onclick="document.getElementById('fx-advanced').classList.toggle('open')">
       <span>高级参数</span><span class="arrow">▶</span>
     </div>
     <div class="fx-advanced-body">
-      <div class="fx-section-label">直播 / 后台</div>
-      <div class="fx-seg" id="performance-background-seg" title="控制窗口隐藏、最小化或后台运行时的渲染策略">
-        <button data-performance-background="auto">自动优化</button>
-        <button data-performance-background="keep">保持运行</button>
-        <button data-performance-background="release">停止释放</button>
+
+      <!-- ===== 播放输出设备和路由面板（折叠面板） ===== -->
+      <div class="fx-fold" id="fx-fold-audio">
+        <div class="fx-fold-head" onclick="toggleFold('fx-fold-audio')">
+          <span>播放输出设备和路由面板</span><span class="arrow">▶</span>
+        </div>
+        <div class="fx-fold-body">
+
+          <!-- 设备选择卡片 -->
+          <div class="audio-card">
+            <div class="audio-card-title">播放输出设备</div>
+            <div class="audio-card-row">
+              <button class="fx-mini-btn ghost" id="audio-refresh-btn" title="刷新音频输出设备">刷新</button>
+              <button class="fx-mini-btn ghost" id="audio-panel-btn" title="打开设备面板">面板</button>
+              <button class="audio-mr-btn" id="audio-mr-btn" title="MR: 切换设备">MR</button>
+              <div class="audio-route-toggle" id="t-audioRoute" title="路由">
+                <span class="audio-route-label">路由</span>
+                <span class="audio-route-dot"></span>
+              </div>
+            </div>
+            <div id="audio-device-info" class="audio-device-info">
+              当前输出: 系统默认
+            </div>
+          </div>
+
+          <!-- 设备面板（点击"面板"按钮展开） -->
+          <div class="audio-panel" id="audio-device-panel" style="display:none">
+            <div class="audio-panel-title">播放输出</div>
+            <div class="audio-panel-sub">音频输出设备和路由面板</div>
+            <div class="audio-panel-card">
+              <div class="audio-panel-card-head">
+                <span>播放输出设备</span>
+                <div class="audio-panel-card-btns">
+                  <button class="fx-mini-btn ghost" id="audio-panel-refresh" title="刷新">刷新</button>
+                  <button class="fx-mini-btn ghost" id="audio-panel-open" title="面板">面板</button>
+                </div>
+              </div>
+              <div class="audio-panel-device-row">
+                <div class="audio-current-device" id="audio-current-device">
+                  <div class="audio-device-name">当前输出: 系统默认</div>
+                </div>
+                <button class="audio-mr-btn audio-mr-sm" id="audio-panel-mr" title="MR">MR</button>
+                <div class="audio-route-toggle" id="t-audioRoutePanel" title="路由">
+                  <span class="audio-route-label">路由</span>
+                  <span class="audio-route-dot"></span>
+                </div>
+              </div>
+              <div class="audio-panel-desc">
+                主输出使用系统默认 / 镜像监听关闭 / 桥接关闭
+              </div>
+            </div>
+          </div>
+
+        </div>
       </div>
-      <div class="fx-section-label">画质档位</div>
-      <div class="fx-seg" id="performance-quality-seg" title="控制可见状态下的渲染像素预算，重启后保留">
+
+      <!-- ===== 音频路由矩阵模态框 ===== -->
+      <div class="audio-routing-modal" id="audio-routing-modal" style="display:none">
+        <div class="audio-routing-mask" onclick="closeAudioRoutingModal()"></div>
+        <div class="audio-routing-dialog">
+          <div class="audio-routing-head">
+            <div>
+              <div class="audio-routing-title">音频路由</div>
+              <div class="audio-routing-sub" id="audio-routing-current">当前输出: 系统默认</div>
+            </div>
+            <button class="audio-routing-close" onclick="closeAudioRoutingModal()">✕</button>
+          </div>
+          <div class="audio-routing-body">
+            <!-- Source -->
+            <div class="audio-routing-source">
+              <div class="audio-routing-source-label">SOURCE</div>
+              <div class="audio-routing-source-card">
+                <div class="audio-routing-source-mr">MR</div>
+                <div class="audio-routing-source-name">Mineradio Player</div>
+              </div>
+              <div class="audio-routing-source-sub">
+                <span>Patch Bay</span>
+                <span class="audio-routing-patch-status">主监听跟随系统默认</span>
+              </div>
+            </div>
+            <!-- Routing Matrix -->
+            <div class="audio-routing-matrix">
+              <div class="audio-routing-matrix-head">
+                <div>路由矩阵</div>
+                <div class="audio-routing-badges">
+                  <span class="badge badge-primary">主监听 系统默认</span>
+                  <span class="badge badge-muted">镜像监听 关闭</span>
+                  <span class="badge badge-danger">虚拟麦克风 未接入</span>
+                </div>
+              </div>
+              <div class="audio-routing-channels" id="audio-routing-channels">
+                <!-- Channels injected by JS -->
+              </div>
+            </div>
+          </div>
+          <div class="audio-routing-foot">
+            <button class="fx-mini-btn ghost" onclick="resetAudioRouting()">系统默认</button>
+            <button class="fx-mini-btn ghost" onclick="refreshAudioDevices()">刷新接口</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== 性能与后台 ===== -->
+      <div class="fx-section-label">性能与后台</div>
+      <div class="fx-section-label" style="margin-top:0">画质档位、后台渲染与直播保持</div>
+      <div class="fx-seg" id="performance-quality-seg" title="控制可见状态下的渲染像素预算">
         <button data-performance-quality="eco">低</button>
         <button data-performance-quality="balanced">中</button>
         <button data-performance-quality="high">高</button>
         <button data-performance-quality="ultra">超高</button>
       </div>
-      <div class="fx-toggle-grid">
-        <div class="fx-toggle" id="t-liveBackgroundKeep" onclick="toggleFx('liveBackgroundKeep')" title="开启后后台或最小化时保持视觉渲染，不进入低占用暂停"><span>直播后台保持</span><span class="dot"></span></div>
+      <div class="fx-section-label">FPS 档位</div>
+      <div class="fx-seg" id="performance-fps-seg" title="控制目标帧率上限">
+        <button data-performance-fps="vsync">跟随屏幕</button>
+        <button data-performance-fps="45">45</button>
+        <button data-performance-fps="60">60</button>
+        <button data-performance-fps="75">75</button>
+        <button data-performance-fps="90">90</button>
+        <button data-performance-fps="120">120</button>
       </div>
-      <div class="fx-slider"><label>粒子尺寸</label><input id="fx-point" type="range" min="0.5" max="2.2" step="0.01"><output></output></div>
-      <div class="fx-slider"><label>流速</label><input id="fx-speed" type="range" min="0.2" max="2.5" step="0.01"><output></output></div>
-      <div class="fx-slider"><label>扭曲</label><input id="fx-twist" type="range" min="0" max="0.6" step="0.01"><output></output></div>
-      <div class="fx-slider"><label>色彩张力</label><input id="fx-color" type="range" min="0.5" max="2.0" step="0.01"><output></output></div>
-      <div class="fx-slider"><label>溢光强度</label><input id="fx-bloom" type="range" min="0" max="1.6" step="0.01"><output></output></div>
-      <div class="fx-slider"><label>离散感</label><input id="fx-scatter" type="range" min="0" max="0.5" step="0.01"><output></output></div>
-      <div class="fx-slider"><label>背景压缩</label><input id="fx-bgfade" type="range" min="0" max="1.2" step="0.01"><output></output></div>
+      <div class="fx-seg" id="performance-background-seg" title="后台运行策略">
+        <button data-performance-background="auto">自动优化</button>
+        <button data-performance-background="keep">保持运行</button>
+        <button data-performance-background="release">停止释放</button>
+      </div>
+      <div class="fx-toggle-grid">
+        <div class="fx-toggle" id="t-liveBackgroundKeep" onclick="toggleFx('liveBackgroundKeep')" title="开启后后台保持视觉渲染"><span>直播后台保持</span><span class="dot"></span></div>
+      </div>
+
+      <!-- ===== 内存管理 ===== -->
+      <div class="fx-section-label" style="margin-top:18px">内存管理</div>
+      <div id="memory-stats" style="font-size:10.5px;color:rgba(255,255,255,.42);padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.03);margin-bottom:10px;line-height:1.6">
+        系统 -- MB / -- MB 可用 · 播放器 -- MB
+      </div>
+      <div class="fx-section-label">压缩与释放策略</div>
+      <div class="fx-toggle-grid">
+        <div class="fx-toggle" id="t-autoMemoryTrim" title="内存压力时自动压缩播放器"><span>自动压缩播放器</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-backgroundTrim" title="后台触发压缩"><span>后台触发压缩</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-systemRelease" title="系统级定时释放"><span>系统级定时释放</span><span class="dot"></span></div>
+        <div class="fx-toggle" id="t-adminRequest" title="需要时请求管理员权限"><span>临时请求管理员</span><span class="dot"></span></div>
+      </div>
+      <div class="fx-section-label">页面策略</div>
+      <div class="fx-seg" id="memory-page-policy-seg" title="不同页面的内存策略">
+        <button data-memory-policy="working">工作集</button>
+        <button data-memory-policy="modify">修改页</button>
+        <button data-memory-policy="idle">待机页</button>
+        <button data-memory-policy="lowpriority">低优先待</button>
+      </div>
+      <div class="fx-slider"><label>定时释放(分)</label><input id="memory-timer-release" type="range" min="5" max="120" step="1" value="30"><output></output></div>
+      <div class="fx-slider"><label>占用阈值(%)</label><input id="memory-threshold" type="range" min="30" max="95" step="1" value="78"><output></output></div>
+      <div style="display:flex;gap:6px;margin:10px 0;flex-wrap:wrap">
+        <button class="fx-mini-btn ghost" onclick="memoryCompressNow()" title="立即压缩播放器">压缩播放器</button>
+        <button class="fx-mini-btn ghost" onclick="memorySystemRelease()" title="系统级释放">系统释放</button>
+        <button class="fx-mini-btn ghost" onclick="memoryElevatedRelease()" title="提权释放">提权释放</button>
+      </div>
+
+      <!-- ===== 缓存与存储 ===== -->
+      <div class="fx-section-label">缓存与存储</div>
+      <div class="fx-section-label" style="margin-top:0">统一存储目录、占用和各类路径</div>
+      <div id="cache-dir-info" style="font-size:10.5px;color:rgba(255,255,255,.42);padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.03);margin-bottom:8px;line-height:1.6">
+        统一缓存目录: -- <br>已占用 -- MB
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button class="fx-mini-btn ghost" onclick="changeCacheDirectory()" title="更改缓存目录">更改目录</button>
+        <button class="fx-mini-btn ghost" onclick="refreshCacheUsage()" title="刷新占用统计">刷新占用</button>
+      </div>
+      <div id="cache-breakdown" style="font-size:10px;color:rgba(255,255,255,.35);padding:6px 10px;border-radius:8px;background:rgba(255,255,255,.02);line-height:1.8">
+        <div>歌词/译文缓存 -- KB</div>
+        <div>封面与音频分片缓存 -- MB</div>
+        <div>节奏分析缓存 -- KB</div>
+        <div>Wallpaper Engine 静音场景缓存 -- MB</div>
+        <div>设置与登录资料 -- KB</div>
+      </div>
+
+      <!-- ===== 实验功能 ===== -->
+      <div class="fx-section-label" style="margin-top:18px">实验功能</div>
+      <div class="fx-section-label" style="margin-top:0">尚未开放或需谨慎使用的能力</div>
+      <div class="fx-toggle-grid">
+        <div class="fx-toggle" id="t-wallpaperMode" title="完整桌面模式：窗口设为桌面层"><span>完整桌面模式 <small style="color:var(--fc-accent);margin-left:4px">实验</small></span><span class="dot"></span></div>
+      </div>
+
+      <!-- ===== 其他设置 ===== -->
+      <div class="fx-section-label">其他设置</div>
+      <div class="fx-section-label" style="margin-top:0">尚未归入明确分类的兼容项</div>
+      <div class="fx-seg" id="other-time-seg" title="时间格式">
+        <button data-other-time="24">24</button>
+        <button data-other-time="30">30</button>
+        <button data-other-time="60">60</button>
+      </div>
+      <div class="fx-slider"><label>壁纸透明度</label><input id="fx-wallpaper-opacity" type="range" min="0" max="1" step="0.01" value="1"><output></output></div>
 
       <!-- ===== 启动与退出 ===== -->
-      <div class="fx-section-label">启动与退出</div>
+      <div class="fx-section-label" style="margin-top:18px">启动与退出</div>
       <div class="fx-seg" id="close-behavior-seg" title="关闭按钮点击后的行为">
         <button data-close-behavior="tray">最小化到托盘</button>
         <button data-close-behavior="exit">直接退出</button>
@@ -2946,23 +3261,15 @@ html:fullscreen #adaptive-corner-overlay{display:none!important}
         <div class="fx-toggle" id="t-audioOutputRouting" title="音频输出设备与路由面板"><span>音频路由面板</span><span class="dot"></span></div>
       </div>
 
-      <!-- ===== 内存管理 ===== -->
-      <div class="fx-section-label">内存管理</div>
-      <div class="fx-toggle-grid">
-        <div class="fx-toggle" id="t-autoMemoryTrim" title="自动压缩播放器与释放系统内存"><span>自动内存压缩</span><span class="dot"></span></div>
-      </div>
-
-      <!-- ===== 实验功能 ===== -->
-      <div class="fx-section-label">实验功能</div>
-      <div class="fx-toggle-grid">
-        <div class="fx-toggle" id="t-wallpaperMode" title="完整桌面模式：窗口设为桌面层"><span>完整桌面模式</span><span class="dot"></span></div>
-      </div>
-
-      <!-- ===== 其他设置 ===== -->
-      <div class="fx-section-label">其他设置</div>
-      <div class="fx-toggle-grid">
-        <div class="fx-toggle" id="t-autoSortUncategorized" title="自动将未分类的控件归入对应分组"><span>自动分类未分类</span><span class="dot"></span></div>
-      </div>
+      <!-- ===== 粒子参数（保留向后兼容） ===== -->
+      <div class="fx-section-label">粒子参数</div>
+      <div class="fx-slider"><label>粒子尺寸</label><input id="fx-point" type="range" min="0.5" max="2.2" step="0.01"><output></output></div>
+      <div class="fx-slider"><label>流速</label><input id="fx-speed" type="range" min="0.2" max="2.5" step="0.01"><output></output></div>
+      <div class="fx-slider"><label>扭曲</label><input id="fx-twist" type="range" min="0" max="0.6" step="0.01"><output></output></div>
+      <div class="fx-slider"><label>色彩张力</label><input id="fx-color" type="range" min="0.5" max="2.0" step="0.01"><output></output></div>
+      <div class="fx-slider"><label>溢光强度</label><input id="fx-bloom" type="range" min="0" max="1.6" step="0.01"><output></output></div>
+      <div class="fx-slider"><label>离散感</label><input id="fx-scatter" type="range" min="0" max="0.5" step="0.01"><output></output></div>
+      <div class="fx-slider"><label>背景压缩</label><input id="fx-bgfade" type="range" min="0" max="1.2" step="0.01"><output></output></div>
 
     </div>
   </div>
@@ -3568,6 +3875,44 @@ html:fullscreen #adaptive-corner-overlay{display:none!important}
             <!-- 浏览厅（cover-flow 移植自 cover-flow-showcase / 纯 CSS 3D）：SFV.coverFlow / SFV.sourcePicker / SFV.hall 入口；零业务逻辑进 index.html -->
           <!-- #22 Wallpaper Engine renderer modules (ported from Mineradio 2.1.0 07-fx/03-wallpaper-engine-library.js, Tier1 renamed). Classic scripts; init deferred to DOM-ready via video/bootstrap.js. -->
                 <script src="/assets/bundled-update-summary.js"></script>
+                <script>
+// 在 music.js 加载前检测秒启动偏好，设置全局标记
+(function(){
+  try {
+    var skip = localStorage.getItem('stellaflix-startup-fast-skip');
+    if (skip === 'true') {
+      window.__sfvSkipSplash = true;
+      // 预移除 body class（music.js 后面可能再加）
+      document.addEventListener('DOMContentLoaded', function(){
+        document.body.classList.remove('splash-active');
+        document.body.classList.remove('splash-revealing');
+        document.body.classList.add('splash-skipped');
+        // 立即隐藏 #splash
+        var tryHide = function(){
+          var s = document.getElementById('splash');
+          if (s) {
+            s.style.opacity = '0';
+            s.style.pointerEvents = 'none';
+            s.classList.add('exiting');
+            setTimeout(function(){ s.style.display = 'none'; }, 200);
+            return true;
+          }
+          return false;
+        };
+        if (!tryHide()) {
+          // 轮询等待 #splash 出现后立即隐藏
+          var attempts = 0;
+          var timer = setInterval(function(){
+            attempts++;
+            if (tryHide() || attempts > 50) clearInterval(timer);
+          }, 50);
+        }
+      });
+      console.log('[Startup] Fast-skip splash enabled, will hide #splash on load');
+    }
+  } catch(e) {}
+})();
+                </script>
                 <script src="/assets/music.js"></script>
 <script src="/assets/system-preferences.js"></script>
 <script>
@@ -3751,6 +4096,7 @@ html:fullscreen #adaptive-corner-overlay{display:none!important}
 <script src="/assets/04d-audio-beat.js"></script>
 <script src="/assets/04e-audio-engine.js"></script>
 <script src="/assets/04f-sonic-topography.js"></script>
+<script src="/assets/04g-sonic-workshop.js"></script>
 <script src="/assets/08-fx-visual.js"></script>
 <!-- T144：自适应圆角渲染端兜底，覆盖 Windows DWM 可能残留的白/灰直角 -->
 <script src="adaptive-corners-renderer.js"></script>

@@ -12,7 +12,7 @@
 // ===== 08 region A (legacy 657-848) =====
 // fx 状态: 预设 + 主滑块 + 开关 + 三态
 var fxDefaults = {
-  preset: 0,            // 0=emily cover, 1=tunnel, 2=orbit, 3=void, 4=vinyl, 5=wallpaper, 6=skull, 7=sonic topography (音域回响·Ajin)
+  preset: 0,            // 0=emily cover, 1=tunnel, 2=orbit, 3=void, 4=vinyl, 5=wallpaper, 6=skull, 7=sonic topography (音域回响·Ajin), 8=sonic workshop (音域回响·CmzYa / Wallpaper Engine)
   intensity: 0.85,
   cinemaShake: 0.5,
   depth: 1.0,
@@ -119,7 +119,25 @@ var fxDefaults = {
   sonicAudioBandStart: 1,
   sonicAudioBandEnd: 4,
   sonicAudioThreshold: 32,
-  sonicAudioPulseStrength: 62
+  sonicAudioPulseStrength: 62,
+  // === Preset 8 (音域回响·作者CmzYa / Sonic Workshop / Wallpaper Engine) 默认值 ===
+  sonicWorkshopInputGain: 82,
+  sonicWorkshopAudioIntensity: 1.15,
+  sonicWorkshopResponseRange: 1.30,
+  sonicWorkshopPeakIntensity: 0.62,
+  sonicWorkshopColorMode: 'cover',
+  sonicWorkshopTheme: 'minimal-monochrome',
+  sonicWorkshopCustomColor: '#d9dde3',
+  sonicWorkshopBaseColorMode: 'cover',
+  sonicWorkshopBaseColor: '#0b0c0e',
+  sonicWorkshopWarmColorMode: 'cover',
+  sonicWorkshopWarmColor: '#d9dde3',
+  sonicWorkshopCoolColorMode: 'custom',
+  sonicWorkshopCoolColor: '#ffffff',
+  sonicWorkshopRippleColorMode: 'cover',
+  sonicWorkshopRippleColor: '#ffffff',
+  sonicWorkshopPeakColorMode: 'cover',
+  sonicWorkshopPeakColor: '#f2f5f8'
 };
 var PACKAGED_DEFAULT_USER_FX_ARCHIVE_NAME = '默认测试';
 var PACKAGED_DEFAULT_USER_FX_ARCHIVE_EXPORTED_AT = 1782276031784;
@@ -238,7 +256,24 @@ var PACKAGED_DEFAULT_FX_SNAPSHOT = Object.freeze({
   sonicAudioBandStart: 1,
   sonicAudioBandEnd: 4,
   sonicAudioThreshold: 32,
-  sonicAudioPulseStrength: 62
+  sonicAudioPulseStrength: 62,
+  sonicWorkshopInputGain: 82,
+  sonicWorkshopAudioIntensity: 1.15,
+  sonicWorkshopResponseRange: 1.30,
+  sonicWorkshopPeakIntensity: 0.62,
+  sonicWorkshopColorMode: 'cover',
+  sonicWorkshopTheme: 'minimal-monochrome',
+  sonicWorkshopCustomColor: '#d9dde3',
+  sonicWorkshopBaseColorMode: 'cover',
+  sonicWorkshopBaseColor: '#0b0c0e',
+  sonicWorkshopWarmColorMode: 'cover',
+  sonicWorkshopWarmColor: '#d9dde3',
+  sonicWorkshopCoolColorMode: 'custom',
+  sonicWorkshopCoolColor: '#ffffff',
+  sonicWorkshopRippleColorMode: 'cover',
+  sonicWorkshopRippleColor: '#ffffff',
+  sonicWorkshopPeakColorMode: 'cover',
+  sonicWorkshopPeakColor: '#f2f5f8'
 });
 function clonePackagedDefaultFxSnapshot() {
   return Object.assign({}, PACKAGED_DEFAULT_FX_SNAPSHOT);

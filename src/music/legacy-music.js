@@ -12894,6 +12894,7 @@ var presetMeta = [
   { name: '星河', desc: '壁纸粒子 · 音乐律动' },
   { name: '安魂', desc: '骷髅·YUI7W', descHtml: '骷髅·<span class="pc-yui7w">YUI7W</span>' },
   { name: '音域回响', nameHtml: '音域回响 <span class="pc-name-en">Sonic-Topography</span>', desc: '作者 Ajin', descHtml: '作者 <span class="pc-author-ajin">Ajin</span>' },
+  { name: '音域回响·WE', nameHtml: '音域回响 <span class="pc-name-en">Sonic-Workshop</span>', desc: '作者 CmzYa', descHtml: '作者 <span class="pc-author-cmzya">CmzYa</span>' },
 ];
 var presetIcons = [
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 14c3-2 5-2 8 0s5 2 8 0M3 10c3-2 5-2 8 0s5 2 8 0M3 18c3-2 5-2 8 0s5 2 8 0"/></svg>',
@@ -12904,8 +12905,9 @@ var presetIcons = [
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 15c2.2-4.4 4.4-4.4 6.6 0s4.4 4.4 6.6 0S20.6 10.6 23 15"/><path d="M3 9c2.2 2.2 4.4 2.2 6.6 0s4.4-2.2 6.6 0S20.6 11.2 23 9"/><circle cx="12" cy="12" r="1.7" fill="currentColor"/></svg>',
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3.2h4v6.2h4.2v3.8H14v7.6h-4v-7.6H5.8V9.4H10z"/></svg>',
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18c2-3 4-3 6 0s4 3 6 0 4-3 6 0"/><path d="M3 12c2-2.5 4-2.5 6 0s4 2.5 6 0 4-2.5 6 0"/><path d="M3 6c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/><circle cx="18" cy="5" r="1.2" fill="currentColor"/></svg>',
+  '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M7 8v4M11 7v6M15 9v2M19 7v6"/><circle cx="12" cy="20" r="1.5" fill="currentColor"/></svg>',
 ];
-var presetDisplayOrder = [0, 6, 7, 5, 4, 2, 1, 3];
+var presetDisplayOrder = [0, 6, 7, 8, 5, 4, 2, 1, 3];
 var lyricColorPresets = [
   { name:'雾蓝', color:'#a9b8c8' },
   { name:'银蓝', color:'#9db8cf' },
@@ -15651,6 +15653,10 @@ function setPreset(p, opts) {
   if (changed && typeof MineradioSonicTopography !== 'undefined' && MineradioSonicTopography.onPresetChange) {
     MineradioSonicTopography.onPresetChange(prev, p, { scene: scene, fx: fx });
   }
+  // Preset 8 (音域回响·CmzYa / Sonic Workshop) 钩子: 切入时挂载 iframe, 切出时清场
+  if (changed && typeof MineradioSonicWorkshop !== 'undefined' && MineradioSonicWorkshop.onPresetChange) {
+    MineradioSonicWorkshop.onPresetChange(prev, p, { scene: scene, fx: fx });
+  }
   uniforms.uPreset.value = p;
   refreshPresetGrid();
   if (changed && !opts.skipTransition) triggerPresetParticleTransition(prev, p);
@@ -15663,8 +15669,9 @@ function setPreset(p, opts) {
     else if (p === 5) { orbit.userRadius = 9.4; orbit.userPhi = 0.34; orbit.userTheta = -0.52; orbit.baselineRadius = 9.4; orbit.baselinePhi = 0.34; }
     else if (p === 6) { orbit.userRadius = 7.4; orbit.userPhi = 0.10; orbit.userTheta = 0.18; orbit.baselineRadius = 7.4; orbit.baselinePhi = 0.10; }
     else if (p === 7) { orbit.userRadius = 9.6; orbit.userPhi = 0.22; orbit.userTheta = -0.18; orbit.baselineRadius = 9.6; orbit.baselinePhi = 0.22; }
+    else if (p === 8) { orbit.userRadius = 10.0; orbit.userPhi = 0.25; orbit.userTheta = -0.30; orbit.baselineRadius = 10.0; orbit.baselinePhi = 0.25; }
     else              { orbit.userRadius = 6.6; orbit.userPhi = 0.08; orbit.userTheta = 0.0; orbit.baselineRadius = 6.6; orbit.baselinePhi = 0.08; }
-    orbit.baselineTheta = p === 5 ? -0.52 : (p === 6 ? 0.18 : (p === 7 ? -0.18 : 0.0));
+    orbit.baselineTheta = p === 5 ? -0.52 : (p === 6 ? 0.18 : (p === 7 ? -0.18 : (p === 8 ? -0.30 : 0.0)));
   }
   if (changed && !opts.silent) showToast('视觉预设: ' + presetMeta[p].name);
   var shouldCommitPlaybackPreset = !!opts.commitPlaybackPreset || !opts.noSave;
@@ -15861,7 +15868,13 @@ function updateFxInputs() {
   setRange('fx-sonicfloatmin', fx.sonicGroundFloatingMinSize == null ? 9 : fx.sonicGroundFloatingMinSize);
   setRange('fx-sonicfloatmax', fx.sonicGroundFloatingMaxSize == null ? 12 : fx.sonicGroundFloatingMaxSize);
   setRange('fx-sonicfloatspeed', fx.sonicGroundFloatingSpeed == null ? 59 : fx.sonicGroundFloatingSpeed);
+  // Preset 8 (Sonic Workshop) 滑块初始化
+  setRange('fx-sonicworkshop-intensity', fx.sonicWorkshopAudioIntensity == null ? 1.15 : fx.sonicWorkshopAudioIntensity);
+  setRange('fx-sonicworkshop-range', fx.sonicWorkshopResponseRange == null ? 1.30 : fx.sonicWorkshopResponseRange);
+  setRange('fx-sonicworkshop-peak', fx.sonicWorkshopPeakIntensity == null ? 0.62 : fx.sonicWorkshopPeakIntensity);
+  setRange('fx-sonicworkshop-gain', fx.sonicWorkshopInputGain == null ? 82 : fx.sonicWorkshopInputGain);
   if (typeof updateSonicGroundColorControls === 'function') updateSonicGroundColorControls();
+  if (typeof updateSonicWorkshopColorControls === 'function') updateSonicWorkshopColorControls();
   updateLyricGlowControls();
   // 同步开关
   document.getElementById('t-float').classList.toggle('on', fx.floatLayer);
@@ -16046,7 +16059,7 @@ function fxPanelTargetForNode(node, current) {
   var inputId = fxPanelInputId(node);
   if (id === 'preset-grid' || id === 'shape-workshop' || id === 'sandbox-builder-grid' || id === 'user-archive-grid') return 'presets';
   if (id === 'fx-lyric-fold') return 'lyrics';
-  if (id === 'fx-overlay-fold' || id === 'fx-stage-fold' || id === 'fx-sonic-fold') return 'motion';
+  if (id === 'fx-overlay-fold' || id === 'fx-stage-fold' || id === 'fx-sonic-fold' || id === 'fx-sonic-workshop-fold') return 'motion';
   if (id === 'fx-advanced' || node.classList.contains('fx-actions')) return 'advanced';
   if (node.classList.contains('lyric-color-row') || node.classList.contains('cover-color-pop') || node.classList.contains('color-lab-pop') || node.classList.contains('cover-color-loupe')) return 'appearance';
   if (inputId === 'fx-bgopacity' || inputId === 'fx-glassaberration') return 'appearance';
@@ -16117,6 +16130,18 @@ function organizeFxPanel() {
   });
   panel._fxPanelOrganized = true;
   setFxPanelTab(fxPanelTab);
+  // 加速视觉控制台滚动 (1.8× deltaY, 保留触控板惯性)
+  panel.addEventListener('wheel', function (e) {
+    var el = panel;
+    var delta = e.deltaY;
+    if (!delta) return;
+    // 边界检测: 方向与可滚动方向一致才拦截
+    var atTop = el.scrollTop <= 0;
+    var atBottom = el.scrollTop >= el.scrollHeight - el.clientHeight - 1;
+    if ((delta < 0 && atTop) || (delta > 0 && atBottom)) return;
+    e.preventDefault();
+    el.scrollTop += delta * 1.8;
+  }, { passive: false });
 }
 
 function fxControlBlock(id) {
@@ -16287,6 +16312,10 @@ function relabelFxPanelControls() {
   setFxSliderLabel('fx-sonicfloatmin', '方块小值');
   setFxSliderLabel('fx-sonicfloatmax', '方块大值');
   setFxSliderLabel('fx-sonicfloatspeed', '方块速度');
+  setFxSliderLabel('fx-sonicworkshop-intensity', '音频强度');
+  setFxSliderLabel('fx-sonicworkshop-range', '响应范围');
+  setFxSliderLabel('fx-sonicworkshop-peak', '峰值强度');
+  setFxSliderLabel('fx-sonicworkshop-gain', '输入增益');
 }
 
 function getHotkeyDefaults() {
@@ -16647,6 +16676,7 @@ function bindFxPanel() {
     ['fx-sonicsubbass','sonicGroundSubBass'],['fx-sonicbass','sonicGroundBass'],['fx-soniclowmid','sonicGroundLowMid'],['fx-sonicmid','sonicGroundMid'],['fx-sonichighmid','sonicGroundHighMid'],['fx-sonicpresence','sonicGroundPresence'],['fx-sonicbrilliance','sonicGroundBrilliance'],['fx-sonicair','sonicGroundAir'],
     ['fx-sonicaudiosensitivity','sonicAudioSensitivity'],['fx-sonicaudiobandstart','sonicAudioBandStart'],['fx-sonicaudiobandend','sonicAudioBandEnd'],['fx-sonicaudiothreshold','sonicAudioThreshold'],['fx-sonicaudiopulse','sonicAudioPulseStrength'],
     ['fx-sonicfloatcount','sonicGroundFloatingCount'],['fx-sonicfloatintensity','sonicGroundFloatingIntensity'],['fx-sonicfloatmin','sonicGroundFloatingMinSize'],['fx-sonicfloatmax','sonicGroundFloatingMaxSize'],['fx-sonicfloatspeed','sonicGroundFloatingSpeed'],
+    ['fx-sonicworkshop-intensity','sonicWorkshopAudioIntensity'],['fx-sonicworkshop-range','sonicWorkshopResponseRange'],['fx-sonicworkshop-peak','sonicWorkshopPeakIntensity'],['fx-sonicworkshop-gain','sonicWorkshopInputGain'],
   ];
   ids.forEach(function(pair){
     var el = document.getElementById(pair[0]);
@@ -16757,6 +16787,17 @@ function bindFxPanel() {
     picker.addEventListener('change', function () {
       var item = sonicGroundColorControl(id);
       if (item && fx[item.key]) showToast(item.label + ': ' + normalizeHexColor(fx[item.key]).toUpperCase());
+    });
+  });
+  // Preset 8 (Sonic Workshop) 颜色选择器
+  var sonicWorkshopPickerIds = ['sonic-workshop-cover-picker','sonic-workshop-base-picker','sonic-workshop-warm-picker','sonic-workshop-cool-picker','sonic-workshop-ripple-picker','sonic-workshop-peak-picker'];
+  sonicWorkshopPickerIds.forEach(function(id){
+    var picker = document.getElementById(id);
+    if(!picker) return;
+    picker.addEventListener('input', function(){ setSonicWorkshopRegionColorFromPicker(id, picker.value, true); });
+    picker.addEventListener('change', function(){
+      var item = sonicWorkshopRegionControl(id);
+      if(item && fx[item.colorKey]) showToast(item.label + ': ' + normalizeHexColor(fx[item.colorKey]).toUpperCase());
     });
   });
   var bgImageInput = document.getElementById('background-image-input');
@@ -17147,6 +17188,338 @@ function resetSonicGroundColor(key) {
 function setSonicGroundColorFromPicker(pickerId, color, silent) {
   var item = sonicGroundColorControl(pickerId);
   if (item) setSonicGroundColor(item.key, color, silent);
+}
+
+// === Preset 8 (音域回响·CmzYa / Sonic Workshop) UI 控件 ===
+var SONIC_WORKSHOP_THEME_ALIASES = {
+  'minimal-mono': 'minimal-monochrome',
+  'arctic-blue': 'arctic-aurora',
+  'emerald-forest': 'cyber-forest',
+  crimson: 'crimson-sunset',
+  aurora: 'arctic-aurora',
+  'violet-dream': 'neon-tokyo'
+};
+var SONIC_WORKSHOP_THEMES = {
+  'coral-mirage': { label: '珊瑚', color: '#cb6c89', base: '#16060f', warm: '#cb6c89', cool: '#99c4ff', ripple: '#f8d8ff', peak: '#99c4ff' },
+  'ocean-deep': { label: '深海', color: '#1b6fb8', base: '#031025', warm: '#2e8ed4', cool: '#7fdcff', ripple: '#b7f5ff', peak: '#80b8ff' },
+  'arctic-aurora': { label: '冰蓝', color: '#79e1c4', base: '#05161d', warm: '#79e1c4', cool: '#99c4ff', ripple: '#e6fbff', peak: '#b7e6ff' },
+  'cyber-forest': { label: '翠绿', color: '#3fc78a', base: '#04150d', warm: '#3fc78a', cool: '#74f5ff', ripple: '#b9ffd8', peak: '#d1ffe9' },
+  'minimal-monochrome': { label: '极简', color: '#d9dde3', base: '#0b0c0e', warm: '#d9dde3', cool: '#ffffff', ripple: '#ffffff', peak: '#f2f5f8' },
+  'neon-tokyo': { label: '霓虹', color: '#ff4fb8', base: '#100018', warm: '#ff4fb8', cool: '#39d7ff', ripple: '#ffd6f2', peak: '#e8ff6e' },
+  'golden-hour': { label: '金色', color: '#e8b44c', base: '#160d02', warm: '#e8b44c', cool: '#89c8ff', ripple: '#fff0b8', peak: '#ffffff' },
+  'ember-fire': { label: '热火', color: '#f27a28', base: '#180603', warm: '#f27a28', cool: '#76c8ff', ripple: '#ffd2a1', peak: '#fff2cf' },
+  'crimson-sunset': { label: '深红', color: '#d84252', base: '#180307', warm: '#d84252', cool: '#8ec7ff', ripple: '#ffd5df', peak: '#fff1f4' }
+};
+var SONIC_WORKSHOP_COLOR_CONTROLS = [
+  { id: 'theme', role: 'primary', modeKey: 'sonicWorkshopColorMode', colorKey: 'sonicWorkshopCustomColor', picker: 'sonic-workshop-cover-picker', value: 'sonic-workshop-theme-value', button: 'sonic-workshop-cover-btn', fallback: '#cb6c89', label: '主题基色' },
+  { id: 'base', role: 'base', modeKey: 'sonicWorkshopBaseColorMode', colorKey: 'sonicWorkshopBaseColor', picker: 'sonic-workshop-base-picker', value: 'sonic-workshop-base-value', button: 'sonic-workshop-base-btn', fallback: '#16060f', label: '地形底色' },
+  { id: 'warm', role: 'warm', modeKey: 'sonicWorkshopWarmColorMode', colorKey: 'sonicWorkshopWarmColor', picker: 'sonic-workshop-warm-picker', value: 'sonic-workshop-warm-value', button: 'sonic-workshop-warm-btn', fallback: '#cb6c89', label: '暖色主体' },
+  { id: 'cool', role: 'cool', modeKey: 'sonicWorkshopCoolColorMode', colorKey: 'sonicWorkshopCoolColor', picker: 'sonic-workshop-cool-picker', value: 'sonic-workshop-cool-value', button: 'sonic-workshop-cool-btn', fallback: '#99c4ff', label: '上层高光' },
+  { id: 'ripple', role: 'ripple', modeKey: 'sonicWorkshopRippleColorMode', colorKey: 'sonicWorkshopRippleColor', picker: 'sonic-workshop-ripple-picker', value: 'sonic-workshop-ripple-value', button: 'sonic-workshop-ripple-btn', fallback: '#f8d8ff', label: '波纹亮区' },
+  { id: 'peak', role: 'peak', modeKey: 'sonicWorkshopPeakColorMode', colorKey: 'sonicWorkshopPeakColor', picker: 'sonic-workshop-peak-picker', value: 'sonic-workshop-peak-value', button: 'sonic-workshop-peak-btn', fallback: '#99c4ff', label: '峰值高光' }
+];
+var sonicWorkshopCoverUiSample = { key: '', palette: null, loading: false, refreshing: false, token: 0 };
+
+function normalizeSonicWorkshopTheme(theme) {
+  theme = String(theme || '');
+  theme = SONIC_WORKSHOP_THEME_ALIASES[theme] || theme;
+  return SONIC_WORKSHOP_THEMES[theme] ? theme : (fxDefaults.sonicWorkshopTheme || 'coral-mirage');
+}
+function sonicWorkshopRegionControl(id) {
+  if (id && typeof id === 'object' && id.id) return id;
+  for (var i = 0; i < SONIC_WORKSHOP_COLOR_CONTROLS.length; i++) {
+    var item = SONIC_WORKSHOP_COLOR_CONTROLS[i];
+    if (item.id === id || item.role === id || item.picker === id || item.colorKey === id || item.modeKey === id) return item;
+  }
+  return null;
+}
+function sonicWorkshopCurrentSong() {
+  if (Array.isArray(playQueue) && currentIdx >= 0 && currentIdx < playQueue.length) return playQueue[currentIdx];
+  if (Array.isArray(playlist) && currentIdx >= 0 && currentIdx < playlist.length) return playlist[currentIdx];
+  return null;
+}
+function sonicWorkshopCurrentCoverKey() {
+  try {
+    var domSrc = sonicWorkshopCurrentCoverDomSource();
+    if (domSrc) return String(domSrc);
+    var song = sonicWorkshopCurrentSong();
+    if (!song) return '';
+    if (typeof songCoverSrc === 'function') return String(songCoverSrc(song, 400) || song.cover || song.id || '');
+    return String(song.customCover || song.cover || song.id || song.name || '');
+  } catch (e) { return ''; }
+}
+function sonicWorkshopCurrentCoverDomSource() {
+  try {
+    if (typeof currentCoverSource !== 'undefined' && currentCoverSource && currentCoverSource.src) return String(currentCoverSource.src || '');
+  } catch (e) { }
+  try {
+    var thumb = document.getElementById('thumb-cover');
+    var thumbSrc = thumb && (thumb.currentSrc || thumb.src || thumb.getAttribute('src'));
+    if (thumbSrc) return String(thumbSrc);
+  } catch (e) { }
+  try {
+    var bg = document.getElementById('album-bg');
+    var style = bg && window.getComputedStyle ? window.getComputedStyle(bg).backgroundImage : '';
+    var m = style && style.match(/url\(["']?(.+?)["']?\)/i);
+    if (m && m[1]) return m[1];
+  } catch (e) { }
+  return '';
+}
+function sonicWorkshopCurrentCoverSampleSrc() {
+  var domSrc = sonicWorkshopCurrentCoverDomSource();
+  if (domSrc) {
+    if (/^data:image\//i.test(domSrc) || /^blob:/i.test(domSrc) || /^\/api\/cover\?/i.test(domSrc)) return domSrc;
+    if (typeof coverProxySrc === 'function') return coverProxySrc(domSrc, false) || domSrc;
+    return domSrc;
+  }
+  var song = sonicWorkshopCurrentSong();
+  if (!song) return '';
+  var src = '';
+  try { src = typeof songCoverSrc === 'function' ? songCoverSrc(song, 256) : (song.customCover || song.cover || ''); }
+  catch (e) { src = song.customCover || song.cover || ''; }
+  return src;
+}
+function sonicWorkshopPaletteForUi() {
+  return sonicWorkshopUiPaletteForKey(sonicWorkshopCurrentCoverKey()) || (stageLyrics && (stageLyrics.coverPalette || stageLyrics.palette)) || {};
+}
+function sonicRawPaletteHex(value, fallback) {
+  if (!value) return fallback || '#cb6c89';
+  if (typeof value === 'string') return normalizeHexColor(value, fallback);
+  if (value && typeof value === 'object' && value.r != null) {
+    return '#' + ['r','g','b'].map(function(k){ return Math.round(Math.max(0, Math.min(255, value[k]||0))).toString(16).padStart(2,'0'); }).join('');
+  }
+  return fallback || '#cb6c89';
+}
+function sonicWorkshopCoverHex(role) {
+  var pal = sonicWorkshopPaletteForUi();
+  role = String(role || 'primary');
+  var fallback = role === 'base' ? '#16060f' : (role === 'cool' || role === 'peak' ? '#99c4ff' : (role === 'ripple' ? '#f8d8ff' : '#cb6c89'));
+  var value = pal.rawAreaPrimary || pal.rawPrimary || pal.primary || pal.highlight || pal.secondary;
+  if (role === 'base') value = pal.rawAreaBase || pal.rawDark || pal.rawAverage || pal.secondary || pal.rawAreaPrimary || pal.rawPrimary || pal.primary;
+  else if (role === 'warm') value = pal.rawAreaWarm || pal.rawAreaPrimary || pal.rawWarm || pal.rawPrimary || pal.secondary || pal.primary || pal.highlight;
+  else if (role === 'cool') value = pal.rawAreaCool || pal.rawAreaLight || pal.rawCool || pal.rawLight || pal.highlight || pal.rawAreaPrimary || pal.rawPrimary || pal.primary;
+  else if (role === 'ripple') value = pal.rawAreaLight || pal.rawAreaAccent || pal.rawLight || pal.rawAccent || pal.rawAreaCool || pal.rawCool || pal.highlight || pal.primary;
+  else if (role === 'peak') value = pal.rawAreaAccent || pal.rawAreaCool || pal.rawAreaLight || pal.rawCool || pal.rawAccent || pal.rawLight || pal.highlight || pal.primary;
+  return sonicRawPaletteHex(value, fallback);
+}
+function sonicWorkshopThemeForColor(hex) {
+  var rgb = sonicHexRgb(hex, '#cb6c89');
+  var hsl = typeof rgbToHsl === 'function' ? rgbToHsl(rgb.r, rgb.g, rgb.b) : { h: 0, s: 0.5, l: 0.5 };
+  if (hsl.s < 0.08) return 'minimal-monochrome';
+  if (hsl.h < 0.035 || hsl.h >= 0.94) return 'crimson-sunset';
+  if (hsl.h < 0.10) return 'coral-mirage';
+  if (hsl.h < 0.14) return 'ember-fire';
+  if (hsl.h < 0.18) return 'golden-hour';
+  if (hsl.h < 0.42) return 'cyber-forest';
+  if (hsl.h < 0.66) return 'arctic-aurora';
+  if (hsl.h < 0.74) return 'ocean-deep';
+  return 'neon-tokyo';
+}
+function sonicHexRgb(hex, fallback) {
+  hex = normalizeHexColor(hex, fallback || '#cb6c89');
+  var m = hex.replace('#','');
+  if (m.length === 3) m = m.split('').map(function(c){ return c+c; }).join('');
+  return { r: parseInt(m.substr(0,2),16), g: parseInt(m.substr(2,2),16), b: parseInt(m.substr(4,2),16) };
+}
+function currentSonicWorkshopTheme() {
+  if (fx.sonicWorkshopColorMode === 'custom') return normalizeSonicWorkshopTheme(fx.sonicWorkshopTheme);
+  return sonicWorkshopThemeForColor(sonicWorkshopCoverHex('primary'));
+}
+function sonicWorkshopRegionHex(item) {
+  item = sonicWorkshopRegionControl(item);
+  if (!item) return '#cb6c89';
+  var fallback = item.fallback || '#cb6c89';
+  if (fx[item.modeKey] === 'custom') return normalizeHexColor(fx[item.colorKey] || fallback, fallback);
+  return normalizeHexColor(sonicWorkshopCoverHex(item.role), fallback);
+}
+function sonicWorkshopPaletteLooksCurrent(pal, key) {
+  if (!pal) return false;
+  var hasArea = !!(pal.rawAreaPrimary || pal.rawPrimary || (pal.sonicWorkshopColors && pal.sonicWorkshopColors.length));
+  if (!hasArea) return false;
+  var palKey = String(pal.sonicWorkshopCoverKey || pal.coverSourceKey || '');
+  if (key && !palKey) return false;
+  if (!key || !palKey) return true;
+  return palKey === key;
+}
+function sonicWorkshopUiPaletteForKey(key) {
+  var pal = sonicWorkshopCoverUiSample.palette;
+  return sonicWorkshopPaletteLooksCurrent(pal, key || sonicWorkshopCurrentCoverKey()) ? pal : null;
+}
+function sonicWorkshopCssFromSample(sample, fallback) {
+  if (!sample) return fallback || '#cb6c89';
+  return '#' + ['r','g','b'].map(function(k){ return Math.round(Math.max(0, Math.min(255, Number(sample[k])||0))).toString(16).padStart(2,'0'); }).join('');
+}
+function buildSonicWorkshopUiPaletteFromCanvas(canvas, key) {
+  if (!canvas || !canvas.width || !canvas.height) return null;
+  try {
+    var ctx = canvas.getContext('2d', { willReadFrequently: true }) || canvas.getContext('2d');
+    var w = canvas.width, h = canvas.height;
+    var img = ctx.getImageData(0, 0, w, h).data;
+    var count = 0, sumR = 0, sumG = 0, sumB = 0;
+    var step = Math.max(2, Math.floor(Math.max(w, h) / 96));
+    var fallbackList = [];
+    for (var y = 0; y < h; y += step) {
+      for (var x = 0; x < w; x += step) {
+        var di = (y * w + x) * 4;
+        if (img[di+3] / 255 < 0.5) continue;
+        count++;
+        sumR += img[di]; sumG += img[di+1]; sumB += img[di+2];
+        fallbackList.push({ r: img[di], g: img[di+1], b: img[di+2], score: 1 });
+      }
+    }
+    if (!count) return null;
+    fallbackList.sort(function(a,b){ return b.score - a.score; });
+    var top = fallbackList[0];
+    var avg = { r: Math.round(sumR/count), g: Math.round(sumG/count), b: Math.round(sumB/count), score: count };
+    var palette = {
+      rawAreaPrimary: sonicWorkshopCssFromSample(top, '#cb6c89'),
+      rawAreaBase: sonicWorkshopCssFromSample(avg, '#16060f'),
+      rawAreaWarm: sonicWorkshopCssFromSample(top, '#cb6c89'),
+      rawAreaCool: sonicWorkshopCssFromSample(avg, '#99c4ff'),
+      rawAreaLight: sonicWorkshopCssFromSample(avg, '#f8d8ff'),
+      rawAreaAccent: sonicWorkshopCssFromSample(avg, '#99c4ff'),
+      rawAverage: sonicWorkshopCssFromSample(avg, '#cb6c89'),
+      sonicWorkshopColors: [],
+      coverColors: [],
+      coverSourceKey: key || '',
+      sonicWorkshopCoverKey: key || ''
+    };
+    [palette.rawAreaPrimary, palette.rawAreaBase, palette.rawAreaWarm, palette.rawAreaCool, palette.rawAreaLight, palette.rawAreaAccent, palette.rawAverage]
+      .forEach(function(c){ if (palette.coverColors.indexOf(c) < 0) palette.coverColors.push(c); });
+    return palette;
+  } catch (e) { return null; }
+}
+function applySonicWorkshopCoverCanvasForUi(canvas, key) {
+  if (!canvas) return false;
+  if (sonicWorkshopCoverUiSample.refreshing) return false;
+  sonicWorkshopCoverUiSample.refreshing = true;
+  try {
+    var uiPalette = buildSonicWorkshopUiPaletteFromCanvas(canvas, key);
+    if (uiPalette) {
+      sonicWorkshopCoverUiSample.palette = uiPalette;
+      if (stageLyrics) {
+        stageLyrics.coverPalette = Object.assign({}, stageLyrics.coverPalette || {}, uiPalette);
+        stageLyrics.coverPalette.sonicWorkshopCoverKey = key || '';
+        stageLyrics.coverPalette.coverSourceKey = key || '';
+      }
+    }
+    sonicWorkshopCoverUiSample.key = key || '';
+    return !!uiPalette || !!(stageLyrics && stageLyrics.coverPalette);
+  } catch (e) { return false; }
+  finally { sonicWorkshopCoverUiSample.refreshing = false; }
+}
+function ensureSonicWorkshopCoverPaletteForUi() {
+  if (sonicWorkshopCoverUiSample.refreshing) return;
+  var pal = stageLyrics && (stageLyrics.coverPalette || stageLyrics.palette) || {};
+  var key = sonicWorkshopCurrentCoverKey();
+  if (sonicWorkshopUiPaletteForKey(key)) return;
+  if (sonicWorkshopPaletteLooksCurrent(pal, key)) return;
+  var src = sonicWorkshopCurrentCoverSampleSrc();
+  if (!src || (sonicWorkshopCoverUiSample.loading && sonicWorkshopCoverUiSample.key === key)) return;
+  var token = ++sonicWorkshopCoverUiSample.token;
+  sonicWorkshopCoverUiSample.loading = true;
+  sonicWorkshopCoverUiSample.key = key;
+  var img = new Image();
+  img.crossOrigin = 'anonymous';
+  img.decoding = 'async';
+  img.onload = function () {
+    if (token !== sonicWorkshopCoverUiSample.token) return;
+    sonicWorkshopCoverUiSample.loading = false;
+    var size = 96, cv = document.createElement('canvas');
+    cv.width = cv.height = size;
+    var cx = cv.getContext('2d');
+    var iw = img.naturalWidth || img.width || size;
+    var ih = img.naturalHeight || img.height || size;
+    var crop = Math.min(iw, ih);
+    try {
+      cx.drawImage(img, (iw-crop)/2, (ih-crop)/2, crop, crop, 0, 0, size, size);
+      applySonicWorkshopCoverCanvasForUi(cv, key);
+      updateSonicWorkshopColorControls();
+      if (window.MineradioSonicWorkshop && typeof MineradioSonicWorkshop.pushProperties === 'function') MineradioSonicWorkshop.pushProperties(true);
+    } catch (e) { /* ignore */ }
+  };
+  img.onerror = function () {
+    if (token !== sonicWorkshopCoverUiSample.token) return;
+    sonicWorkshopCoverUiSample.loading = false;
+  };
+  img.src = src;
+}
+function updateSonicWorkshopColorControls() {
+  ensureSonicWorkshopCoverPaletteForUi();
+  var theme = currentSonicWorkshopTheme();
+  var meta = SONIC_WORKSHOP_THEMES[theme] || SONIC_WORKSHOP_THEMES['coral-mirage'];
+  SONIC_WORKSHOP_COLOR_CONTROLS.forEach(function (item) {
+    var coverMode = fx[item.modeKey] !== 'custom';
+    var hex = sonicWorkshopRegionHex(item);
+    var picker = document.getElementById(item.picker);
+    var value = document.getElementById(item.value);
+    var coverBtn = document.getElementById(item.button);
+    if (picker) picker.value = normalizeHexColor(hex, item.fallback);
+    if (value) {
+      value.textContent = coverMode ? ('封面 ' + hex.toUpperCase() + (item.id === 'theme' ? ' / ' + meta.label : ''))
+        : ('固定 ' + hex.toUpperCase() + (item.id === 'theme' ? ' / ' + meta.label : ''));
+    }
+    if (coverBtn) coverBtn.classList.toggle('active', coverMode);
+  });
+  document.querySelectorAll('#sonic-workshop-theme-seg [data-sonic-workshop-theme]').forEach(function(btn) {
+    btn.classList.toggle('active', fx.sonicWorkshopColorMode === 'custom' && normalizeSonicWorkshopTheme(btn.getAttribute('data-sonic-workshop-theme')) === theme);
+  });
+}
+function pushSonicWorkshopColorChange(reason) {
+  updateSonicWorkshopColorControls();
+  var workshop = window.MineradioSonicWorkshop;
+  if (workshop && typeof workshop.pushProperties === 'function') workshop.pushProperties(true);
+  if (typeof syncFxUniforms === 'function') syncFxUniforms();
+  saveLyricLayout({ user: true, reason: reason || 'sonicWorkshopRegionColors' });
+}
+function setSonicWorkshopRegionColorMode(id, mode, silent) {
+  var item = sonicWorkshopRegionControl(id);
+  if (!item) return;
+  fx[item.modeKey] = mode === 'custom' ? 'custom' : 'cover';
+  pushSonicWorkshopColorChange(item.id === 'theme' ? 'sonicWorkshopColorMode' : item.colorKey);
+  if (!silent) showToast('音域回响·WE ' + item.label + ': ' + (fx[item.modeKey] === 'cover' ? '封面取色' : '固定颜色'));
+}
+function setSonicWorkshopColorMode(mode, silent) {
+  setSonicWorkshopRegionColorMode('theme', mode, silent);
+}
+function setSonicWorkshopTheme(theme, silent) {
+  theme = normalizeSonicWorkshopTheme(theme);
+  var meta = SONIC_WORKSHOP_THEMES[theme] || SONIC_WORKSHOP_THEMES['coral-mirage'];
+  fx.sonicWorkshopColorMode = 'custom';
+  fx.sonicWorkshopTheme = theme;
+  fx.sonicWorkshopCustomColor = normalizeHexColor(meta.color, '#cb6c89');
+  SONIC_WORKSHOP_COLOR_CONTROLS.forEach(function (item) {
+    if (item.id === 'theme') return;
+    fx[item.modeKey] = 'custom';
+    fx[item.colorKey] = normalizeHexColor(meta[item.id] || item.fallback, item.fallback);
+  });
+  pushSonicWorkshopColorChange('sonicWorkshopRegionColors');
+  if (!silent) showToast('音域回响·WE: ' + meta.label);
+}
+function setSonicWorkshopThemeFromPicker(color, silent) {
+  var hex = normalizeHexColor(color || '#cb6c89', '#cb6c89');
+  var theme = sonicWorkshopThemeForColor(hex);
+  var meta = SONIC_WORKSHOP_THEMES[theme] || SONIC_WORKSHOP_THEMES['coral-mirage'];
+  fx.sonicWorkshopColorMode = 'custom';
+  fx.sonicWorkshopTheme = theme;
+  fx.sonicWorkshopCustomColor = hex;
+  SONIC_WORKSHOP_COLOR_CONTROLS.forEach(function (item) {
+    if (item.id === 'theme') return;
+    fx[item.modeKey] = 'custom';
+    fx[item.colorKey] = normalizeHexColor(meta[item.id] || item.fallback, item.fallback);
+  });
+  pushSonicWorkshopColorChange('sonicWorkshopRegionColors');
+  if (!silent) showToast('音域回响·WE 主题基色: ' + fx.sonicWorkshopCustomColor.toUpperCase());
+}
+function setSonicWorkshopRegionColorFromPicker(id, color, silent) {
+  var item = sonicWorkshopRegionControl(id);
+  if (!item) return;
+  if (item.id === 'theme') { setSonicWorkshopThemeFromPicker(color, silent); return; }
+  var hex = normalizeHexColor(color || item.fallback, item.fallback);
+  fx[item.modeKey] = 'custom';
+  fx[item.colorKey] = hex;
+  pushSonicWorkshopColorChange(item.colorKey);
+  if (!silent) showToast('音域回响·WE ' + item.label + ': ' + hex.toUpperCase());
 }
 
 function syncControlsAutoHideButton() {
@@ -21184,6 +21557,17 @@ function dismissSplash() {
     document.body.classList.remove('splash-revealing');
     markAppPerf('home-revealed');
     if (s && s.parentNode) s.style.display = 'none';
+    // Bootstrap/影视态会监听此事件：splash 完成后立即补一轮 goHome()，
+    // 避免首屏空页无内容、粒子不出现（依赖 home.render → applyVideoPageBg 链）。
+    try {
+      if (typeof CustomEvent === 'function') {
+        window.dispatchEvent(new CustomEvent('sfv:splash-dismissed', { detail: { ts: Date.now() } }));
+      } else {
+        var ev = document.createEvent('CustomEvent');
+        ev.initCustomEvent('sfv:splash-dismissed', false, false, { ts: Date.now() });
+        window.dispatchEvent(ev);
+      }
+    } catch (e) {}
     requestAnimationFrame(function(){
       var homeShown = updateEmptyHomeVisibility({ forceLoad: true });
       if (!homeShown && shouldForceEmptyHomeAfterSplash()) {
