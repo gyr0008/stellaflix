@@ -784,31 +784,30 @@ html:fullscreen body.video-space-active #sfv-search-page {
   min-height: 0;
 }
 /* T166 + T170 搜索页卡片网格：
-   - 窗口 ≤ 1920px：每行居中 3 张横卡（360×202.5px，间距 19px）
-     容器宽度 = 3×360 + 2×19 = 1118px，水平居中；
-   - 窗口 > 1920px：每行居中 5 张横卡
-     容器宽度 = 5×360 + 4×19 = 1876px，水平居中；
+   - 卡片宽 450px，高按 16:9 自适应 = 253.125px；间距 19px。
+   - 窗口 ≤ 1920px：每行居中 3 张，容器宽 = 3×450 + 2×19 = 1388px；
+   - 窗口 > 1920px：每行居中 5 张，容器宽 = 5×450 + 4×19 = 2326px。
    用 CSS Grid + justify-content: center 保证最后一行不足 N 张时也居中，
    消除 flex-wrap 左对齐在 3/5 卡切换时出现的中间大空白。 */
 .sfv-search-result-area .sfv-grid {
   display: grid;
   gap: 19px;
   justify-content: center;
-  grid-template-columns: repeat(3, 360px);
-  max-width: 1118px; /* 3 * 360 + 2 * 19 */
+  grid-template-columns: repeat(3, 450px);
+  max-width: 1388px; /* 3 * 450 + 2 * 19 */
   margin: 0 auto;
   height: auto;
   overflow: visible;
 }
 @media (min-width: 1921px) {
   .sfv-search-result-area .sfv-grid {
-    grid-template-columns: repeat(5, 360px);
-    max-width: 1876px; /* 5 * 360 + 4 * 19 */
+    grid-template-columns: repeat(5, 450px);
+    max-width: 2326px; /* 5 * 450 + 4 * 19 */
   }
 }
 .sfv-search-result-area .sfv-card {
-  width: 360px;
-  height: 202.5px;
+  width: 450px;
+  aspect-ratio: 16 / 9; /* 高度 = 450 * 9/16 = 253.125px，自适应 */
   position: relative;
   background: #1a1f28; /* 占位底色（追片页卡片同款） */
   border: 1px solid rgba(0,0,0,.08);

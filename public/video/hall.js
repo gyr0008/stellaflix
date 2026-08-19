@@ -28,8 +28,12 @@
   function _mi(p) {
     return '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="' + p + '"/></svg>';
   }
-  var ICON_PLAY_ARROW = _mi('M8 5v14l11-7z');
+  // 详情页/心动页共用的播放按钮图标（用户要求统一的玻璃风描边水滴箭头）
+  var ICON_PLAY_ARROW = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M6 11.9997V9.32968C6 6.01968 8.35 4.65968 11.22 6.31968L13.53 7.65968L15.84 8.99968C18.71 10.6597 18.71 13.3697 15.84 15.0297L13.53 16.3697L11.22 17.7097C8.35 19.3397 6 17.9897 6 14.6697V11.9997Z" stroke="currentColor" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   var ICON_SKIP_NEXT = _mi('M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z');
+  // 心动页「上一个 / 下一个」按钮图标（用户指定的描边箭头）
+  var ICON_PREV = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M15 19.9201L8.47997 13.4001C7.70997 12.6301 7.70997 11.3701 8.47997 10.6001L15 4.08008" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  var ICON_NEXT = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M8.90991 19.9201L15.4299 13.4001C16.1999 12.6301 16.1999 11.3701 15.4299 10.6001L8.90991 4.08008" stroke="#ffffff" stroke-width="1.5" stroke-miterlimit="10" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   // 收藏图标（与详情/播放器收藏按钮一致：stroke 风格 ＋）
   var ICON_ADD = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 
@@ -121,7 +125,7 @@
     dockEl = doc.createElement('div');
     dockEl.className = 'sfv-hall-dock';
 
-    var prev = dockBtn('◀', '上一个', function () { if (SFV.coverFlow) SFV.coverFlow.prev(); });
+    var prev = dockBtn(ICON_PREV, '上一个', function () { if (SFV.coverFlow) SFV.coverFlow.prev(); });
     dockEl.appendChild(prev);
 
     // 分类切换（单按钮纯文字，点击循环切换分类；激活态与「追片」按钮一致）
@@ -140,7 +144,7 @@
     dockEl.appendChild(immer);
 
     // ▶ 开始播放
-    var play = dockBtn('▶', '播放', function () { if (curItem) openPoster(curItem); });
+    var play = dockBtn(ICON_PLAY_ARROW, '播放', function () { if (curItem) openPoster(curItem); });
     dockEl.appendChild(play);
 
     // ❤ 追片状态
@@ -161,7 +165,7 @@
     dockEl.appendChild(list);
     listBtn = list;
 
-    var next = dockBtn('▶', '下一个', function () { if (SFV.coverFlow) SFV.coverFlow.next(); });
+    var next = dockBtn(ICON_NEXT, '下一个', function () { if (SFV.coverFlow) SFV.coverFlow.next(); });
     dockEl.appendChild(next);
 
     root.appendChild(dockEl);
@@ -175,7 +179,12 @@
     b.className = 'sfv-hall-dock-btn';
     b.setAttribute('aria-label', label);
     b.title = label;
-    b.textContent = icon;
+    // icon 可能是文本字符（◀/▶/⟲）或 SVG HTML（播放按钮），按内容自动路由避免 XSS 风险
+    if (typeof icon === 'string' && icon.indexOf('<') !== -1) {
+      b.innerHTML = icon;
+    } else {
+      b.textContent = icon;
+    }
     b.addEventListener('click', handler);
     return b;
   }

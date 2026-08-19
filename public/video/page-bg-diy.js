@@ -214,11 +214,12 @@
     b.className = 'sfv-bg-diy-fab';
     b.setAttribute('aria-label', '背景');
     b.title = '背景';
-    b.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" ' +
-      'stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-      '<rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>' +
-      '<circle cx="8.5" cy="8.5" r="1.5"/>' +
-      '<polyline points="21 15 16 10 5 21"/></svg>';
+    b.innerHTML = '<svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">' +
+      '<path d="M9.15 7.49C8.59 7.49 8.15 7.94 8.15 8.49s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/>' +
+      '<path d="M21.46 5.04C20.62 3.09 18.77 2 16.19 2H7.81C4.6 2 2 4.6 2 7.81V16.19C2 18.77 3.09 20.62 5.04 21.46c.19.08.41.03.55-.11L21.35 5.59c.15-.15.2-.37.11-.55zM10.53 12.24c-.39.38-.9.56-1.41.56s-1.02-.19-1.41-.56C6.69 11.28 5.57 9.75 6 7.93 6.38 6.28 7.84 5.54 9.12 5.54s2.74.74 3.12 2.4c.42 1.81-.7 3.34-1.71 4.3z"/>' +
+      '<path d="M19.47 20.53c.22.22.19.58-.08.73-.88.49-1.95.74-3.2.74H7.81c-.3 0-.42-.34-.22-.54l6.04-6.04c.2-.2.51-.2.71 0l5.13 5.11z"/>' +
+      '<path d="M22 7.81v8.38c0 1.25-.25 2.33-.74 3.2-.15.27-.51.29-.73.08L15.41 14.35c-.2-.2-.2-.51 0-.71l6.04-6.04c.2-.2.54-.08.55.21z"/>' +
+      '</svg>';
     b.addEventListener('click', function () { openModal(); });
     document.body.appendChild(b);
     FAB = b;

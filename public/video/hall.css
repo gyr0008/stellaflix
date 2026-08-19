@@ -314,6 +314,9 @@ body.sfv-hall-active .home-poster-actions {
 .sfv-hall-collect { display: inline-flex; align-items: center; justify-content: center; }
 .sfv-hall-collect svg { width: 18px; height: 18px; display: block; }
 
+/* 播放按钮（胶囊内的描边水滴箭头 SVG，与详情页药丸图标同款）*/
+.sfv-hall-dock-btn svg { width: 20px; height: 20px; display: block; flex: 0 0 auto; }
+
 /* 沉浸模式：隐藏描述 + 控制栏，仅留卡片 */
 body.sfv-hall-immersive .sfv-hall-desc,
 body.sfv-hall-immersive .sfv-hall-dock {

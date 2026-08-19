@@ -35,6 +35,8 @@
   var heartBtnStates = [null, 'watching', 'planToWatch', 'onHold', 'watched', 'abandoned'];
   var epPanel = null;          // 「选集」弹层 DOM
   var epAnchorEl = null;       // 「选集」按钮（用于捕获阶段排除，避免点击瞬间被空白判定提前关闭）
+  var barProtectTimer = null;  // 控制条保护期：持续清除 music.js 可能注入的 soft-hidden
+  var barProtectMO = null;     // 控制条 class 变化观察器（兜底，防止定时轮询漏过）
 
   function $(id) { return doc && doc.getElementById ? doc.getElementById(id) : null; }
   function toast(msg) {
@@ -50,18 +52,72 @@
     return m + ':' + (s < 10 ? '0' + s : s);
   }
 
+  // ---------- 控制条保护期 ----------
+  // 视频态下 music.js 的 controlsAutoHide 定时器仍在跑，会给 #bottom-bar 注入 .soft-hidden
+  // 或移除 .visible，造成控制条视觉上消失（即使 player.css 中和了 soft-hidden 的 opacity，
+  // 它仍然可能影响命中区 / 拦截点击）。这里建立「保护期」持续清掉 soft-hidden 并保持 visible，
+  // 保证 #bottom-bar 在视频态期间始终可用；退出视频态时再停掉。
+  function startBarProtection() {
+    stopBarProtection();
+    var bar = $('bottom-bar');
+    if (!bar) return;
+    // 立即执行一次
+    sanitizeBar(bar);
+    // 定时轮询：高频快速反应（music.js 定时 480ms 注入，我们用 150ms 清除）
+    barProtectTimer = setInterval(function () {
+      if (!active) { stopBarProtection(); return; }
+      sanitizeBar($('bottom-bar'));
+    }, 150);
+    // MutationObserver 兜底：监听 class 变化，一旦 soft-hidden 被加就立刻移除
+    if (doc && doc.body && typeof MutationObserver !== 'undefined') {
+      barProtectMO = new MutationObserver(function (mutations) {
+        if (!active) { stopBarProtection(); return; }
+        mutations.forEach(function (m) {
+          if (m.type === 'attributes' && m.attributeName === 'class') {
+            var b = m.target;
+            if (b && b.id === 'bottom-bar') sanitizeBar(b);
+          }
+        });
+      });
+      barProtectMO.observe(bar, { attributes: true, attributeFilter: ['class'] });
+    }
+  }
+  function stopBarProtection() {
+    if (barProtectTimer) { clearInterval(barProtectTimer); barProtectTimer = null; }
+    if (barProtectMO) { try { barProtectMO.disconnect(); } catch (e) {} barProtectMO = null; }
+  }
+  function sanitizeBar(bar) {
+    if (!bar) return;
+    // 强制清除所有可能来自音乐态的隐藏类（只在视频态生效）
+    bar.classList.remove('soft-hidden');
+    // 强制保持 visible 类（music.js 的 setControlsHidden 可能同步移除它）
+    bar.classList.add('visible');
+    // 清除任何可能被 music.js 设的 inline pointer-events:none
+    if (bar.style && bar.style.pointerEvents === 'none') bar.style.pointerEvents = '';
+    // 如果 music.js 在我们的 reparent 之后又把 bar 搬回 desktop-window-shell，
+    // 这里兜底把它再拉回 body（正常情况下我们 reparent 一次就够）
+    if (bar.parentNode && bar.parentNode !== doc.body && bar.parentNode.id !== '') {
+      // 只有当它被明确搬回某个带 id 的容器时才兜底，避免干扰正常 DOM
+      if (origBarParent && bar.parentNode === origBarParent) {
+        try { doc.body.appendChild(bar); } catch (e) {}
+      }
+    }
+  }
+
   // ---------- 激活 / 退出 ----------
   function activate(meta) {
     meta = meta || {};
     console.log('[PlayerController] activate 调用 embed=' + meta.embed + ' active=' + active);
-    if (meta.embed) { console.log('[PlayerController] 嵌入态，不启用底部控制器'); return; }
     if (!doc || !doc.body) { console.log('[PlayerController] document/body 不可用'); return; }
     if (active) { applyMeta(meta); return; }
     active = true;
+    var isEmbed = !!meta.embed;
     var bar = $('bottom-bar');
+    // 嵌入态也要给 body 加 video-player-active，否则 #bottom-bar 会被
+    // "body.video-space-active:not(.video-player-active)" 这条规则 display:none 永久隐藏
     doc.body.classList.add('video-player-active');
     doc.body.classList.remove('video-player-idle');
-    console.log('[PlayerController] 已添加 body.video-player-active，bottom-bar 元素存在=' + !!bar);
+    console.log('[PlayerController] 已添加 body.video-player-active，bottom-bar 元素存在=' + !!bar + ' embed=' + isEmbed);
     if (bar) {
       // 把 #bottom-bar 提到 body 末尾，避免被 #desktop-window-shell 的 transform/clip-path 截断或压住
       if (bar.parentNode && bar.parentNode !== doc.body) {
@@ -75,6 +131,14 @@
       // 仅保留 position:fixed 作为 reparenting 后的安全网；可见性/空闲淡出完全交给 CSS
       // （body.video-player-active #bottom-bar 显示，body.video-player-idle #bottom-bar 淡出）
       bar.style.position = 'fixed';
+    }
+    // 启动控制条保护期：持续清除 music.js 可能注入的 soft-hidden
+    startBarProtection();
+    if (isEmbed) {
+      // 嵌入态不接管视频播放控件（iframe 自带），但保留底部控制条的可见性
+      console.log('[PlayerController] 嵌入态：跳过视频控件接管，但保持底部控制条可见');
+      applyMeta(meta);
+      return;
     }
     videoEl = (SFV.player && SFV.player.getVideoEl) ? SFV.player.getVideoEl() : null;
     console.log('[PlayerController] videoEl 存在=' + !!videoEl);
@@ -99,6 +163,7 @@
     console.log('[PlayerController] deactivate 调用 active=' + active);
     if (!active) return;
     active = false;
+    stopBarProtection(); // 停掉控制条保护期（必须在 swapHandlers 等之前，避免回调干扰）
     swapHandlers(false);
     removeInjectedButtons();
     closeEpisodePanel(); // 退出时清理「选集」弹层（若有）
@@ -111,6 +176,7 @@
     var bar = $('bottom-bar');
     if (bar) {
       bar.classList.remove('visible');
+      bar.classList.remove('soft-hidden'); // 退出前再清一次 soft-hidden，避免音乐态残留
       // 清激活时覆盖的 inline 样式，让 CSS 常态规则重新接管
       bar.style.display = '';
       bar.style.position = '';
