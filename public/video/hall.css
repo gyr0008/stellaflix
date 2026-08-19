@@ -357,26 +357,35 @@ body.sfv-hall-immersive .sfv-hall-dock {
   position: fixed;
   left: 50%; bottom: 0;
   transform: translateX(-50%) translateY(100%);
-  width: min(560px, 94vw);
-  max-height: 76vh;
+  width: 800px;
+  height: 700px;
   display: flex;
   flex-direction: column;
   z-index: 2147482071;
-  border-radius: 18px 18px 0 0;
+  border-radius: 22px 22px 0 0;
   padding: 16px 16px 24px;
-  /* Kazumi 风格：纯色暗底，无玻璃/模糊 */
-  background: #18181b;
-  border: none;
-  box-shadow: 0 -8px 40px rgba(0,0,0,.55), 0 -2px 12px rgba(0,0,0,.30);
+  /* 搜索框同款玻璃 */
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-bottom: none;
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(34px) saturate(1.34);
+  -webkit-backdrop-filter: blur(34px) saturate(1.34);
   color: #fff;
   transition: transform .26s cubic-bezier(.2,.8,.2,1);
 }
 .sfv-picker.sfv-picker-in { transform: translateX(-50%) translateY(0); }
+/* SVG 玻璃滤镜：与 #sfv-nav / #search-box 同源 */
+html.control-glass-svg-ok .sfv-picker {
+  backdrop-filter: url(#mineradio-search-box-glass-filter) saturate(1) !important;
+  -webkit-backdrop-filter: url(#mineradio-search-box-glass-filter) saturate(1) !important;
+}
 .sfv-picker * { box-sizing: border-box; }
 
 .sfv-picker-head {
   display: flex; align-items: center; gap: 12px;
   padding-bottom: 12px; border-bottom: 1px solid rgba(255,255,255,.08);
+  flex-shrink: 0;
 }
 .sfv-picker-poster {
   width: 46px; height: 66px; border-radius: 9px; object-fit: cover;
@@ -394,6 +403,7 @@ body.sfv-hall-immersive .sfv-hall-dock {
 
 .sfv-picker-tabs {
   display: flex; gap: 8px; overflow-x: auto; padding: 12px 0; scrollbar-width: none;
+  flex-shrink: 0;
 }
 .sfv-picker-tabs::-webkit-scrollbar { display: none; }
 .sfv-picker-pill {
@@ -409,7 +419,8 @@ body.sfv-hall-immersive .sfv-hall-dock {
   background: #58d68d; box-shadow: 0 0 6px rgba(88,214,141,.5); flex: 0 0 auto;
 }
 
-.sfv-picker-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 2px; }
+.sfv-picker-list { overflow-y: auto; display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-height: 0; scrollbar-width: none; -ms-overflow-style: none; }
+.sfv-picker-list::-webkit-scrollbar { display: none; }
 .sfv-picker-group {
   margin: 8px 2px 2px; padding: 0 2px;
   font-size: 11px; font-weight: 700; letter-spacing: .04em;

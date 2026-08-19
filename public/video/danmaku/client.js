@@ -118,14 +118,41 @@
     });
   }
 
-  // 搜索剧集（anime 关键词 + 可选集数）
+  // 搜索剧集（DanDanPlay /api/v2/search/episodes，GET 接口）
+  // 响应结构：{ success, animes:[{ animeId, animeTitle, episodes:[{episodeId, episodeTitle}] }] }
   function searchEpisodes(anime, episode) {
     var q = { anime: anime };
     if (episode != null && episode !== '') q.episode = episode;
+    console.log('[Danmaku-Client] search/episodes 请求', JSON.stringify(q));
     return request('/api/v2/search/episodes', q).then(function (json) {
-      return (json.episodes || []).map(function (e) {
+      // DanDanPlay /search/episodes 返回 animes 数组，每项含 bangumi 及 episodes
+      var animes = json.animes || [];
+      // 优先匹配：animeTitle 包含搜索关键词的番剧
+      var matched = null;
+      for (var i = 0; i < animes.length; i++) {
+        var at = animes[i].animeTitle || '';
+        if (at.indexOf(anime) > -1 || anime.indexOf(at) > -1) {
+          matched = animes[i];
+          break;
+        }
+      }
+      // 如果没匹配到，取第一个
+      if (!matched && animes.length > 0) matched = animes[0];
+      var list = (matched && matched.episodes) || [];
+      console.log('[Danmaku-Client] search/episodes 响应 success=' + json.success + ' animes=' + animes.length + ' matchedTitle=' + (matched ? matched.animeTitle : 'N/A') + ' episodes=' + list.length + ' errorMessage=' + (json.errorMessage || 'none'));
+      if (list.length > 0) {
+        console.log('[Danmaku-Client] 第1集: id=' + list[0].episodeId + ' title=' + list[0].episodeTitle);
+      } else if (animes.length > 0) {
+        console.log('[Danmaku-Client] anime keys=' + Object.keys(animes[0]).join(',') + ' first anime=' + JSON.stringify(animes[0]).substring(0, 300));
+      } else {
+        console.log('[Danmaku-Client] 完整响应 keys=' + Object.keys(json).join(',') + ' animes 长度=0');
+      }
+      return list.map(function (e) {
         return { episodeId: e.episodeId, episodeTitle: e.episodeTitle };
       });
+    }).catch(function (e) {
+      console.error('[Danmaku-Client] search/episodes 请求失败', e ? e.message : e);
+      throw e;
     });
   }
 
@@ -139,10 +166,18 @@
 
   // 一站式：番名 + 集数 → 弹幕列表（影视态最常用入口）
   function fetchForEpisode(animeTitle, episode, onProgress) {
+    console.log('[Danmaku-Client] fetchForEpisode 调用', { animeTitle: animeTitle, episode: episode });
     return searchEpisodes(animeTitle, episode).then(function (eps) {
+      console.log('[Danmaku-Client] searchEpisodes 返回', { count: eps.length, episodes: eps.map(function(e) { return { id: e.episodeId, title: e.episodeTitle }; }) });
       if (!eps.length) throw new Error('DANMAKU_NO_EPISODE');
       if (onProgress) onProgress('找到剧集：' + eps[0].episodeTitle);
       return getComments(eps[0].episodeId);
+    }).then(function (comments) {
+      console.log('[Danmaku-Client] getComments 返回', { count: comments ? comments.length : 0 });
+      return comments;
+    }).catch(function (e) {
+      console.error('[Danmaku-Client] fetchForEpisode 失败', { error: e, message: e ? e.message : null });
+      throw e;
     });
   }
 

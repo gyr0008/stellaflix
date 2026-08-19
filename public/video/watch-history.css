@@ -41,7 +41,10 @@
   align-items: baseline;
   gap: 10px;
   /* 视觉对齐片单页 .sfv-collection-section__head：透明浮层，不自带乳白面板 */
-  padding: 4px 28px 6px;
+  /* T166：与下方 rail 网格同宽居中（max-width:1876px），标题与卡片左缘对齐 */
+  max-width: 1876px;
+  margin: 0 auto;
+  padding: 4px 0 6px;
 }
 .sfv-wh-day__label {
   /* 对齐片单页 .sfv-collection-section__title（18px/800/#1a1a1a） */
@@ -56,19 +59,26 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ---------- 同日横向 rail ---------- */
+/* ---------- 同日卡片网格（T166：追片页排列逻辑复制到历史页）----------
+   原实现为「横向滚动 rail」（overflow-x:auto + 左右箭头），现改为与追片页
+   .sfv-track-grid 同构的自动换行网格：
+   - 卡片固定 360×202.5px，相邻间距 19px（原 18px）；
+   - 容器 max-width 1876px（5×360+4×19）+ margin auto → 满行 5 张时两侧
+     自适应间距均分；放不下第 6 张时自动换行、新行从左侧第一个位置开始；
+   - 无横向滚动 → 左右箭头整体隐藏（JS updateArrows 的 is-hidden 兜底同样生效，
+     scrollWidth===clientWidth 时两箭头均隐藏）。 */
 .sfv-wh-rail-wrap {
   position: relative;
   padding: 6px 0 4px;
 }
 .sfv-wh-rail {
   display: flex;
-  gap: 18px;
-  overflow-x: auto;
-  padding: 8px 28px 12px;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-  scroll-behavior: smooth;
+  flex-wrap: wrap;
+  gap: 19px;
+  overflow-x: visible;
+  max-width: 1876px;
+  margin: 0 auto;
+  padding: 8px 0 12px;
 }
 .sfv-wh-rail::-webkit-scrollbar { display: none; }
 
@@ -78,7 +88,7 @@
   bottom: 12px;
   width: 46px;
   z-index: 6;
-  display: flex;
+  display: none;              /* T166：网格无横向滚动，箭头无意义 */
   align-items: center;
   justify-content: center;
   border: 0;
@@ -96,10 +106,11 @@
 .sfv-wh-rail__arrow.is-hidden { opacity: 0 !important; pointer-events: none; }
 .sfv-wh-rail__arrow svg { display: block; filter: drop-shadow(0 1px 3px rgba(255, 255, 255, .6)); }
 
-/* ---------- 单条记录卡片（海报式 ~360px） ---------- */
+/* ---------- 单条记录卡片（海报式 360×202.5px，与追片页卡片同尺寸） ---------- */
 .sfv-wh-card {
   flex: 0 0 auto;
   width: 360px;
+  height: 202.5px;   /* T166：显式固定高度（thumb aspect-ratio 16/9 本已 202.5，显式化防歧义） */
   border-radius: 14px;
   overflow: hidden;
   position: relative;
@@ -111,7 +122,7 @@
   cursor: pointer;
 }
 .sfv-wh-card:hover {
-  transform: scale(1.02);
+  transform: none;   /* T166：禁用 scale 放大（追片页同款），防止侵入 19px 间距导致圆角被相邻卡片裁切 */
   border-color: rgba(0, 0, 0, .16);
   box-shadow: 0 14px 34px rgba(0, 0, 0, .2);
 }

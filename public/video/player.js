@@ -329,21 +329,38 @@
     videoEl.addEventListener('touchstart', unmuteOnce);
   }
 
-  // 仅在指针落入控制栏静止盒时才显示控制栏（其余位置 mousemove 不主动显示）。
-  // 命中盒用 barHitRect（非 idle 时测量的静止位置），规避 idle 位移导致的错位。
+  // 判定指针是否应触发控制栏显示 / 续接隐藏计时。
+  //   - 非 idle：命中盒用最近一次测量的静止盒 barHitRect，并与当前 live rect 取并集（覆盖 resize 后的瞬时错位）。
+  //   - idle：控制栏已 translateY(88px)，继续用旧静止盒会造成「悬停真实控制栏永远不命中」的死锁，
+  //     故退化为"屏幕底部 120px 高的唤醒带 ∪ 控制栏当前 live rect"，保证鼠标靠到底部即点亮控制栏。
   function pointInBar(x, y) {
     var bar = getDoc().getElementById('bottom-bar');
+    var body = getDoc().body;
     if (!bar) { barHitRect = null; return false; }
-    // 仅在非 idle（控制栏可见且未偏移）时刷新静止盒，保证命中区与可见控制栏重合
-    if (!getDoc().body.classList.contains('video-player-idle')) {
+    var isIdle = !!(body && body.classList.contains('video-player-idle'));
+    // 非 idle 时刷新静止盒，保证命中区与可见控制栏重合
+    if (!isIdle) {
       barHitRect = bar.getBoundingClientRect();
     }
     var r = barHitRect;
-    if (!r) return false;
-    return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
+    // 取 live rect 参与并集：解决首次命中前/resize 后缓存为空造成的永久不显示
+    var live = bar.getBoundingClientRect();
+    function inRect(rect) {
+      if (!rect) return false;
+      // 命中区四周各扩 18px，抵消手指粗 / 变换后的边界误差
+      return x >= rect.left - 18 && x <= rect.right + 18 &&
+             y >= rect.top - 18 && y <= rect.bottom + 18;
+    }
+    if (inRect(r)) return true;
+    if (r !== live && inRect(live)) return true;
+    if (isIdle) {
+      var h = global.innerHeight || 0;
+      if (h && y >= h - 120) return true; // 屏幕底部唤醒带
+    }
+    return false;
   }
 
-  function armHideTimer() {
+  function armHideTimer(delayMs) {
     clearTimeout(hideTimer);
     hideTimer = setTimeout(function () {
       if (overlay && SFV.state && SFV.state.getSpace() === 'video') {
@@ -351,7 +368,7 @@
         var bb = getDoc().body;
         if (bb && bb.classList.contains('video-player-active')) bb.classList.add('video-player-idle');
       }
-    }, 3000);
+    }, typeof delayMs === 'number' ? delayMs : 3000);
   }
 
   function wireIdle() {
@@ -359,16 +376,14 @@
       if (!overlay) return;
       var x = e.clientX, y = e.clientY;
       if (e.touches && e.touches[0]) { x = e.touches[0].clientX; y = e.touches[0].clientY; }
-      if (pointInBar(x, y)) {
-        // 指针在控制栏内：显示并续接隐藏计时
-        overlay.classList.remove('sfv-idle');
-        var b = getDoc().body;
-        if (b && b.classList.contains('video-player-active')) b.classList.remove('video-player-idle');
-        armHideTimer();
-      } else {
-        // 指针不在控制栏内：不主动显示；若已显示则续接隐藏计时（3 秒后淡出）
-        armHideTimer();
-      }
+      // 任何指针移动都先显示控制栏；用户要的是「停住不动才淡出」，而不是「非控制栏区完全不点」。
+      // 这样既解决 idle 命中盒错位导致的永久不显示，也对齐主流播放器（任意移动鼠标都重新点亮控制栏）。
+      overlay.classList.remove('sfv-idle');
+      var b = getDoc().body;
+      if (b && b.classList.contains('video-player-active')) b.classList.remove('video-player-idle');
+      // 命中控制栏或底部唤醒带：保持更长的显示时长并续接隐藏计时
+      var near = pointInBar(x, y);
+      armHideTimer(near ? 3000 : 2200);
     };
     // 监听挂到 document：控制栏是 body 直接子元素（非 overlay 后代），
     // 悬停到控制栏上时 mousemove 不会冒泡到 overlay，故必须在 document 捕获。
@@ -507,29 +522,44 @@
 
   // 自动加载弹幕（异步、非阻塞，失败静默但有 toast 提示）
   function autoLoadDanmaku(title) {
-    if (!title || !danmakuEngine || !SFV.player || !SFV.player.danmaku || !SFV.player.danmaku.loadFromClient) return;
+    console.log('[Danmaku] autoLoadDanmaku 入口', { title: title, hasEngine: !!danmakuEngine, hasPlayer: !!(SFV.player && SFV.player.danmaku), hasLoadFromClient: !!(SFV.player && SFV.player.danmaku && SFV.player.danmaku.loadFromClient) });
+    if (!title || !danmakuEngine || !SFV.player || !SFV.player.danmaku || !SFV.player.danmaku.loadFromClient) {
+      console.log('[Danmaku] autoLoadDanmaku 早退', { reason: !title ? 'no title' : !danmakuEngine ? 'no engine' : !SFV.player ? 'no player' : !SFV.player.danmaku ? 'no player.danmaku' : 'no loadFromClient' });
+      return;
+    }
     // 检查开关
     try {
-      if (typeof localStorage !== 'undefined' && localStorage.getItem(AUTO_LOAD_KEY) === 'false') return;
+      if (typeof localStorage !== 'undefined' && localStorage.getItem(AUTO_LOAD_KEY) === 'false') {
+        console.log('[Danmaku] autoLoadDanmaku 开关关闭，跳过');
+        return;
+      }
     } catch (e) { return; }
     // 检查凭证（无凭证则跳过，避免每次都弹错误）
-    if (SFV.danmaku.client && !SFV.danmaku.client.hasCredentials()) return;
+    var hasCred = !!(SFV.danmaku.client && SFV.danmaku.client.hasCredentials());
+    console.log('[Danmaku] 凭证检查', { hasCredentials: hasCred });
+    if (SFV.danmaku.client && !hasCred) {
+      console.log('[Danmaku] 无凭证，跳过');
+      return;
+    }
     var ep = extractEpisode(title);
     var cleanTitle = normalizeAnimeName(title); // 番名归一化：去集数/后缀，提升弹弹play 匹配率
+    console.log('[Danmaku] 归一化结果 原始="' + title + '" → 清洗="' + cleanTitle + '" ep=' + ep);
     // toast: 开始搜索
     if (SFV.online && SFV.online.toast) {
       SFV.online.toast('正在搜索弹幕…');
     }
     SFV.player.danmaku.loadFromClient(cleanTitle, ep).then(function (list) {
+      console.log('[Danmaku] loadFromClient 成功', { count: list ? list.length : 0 });
       if (list && list.length) {
         if (SFV.online && SFV.online.toast) {
           SFV.online.toast('弹幕已载入 ' + list.length + ' 条');
         }
       } else {
         // 搜索成功但无结果（该番剧可能暂无弹幕）
-        /* 静默 — 无弹幕不报错 */
+        console.log('[Danmaku] 搜索成功但无弹幕条目');
       }
     }).catch(function (e) {
+      console.error('[Danmaku] loadFromClient 失败', { error: e, message: e ? e.message : null, stack: e ? e.stack : null });
       // 仅在网络/认证错误时提示一次，避免每次播片都弹
       if (SFV.online && SFV.online.toast && e && e.message !== 'DANMAKU_AUTH_REQUIRED') {
         SFV.online.toast('弹幕加载失败：' + (e.message || '未知错误'));
@@ -866,17 +896,32 @@
   PB.danmaku = {
     setEntries: function (entries) { if (!danmakuEngine) return false; danmakuEngine.load(entries || []); return true; },
     loadFromClient: function (animeTitle, episode) {
-      if (!danmakuEngine) return Promise.reject(new Error('DANMAKU_UNAVAILABLE'));
+      console.log('[Danmaku] loadFromClient 调用', { animeTitle: animeTitle, episode: episode });
+      if (!danmakuEngine) { console.error('[Danmaku] loadFromClient: danmakuEngine 为空'); return Promise.reject(new Error('DANMAKU_UNAVAILABLE')); }
       var params = { animeTitle: animeTitle, episode: episode };
       var ctx = { onProgress: function (msg) { if (SFV.online && SFV.online.toast) SFV.online.toast(msg); } };
       var fetcher = null;
-      if (SFV.danmaku && SFV.danmaku.sources && SFV.danmaku.sources.fetchAll) {
+      var useSources = !!(SFV.danmaku && SFV.danmaku.sources && SFV.danmaku.sources.fetchAll);
+      if (useSources) {
+        console.log('[Danmaku] 使用 sources.fetchAll 路径');
         fetcher = function () { return SFV.danmaku.sources.fetchAll(params, ctx); };
       } else if (SFV.danmaku && SFV.danmaku.client) {
+        console.log('[Danmaku] 使用 client.fetchForEpisode 路径（无 sources 管理器）');
         fetcher = function () { return SFV.danmaku.client.fetchForEpisode(animeTitle, episode, ctx.onProgress); };
       }
-      if (!fetcher) return Promise.reject(new Error('DANMAKU_UNAVAILABLE'));
-      return Promise.resolve(fetcher()).then(function (list) { danmakuEngine.load(list || []); return list; });
+      if (!fetcher) { console.error('[Danmaku] loadFromClient: 无可用 fetcher'); return Promise.reject(new Error('DANMAKU_UNAVAILABLE')); }
+      return Promise.resolve(fetcher()).then(function (list) {
+        // 检查 sources 路径是否有错误被 allSettled 吞掉
+        if (useSources && list && list._sourceErrors && list._sourceErrors.length > 0 && (!list.length || list.length === 0)) {
+          var errMsg = list._sourceErrors.map(function(e) { return e && e.message ? e.message : String(e); }).join('; ');
+          console.error('[Danmaku] 所有弹幕源均失败:', errMsg);
+          throw new Error(errMsg || 'DANMAKU_FETCH_FAILED');
+        }
+        console.log('[Danmaku] fetch 返回', { count: list ? list.length : 0 });
+        danmakuEngine.load(list || []);
+        console.log('[Danmaku] danmakuEngine.load 已调用');
+        return list;
+      });
     },
     clear: function () { if (danmakuEngine) danmakuEngine.load([]); },
     setOptions: function (opts) { if (danmakuEngine) danmakuEngine.setOptions(opts || {}); },

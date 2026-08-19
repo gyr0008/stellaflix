@@ -1032,9 +1032,11 @@ body.login-guide-active #login-guide-canvas{opacity:1}
 .account-provider-chip.qq{border-color:rgba(191,214,107,.26);color:#f3ffd1;background:rgba(191,214,107,.08)}
 .account-provider-chip.kugou{border-color:rgba(92,204,166,.28);color:#c9ffef;background:rgba(92,204,166,.08)}
 .account-provider-chip.kugouMusic{border-color:rgba(106,166,255,.28);color:#d6e9ff;background:rgba(106,166,255,.08)}
-.account-modal-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:14px}
-.account-modal-actions .modal-btn{padding:8px 10px}
-.account-hint{margin-top:10px;font-size:11px;line-height:1.45;color:rgba(255,255,255,.38)}
+.account-modal-actions{display:flex;align-items:center;justify-content:space-between;width:100%;height:64px;margin-top:14px;padding:0 18px;border-radius:12px;border:1px solid rgba(255,255,255,.075);background:rgba(255,255,255,.035)}
+.usage-stat{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px}
+.usage-stat-label{font-size:11px;color:rgba(255,255,255,.45);letter-spacing:.6px}
+.usage-stat-value{font-size:16px;font-weight:600;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:.3px}
+.usage-stat-divider{width:1px;height:32px;background:rgba(255,255,255,.1);flex-shrink:0}
 .modal .btn-row{display:flex;gap:10px;justify-content:center;margin-top:16px}
 .dual-login-modal .btn-row{flex-wrap:wrap}
 .modal-btn{padding:8px 20px;font-size:12.5px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.05);color:#fff;cursor:pointer;letter-spacing:.5px;transition:all .2s;font-family:inherit}
@@ -3171,12 +3173,16 @@ html:fullscreen #adaptive-corner-overlay{display:none!important}
       <button id="user-provider-both" class="both" type="button" onclick="enableDualAccountView()">多平台</button>
     </div>
     <div class="account-modal-actions">
-      <button id="account-add-netease" class="modal-btn" onclick="openProviderLogin('netease')">补登网易云</button>
-      <button id="account-add-qq" class="modal-btn" onclick="openProviderLogin('qq')">补登 QQ 音乐</button>
-      <button id="account-add-kugou" class="modal-btn" onclick="openProviderLogin('kugou')">补登酷狗</button>
-      <button id="account-add-kugou-music" class="modal-btn" onclick="openProviderLogin('kugouMusic')">补登酷狗音乐</button>
+      <div class="usage-stat">
+        <div class="usage-stat-label">总时长</div>
+        <div class="usage-stat-value" id="usage-total">0 小时</div>
+      </div>
+      <div class="usage-stat-divider"></div>
+      <div class="usage-stat">
+        <div class="usage-stat-label">今日时长</div>
+        <div class="usage-stat-value" id="usage-today">0 分钟</div>
+      </div>
     </div>
-    <div id="account-hint" class="account-hint">QQ 音乐真实登录暂未接入，当前先预览双平台账号交互。</div>
     <div class="btn-row">
       <button class="modal-btn" onclick="closeUserModal()">关闭</button>
       <button id="account-logout-btn" class="modal-btn primary" onclick="logoutActiveAccount()">退出当前平台</button>
@@ -3586,6 +3592,117 @@ html:fullscreen #adaptive-corner-overlay{display:none!important}
 <script src="/assets/08-fx-visual.js"></script>
 <!-- T144：自适应圆角渲染端兜底，覆盖 Windows DWM 可能残留的白/灰直角 -->
 <script src="adaptive-corners-renderer.js"></script>
+<!-- 使用时长统计 -->
+<script>
+(function(){
+  var STORAGE_KEY = 'stellaflix-usage-stats-v1';
+  var stats = null;
+  var timerId = null;
+
+  function todayStr() {
+    var d = new Date();
+    return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+  }
+
+  function loadStats() {
+    try {
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        stats = JSON.parse(raw);
+      }
+    } catch (e) { /* ignore */ }
+    if (!stats) {
+      stats = { totalSeconds: 0, todaySeconds: 0, todayDate: todayStr() };
+    }
+    // 跨日重置
+    if (stats.todayDate !== todayStr()) {
+      stats.todayDate = todayStr();
+      stats.todaySeconds = 0;
+    }
+  }
+
+  function saveStats() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(stats)); } catch (e) {}
+  }
+
+  function formatTotal(sec) {
+    if (sec < 60) return sec + ' 秒';
+    if (sec < 3600) return Math.floor(sec/60) + ' 分钟';
+    var h = Math.floor(sec / 3600);
+    var m = Math.floor((sec % 3600) / 60);
+    if (h < 24) return h + ' 小时 ' + m + ' 分';
+    var d = Math.floor(h / 24);
+    var rh = h % 24;
+    return d + ' 天 ' + rh + ' 小时';
+  }
+
+  function formatToday(sec) {
+    if (sec < 60) return sec + ' 秒';
+    if (sec < 3600) return Math.floor(sec/60) + ' 分钟';
+    var h = Math.floor(sec / 3600);
+    var m = Math.floor((sec % 3600) / 60);
+    return h + ' 小时 ' + m + ' 分';
+  }
+
+  function updateDisplay() {
+    var totalEl = document.getElementById('usage-total');
+    var todayEl = document.getElementById('usage-today');
+    if (totalEl) totalEl.textContent = formatTotal(stats.totalSeconds);
+    if (todayEl) todayEl.textContent = formatToday(stats.todaySeconds);
+  }
+
+  function tick() {
+    stats.totalSeconds++;
+    stats.todaySeconds++;
+    // 跨日检查
+    if (stats.todayDate !== todayStr()) {
+      stats.todayDate = todayStr();
+      stats.todaySeconds = 1;
+    }
+    loadStats._lastActive = Date.now();
+    saveStats();
+    updateDisplay();
+  }
+
+  // 页面关闭前保存
+  window.addEventListener('beforeunload', saveStats);
+  window.addEventListener('pagehide', saveStats);
+
+  loadStats();
+  updateDisplay();
+  timerId = setInterval(tick, 1000);
+
+  // 页面不可见时暂停计时（省电）
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+      loadStats._lastActive = Date.now();
+      if (timerId) { clearInterval(timerId); timerId = null; }
+    } else {
+      var now = Date.now();
+      var lastActive = loadStats._lastActive || now;
+      var elapsed = Math.floor((now - lastActive) / 1000);
+      if (elapsed > 0 && elapsed < 3600) { // 最多补1小时，防止长时间休眠后暴增
+        stats.totalSeconds += elapsed;
+        stats.todaySeconds += elapsed;
+        // 跨日检查
+        if (stats.todayDate !== todayStr()) {
+          stats.todayDate = todayStr();
+          stats.todaySeconds = elapsed;
+        }
+        saveStats();
+      }
+      loadStats._lastActive = now;
+      if (!timerId) timerId = setInterval(tick, 1000);
+      updateDisplay();
+    }
+  });
+
+  loadStats._lastActive = Date.now();
+
+  // 暴露给外部调用（打开账号面板时刷新）
+  window.refreshUsageStats = updateDisplay;
+})();
+</script>
 </body>
 </html>
 

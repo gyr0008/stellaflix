@@ -76,14 +76,29 @@
     for (var i = 0; i < a.length; i++) if (!a[i].finished) n++;
     return n;
   }
-  function remove(key) {
-    var a = readAll().filter(function (r) { return r.key !== key; });
+  function remove(key, ts) {
+    // 支持两种调用：remove(key) 全局删除（兼容旧 API），remove(key, ts) 精确删除跨天重复记录
+    var a;
+    if (ts != null) {
+      a = readAll().filter(function (r) { return !(r.key === key && r.ts === ts); });
+    } else {
+      a = readAll().filter(function (r) { return r.key !== key; });
+    }
     writeAll(a); return a;
   }
   function clear() { writeAll([]); return []; }
+  function _dayStart(ts) {
+    var d = new Date(ts);
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  }
   function add(rec) {
     if (!rec || !rec.key) return readAll();
-    var a = readAll().filter(function (r) { return r.key !== rec.key; }); // 按 key 去重
+    var a = readAll();
+    var todayStart = _dayStart(Date.now());
+    // 只过滤「同一天 + 同 key」的旧记录；跨天的保留，形成独立历史条目
+    a = a.filter(function (r) {
+      return !(r.key === rec.key && _dayStart(r.ts || 0) === todayStart);
+    });
     a.unshift(normalize(rec));
     if (a.length > CAP) a = a.slice(0, CAP);
     writeAll(a); return a;
@@ -107,12 +122,23 @@
 
   // 增量更新指定 key 的进度/时长/完成态，不移动该条在历史列表中的位置，
   // 供播放器 timeupdate/pause/ended 时回写真实观影数据。
+  // 优先匹配「当天 + 同 key」的记录，确保跨天重复观看时不会误更新到旧记录。
   function update(key, patch) {
     if (!key) return null;
     var a = readAll();
+    var todayStart = _dayStart(Date.now());
     var idx = -1;
+    // 优先找「同一天 + 同 key」的记录
     for (var i = 0; i < a.length; i++) {
-      if (a[i].key === key) { idx = i; break; }
+      if (a[i].key === key && _dayStart(a[i].ts || 0) === todayStart) {
+        idx = i; break;
+      }
+    }
+    // 回退：当天没有则全局按 key 匹配（兼容首次 add 前的极端时序）
+    if (idx < 0) {
+      for (var j = 0; j < a.length; j++) {
+        if (a[j].key === key) { idx = j; break; }
+      }
     }
     if (idx < 0) return null;
     var rec = a[idx];
@@ -290,7 +316,7 @@
     // hover 移除按钮
     var rm = el('button', 'sfv-wh-card__remove', '移除');
     rm.type = 'button';
-    rm.addEventListener('click', function (e) { e.stopPropagation(); onRemove(rec.key); });
+    rm.addEventListener('click', function (e) { e.stopPropagation(); onRemove(rec); });
     thumb.appendChild(rm);
     card.appendChild(thumb);
 
@@ -326,9 +352,9 @@
 
   // ---------------------------------------------------------------- 交互
   function setFilter(f) { filter = f; render(currentHost); }
-  function onRemove(key) {
-    if (!key) return;
-    currentData = remove(key);
+  function onRemove(rec) {
+    if (!rec || !rec.key) return;
+    currentData = remove(rec.key, rec.ts);
     render(currentHost);
   }
   function onClear() {

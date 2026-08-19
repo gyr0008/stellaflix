@@ -156,10 +156,15 @@
     // 片单/追片/搜索/历史统一乳白兜底四角（对齐片单页浅色实底语境）。
     var catBg = '#faf8f5';
 
-    // 搜索页默认保持背景一体化：无自定义偏好时不挂载玻璃层，避免实色底+玻璃层重叠。
+    // 搜索页背景一体化：仅自定义「图片」时挂载玻璃层（需承载图片）；
+    // 纯「颜色」偏好（或无偏好）时不挂玻璃层——宿主 --sfv-cat-bg 已实色铺满即可，
+    // 避免 clip-path(#sfv-search-page) 下玻璃层 backdrop-filter/box-shadow 采样异常
+    // 渲染出水平暗带 / 多层玻璃重叠（画面割裂，PIL 实测暗带位于距视口底 ~205px，亮度 237→218）。
     // 追片/片单/历史页保留既有默认玻璃层行为。
     var needsLayer = true;
-    if (isSearch && !pref) needsLayer = false;
+    if (isSearch) needsLayer = !!(pref && pref.type === 'image');
+    // 搜索页纯「颜色」偏好：不挂玻璃层，但颜色仍须写到宿主实底（否则自定义底色不生效）
+    if (isSearch && pref && pref.type === 'color' && pref.value) catBg = pref.value;
 
     if (needsLayer) {
       host.classList.add('sfv-page-bg-diy');

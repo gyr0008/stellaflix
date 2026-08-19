@@ -50,6 +50,10 @@
   function normalizeAnimeName(title) {
     if (!title) return title;
     var t = String(title);
+    // 先按站点标签分隔符 ' · ' 截断，只保留番名部分
+    // 标题格式 {番名} · {标签}，标签可能是"正片"/"线路A"/"第X话"等站点标记，
+    // 混入搜索词会导致弹弹play 匹配失败（DANMAKU_NO_EPISODE）。比枚举标签词更稳。
+    t = t.split(' · ')[0];
     // 0) 去除方括号源标记 / 分辨率（如 [AGE] / [1080p]，Kazumi 规则源常见）
     t = t.replace(/\[[^\]]*\]/g, ' ');
     // 1) 去除集数标记（保留本函数仅用于番名搜索）

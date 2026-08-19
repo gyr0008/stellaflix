@@ -79,7 +79,275 @@ var parallelShaderCompileExt = _gl && _gl.getExtension('KHR_parallel_shader_comp
 // 说明 X1 异步路径未生效、回退同步渲染，这正是入场仍卡的根因。
 try { console.log('[Stellaflix] KHR_parallel_shader_compile =', parallelShaderCompileExt ? 'AVAILABLE (async compile)' : 'UNAVAILABLE (sync fallback)'); } catch (e) {}
 window.__sfvParallelShaderExt = !!parallelShaderCompileExt;
-renderer.debug.checkShaderErrors = false; // 关键：绕过 r128 阻塞式 LINK_STATUS 同步查询
+// === Background shader compilation: GL 层拦截 + 逐步执行 ===
+// r149 无 KHR_parallel_shader_compile，renderer.compile() 同步阻塞
+// 核心思路：在 GL 层拦截 compileShader/linkProgram，将每个调用变成队列任务，
+// 然后用 setTimeout(fn, 0) 逐个执行，每次只编译一个 shader (~50ms)，不阻塞动画帧。
+var bgCompileActive = false;
+var bgCompileQueue = null;
+var bgCompileDone = false;
+var _glOrigCompileShader = null;
+var _glOrigLinkProgram = null;
+var _glOrigGetShaderParameter = null;
+var _glOrigGetProgramParameter = null;
+var _glOrigGetShaderInfoLog = null;
+var _glOrigGetProgramInfoLog = null;
+var _glIntercepting = false;
+var _glDeferQueue = [];
+
+function _installGlInterceptor() {
+  if (_glIntercepting) return;
+  _glOrigCompileShader = _gl.compileShader.bind(_gl);
+  _glOrigLinkProgram = _gl.linkProgram.bind(_gl);
+  _glOrigGetShaderParameter = _gl.getShaderParameter.bind(_gl);
+  _glOrigGetProgramParameter = _gl.getProgramParameter.bind(_gl);
+  _glOrigGetShaderInfoLog = _gl.getShaderInfoLog.bind(_gl);
+  _glOrigGetProgramInfoLog = _gl.getProgramInfoLog.bind(_gl);
+  _glDeferQueue = [];
+  _glIntercepting = true;
+
+  // 拦截 compileShader: 不执行，只入队
+  _gl.compileShader = function (shader) {
+    _glDeferQueue.push({ type: 'compileShader', shader: shader });
+  };
+  // 拦截 linkProgram: 不执行，只入队
+  _gl.linkProgram = function (program) {
+    _glDeferQueue.push({ type: 'linkProgram', program: program });
+  };
+  // 拦截 getShaderParameter: 对 COMPILE_STATUS 返回 true (假装已编译)
+  _gl.getShaderParameter = function (shader, pname) {
+    if (pname === _gl.COMPILE_STATUS) return true;
+    if (pname === _gl.DELETE_STATUS) return false;
+    return _glOrigGetShaderParameter(shader, pname);
+  };
+  // 拦截 getProgramParameter: 对 LINK_STATUS 返回 true (假装已链接)
+  _gl.getProgramParameter = function (program, pname) {
+    if (pname === _gl.LINK_STATUS) return true;
+    if (pname === _gl.DELETE_STATUS) return false;
+    return _glOrigGetProgramParameter(program, pname);
+  };
+  // 拦截 getShaderInfoLog: 返回空字符串
+  _gl.getShaderInfoLog = function () { return ''; };
+  // 拦截 getProgramInfoLog: 返回空字符串
+  _gl.getProgramInfoLog = function () { return ''; };
+}
+
+function _restoreGlInterceptor() {
+  if (!_glIntercepting) return;
+  _gl.compileShader = _glOrigCompileShader;
+  _gl.linkProgram = _glOrigLinkProgram;
+  _gl.getShaderParameter = _glOrigGetShaderParameter;
+  _gl.getProgramParameter = _glOrigGetProgramParameter;
+  _gl.getShaderInfoLog = _glOrigGetShaderInfoLog;
+  _gl.getProgramInfoLog = _glOrigGetProgramInfoLog;
+  _glIntercepting = false;
+  _glDeferQueue = [];
+}
+
+function _processGlDeferQueue(onComplete) {
+  if (!_glDeferQueue.length) {
+    // 队列已清空
+    if (onComplete) onComplete();
+    return;
+  }
+  var item = _glDeferQueue.shift();
+  if (item.type === 'compileShader') {
+    _glOrigCompileShader(item.shader);
+  } else if (item.type === 'linkProgram') {
+    _glOrigLinkProgram(item.program);
+  }
+  // 用 setTimeout(fn, 0) 让出主线程给浏览器渲染
+  if (_glDeferQueue.length > 0) {
+    setTimeout(function () { _processGlDeferQueue(onComplete); }, 0);
+  } else {
+    if (onComplete) onComplete();
+  }
+}
+
+function startBackgroundCompile() {
+  if (bgCompileActive || bgCompileDone) return;
+  bgCompileActive = true;
+  if (!bgCompileQueue) bgCompileQueue = collectShaderCompileQueue();
+  console.log('[Stellaflix] Background compile started, programs:', bgCompileQueue.length);
+
+  _installGlInterceptor();
+
+  var compileNext = function () {
+    if (bgCompileDone || !bgCompileQueue) {
+      _restoreGlInterceptor();
+      bgCompileActive = false;
+      return;
+    }
+    var item = bgCompileQueue.shift();
+    if (item && item.host && typeof renderer.compile === 'function') {
+      if (!_compileTmpScene) _compileTmpScene = new THREE.Scene();
+      try {
+        var probe;
+        if (item.host.isPoints) probe = new THREE.Points(item.host.geometry, item.material);
+        else if (item.host.isLine) probe = new THREE.Line(item.host.geometry, item.material);
+        else if (item.host.isSprite) probe = new THREE.Sprite(item.material);
+        else probe = new THREE.Mesh(item.host.geometry, item.material);
+        _compileTmpScene.add(probe);
+        // 这里 renderer.compile() 内部调用的 compileShader/linkProgram 都被拦截入队了
+        renderer.compile(_compileTmpScene, camera);
+        _compileTmpScene.remove(probe);
+      } catch (e) {
+        console.log('[Stellaflix] Compile probe error:', e);
+      }
+    }
+    // 立即执行队列中的 GL 调用（每步一个 setTimeout）
+    _processGlDeferQueue(function () {
+      // 此 material 的 GL 调用已全部完成，继续下一个
+      if (!bgCompileQueue.length) {
+        bgCompileQueue = null;
+        bgCompileDone = true;
+        shaderCompileDone = true;
+        window.__sfvShaderCompileDone = true;
+        bgCompileActive = false;
+        console.log('[Stellaflix] Background compile COMPLETE');
+        _restoreGlInterceptor();
+        _tpbSaveAll(_gl);
+        try { window.dispatchEvent(new CustomEvent('sfv:shader-compile-done')); } catch (e) {}
+        return;
+      }
+      // 继续下一个 material
+      setTimeout(compileNext, 0);
+    });
+  };
+
+  // 启动第一个 material 的编译
+  setTimeout(compileNext, 0);
+}
+
+// === End background compile ===
+// A2: Three.js ProgramBinary cache (IndexedDB + GPU指纹)
+var TPB_DB_NAME = 'stellaflix-three-progbin';
+var TPB_STORE = 'programs';
+var _tpbDB = null;
+var _tpbReady = false;
+var _tpbCache = {};
+function _tpbOpen() {
+  return new Promise(function(resolve, reject) {
+    if (_tpbReady) { resolve(); return; }
+    try {
+      var req = indexedDB.open(TPB_DB_NAME, 1);
+      req.onupgradeneeded = function(e) {
+        var db = e.target.result;
+        if (!db.objectStoreNames.contains(TPB_STORE)) db.createObjectStore(TPB_STORE);
+      };
+      req.onsuccess = function(e) { _tpbDB = e.target.result; resolve(); };
+      req.onerror = function(e) { reject(e.target.error); };
+    } catch (e) { reject(e); }
+  });
+}
+function _tpbLoadAll() {
+  try {
+    if (!_tpbDB) return;
+    var tx = _tpbDB.transaction(TPB_STORE, 'readonly');
+    var store = tx.objectStore(TPB_STORE);
+    var req = store.getAll();
+    req.onsuccess = function() {
+      var data = req.result || [];
+      data.forEach(function(entry) { _tpbCache[entry.fp] = { fmt: entry.fmt, bin: entry.bin }; });
+      console.log('[Stellaflix] ProgramBinary loaded:', data.length, 'programs');
+    };
+    req.onerror = function() {};
+  } catch (e) {}
+}
+function _tpbSave(fp, fmt, bin) {
+  try {
+    if (!_tpbDB) return;
+    var tx = _tpbDB.transaction(TPB_STORE, 'readwrite');
+    tx.objectStore(TPB_STORE).put({ fp: fp, fmt: fmt, bin: bin, ts: Date.now() });
+  } catch (e) {}
+}
+function _tpbClear() {
+  try {
+    if (!_tpbDB) return;
+    var tx = _tpbDB.transaction(TPB_STORE, 'readwrite');
+    tx.objectStore(TPB_STORE).clear();
+    _tpbCache = {};
+    console.log('[Stellaflix] Shader cache cleared');
+  } catch (e) {}
+}
+function _tpbFingerprint(gl, vs, fs) {
+  var vendor = '', renderer = '', version = '', maxAttrs = 0;
+  try {
+    var debugExt = gl.getExtension('WEBGL_debug_renderer_info');
+    if (debugExt) {
+      vendor = String(gl.getParameter(debugExt.UNMASKED_VENDOR_WEBGL) || '');
+      renderer = String(gl.getParameter(debugExt.UNMASKED_RENDERER_WEBGL) || '');
+    }
+    version = String(gl.getParameter(gl.VERSION) || '');
+    maxAttrs = gl.getParameter(gl.MAX_VERTEX_ATTRIBS) || 0;
+  } catch (e) {}
+  var str = vs + '\n' + fs + '|' + vendor + '|' + renderer + '|' + version + '|' + THREE.REVISION + '|' + maxAttrs;
+  var h = 5381;
+  for (var i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36) + '.' + str.length;
+}
+function _tpbGetProgramFingerprint(gl, prog) {
+  try {
+    if (!gl || !prog) return null;
+    var shaders = gl.getAttachedShaders(prog);
+    if (!shaders || shaders.length < 2) return null;
+    var vs = gl.getShaderSource(shaders[0]);
+    var fs = gl.getShaderSource(shaders[1]);
+    if (!vs || !fs) return null;
+    return _tpbFingerprint(gl, vs, fs);
+  } catch (e) { return null; }
+}
+var _tpbOrigLink = _gl.linkProgram.bind(_gl);
+_gl.linkProgram = function(prog) {
+  if (_tpbReady) {
+    var fp = _tpbGetProgramFingerprint(_gl, prog);
+    if (fp && _tpbCache[fp]) {
+      try { _gl.programBinary(prog, _tpbCache[fp].fmt, _tpbCache[fp].bin); } catch (e) {}
+    }
+  }
+  _tpbOrigLink(prog);
+  if (_tpbReady) {
+    var fp2 = _tpbGetProgramFingerprint(_gl, prog);
+    if (fp2 && !_tpbCache[fp2]) {
+      try {
+        var result = _gl.getProgramBinary(prog);
+        if (result && result.binary) {
+          _tpbCache[fp2] = { fmt: result.format, bin: result.binary };
+          _tpbSave(fp2, result.format, result.binary);
+          console.log('[Stellaflix] ProgramBinary saved:', fp2.substring(0, 16), 'len:', result.binary.byteLength);
+        }
+      } catch (e) {}
+    }
+  }
+}
+function _tpbSaveAll(gl) {
+  try {
+    if (!gl || !gl.getProgramBinary || !renderer.programs) return;
+    renderer.programs.forEach(function(p) {
+      if (!p || !p.program) return;
+      var fp = _tpbGetProgramFingerprint(gl, p.program);
+      if (!fp || _tpbCache[fp]) return;
+      try {
+        var r = gl.getProgramBinary(p.program);
+        if (r && r.binary) {
+          _tpbCache[fp] = { fmt: r.format, bin: r.binary };
+          _tpbSave(fp, r.format, r.binary);
+        }
+      } catch (e) {}
+    });
+  } catch (e) {}
+}
+window.__sfvClearShaderCache = _tpbClear;
+console.log('[Stellaflix] ProgramBinary cache (Three.js) enabled');
+_tpbOpen().then(function() {
+  _tpbReady = true;
+  _tpbLoadAll();
+  console.log('[Stellaflix] ProgramBinary cache ready');
+}).catch(function(e) {
+  console.warn('[Stellaflix] ProgramBinary DB fail:', e);
+  _tpbReady = false;
+});
+ // 关键：绕过 r128 阻塞式 LINK_STATUS 同步查询
 function addSplashPlayClass() {
   if (document.body && !document.body.classList.contains('splash-play')) document.body.classList.add('splash-play');
 }
@@ -88,7 +356,105 @@ var shaderCompileDone = false;   // 后台链接是否全部完成(可安全首�
 var shaderPollSkipCount = 0;     // 方案A (2026-08-19): 编译期轮询削频 —— 每 3 帧全量查一次 COMPLETION_STATUS_KHR
 var shaderCompileQueue = null;   // 方案B (2026-08-19): 拆批编译队列(按 material 实例去重)
 var shaderCompileCooldown = 0;   // 方案B: 编译节奏(编译 1 个后休 3 帧,摊薄单 program 同步编译)
-var _compileTmpScene = null;     // 方案B: 拆批编译用临时 Scene(复用,惰性创建)
+var _compileTmpScene = null;
+// === Deferred Music Compilation: 启动影视态时跳过音乐态 shader 编译 ===
+// 根因：用户选"启动影视态"后，音乐态十几套 shader 仍被全量编译 → ~2s 白等
+// 方案：启动时读偏好，若为 video 则跳过编译 → 后台懒加载 → 切音乐态加速
+var musicDeferredMode = false;
+var musicDeferredDone = false;
+var musicDeferredQueue = null;
+var musicDeferredAccelerate = false;
+var musicDeferredFrameCounter = 0;
+var musicDeferredActive = false;
+var MUSIC_DEFERRED_COOLDOWN_NORMAL = 12;
+var MUSIC_DEFERRED_COOLDOWN_ACCEL = 2;
+
+(function initDeferredMode() {
+  try {
+    var pref = null;
+    if (globalThis.localStorage) pref = globalThis.localStorage.getItem('stellaflix-start-space');
+    if (pref === 'video') {
+      musicDeferredMode = true;
+      console.log('[Stellaflix] Music deferred mode: starting in video space, music shaders will compile lazily');
+    }
+  } catch (e) {}
+})();
+
+function startMusicDeferredCompile(accelerate) {
+  if (!musicDeferredMode || musicDeferredDone || musicDeferredActive) return;
+  musicDeferredActive = true;
+  if (accelerate) musicDeferredAccelerate = true;
+  musicDeferredQueue = collectShaderCompileQueue();
+  musicDeferredFrameCounter = 0;
+  console.log('[Stellaflix] Music deferred compile started, programs:', musicDeferredQueue.length, accelerate ? '(ACCELERATED)' : '(background)');
+
+  // 使用 GL 拦截方式，逐步执行，避免阻塞动画帧
+  _installGlInterceptor();
+
+  var compileNext = function () {
+    if (!musicDeferredMode || musicDeferredDone) {
+      _restoreGlInterceptor();
+      musicDeferredActive = false;
+      return;
+    }
+    if (!musicDeferredQueue) {
+      musicDeferredQueue = collectShaderCompileQueue();
+    }
+    if (!musicDeferredQueue || !musicDeferredQueue.length) {
+      musicDeferredDone = true;
+      musicDeferredActive = false;
+      shaderCompileDone = true;
+      window.__sfvShaderCompileDone = true;
+      console.log('[Stellaflix] Music deferred compile COMPLETE');
+      _restoreGlInterceptor();
+      _tpbSaveAll(_gl);
+      try { window.dispatchEvent(new CustomEvent('sfv:shader-compile-done')); } catch (e) {}
+      return;
+    }
+    var item = musicDeferredQueue.shift();
+    if (item && item.host && typeof renderer.compile === 'function') {
+      if (!_compileTmpScene) _compileTmpScene = new THREE.Scene();
+      try {
+        var probe;
+        if (item.host.isPoints) probe = new THREE.Points(item.host.geometry, item.material);
+        else if (item.host.isLine) probe = new THREE.Line(item.host.geometry, item.material);
+        else if (item.host.isSprite) probe = new THREE.Sprite(item.material);
+        else probe = new THREE.Mesh(item.host.geometry, item.material);
+        _compileTmpScene.add(probe);
+        renderer.compile(_compileTmpScene, camera);
+        _compileTmpScene.remove(probe);
+      } catch (e) {
+        console.log('[Stellaflix] Deferred compile probe error:', e);
+      }
+    }
+    // 逐步执行 GL 调用
+    _processGlDeferQueue(function () {
+      if (!musicDeferredQueue || !musicDeferredQueue.length) {
+        musicDeferredDone = true;
+        musicDeferredActive = false;
+        shaderCompileDone = true;
+        window.__sfvShaderCompileDone = true;
+        console.log('[Stellaflix] Music deferred compile COMPLETE');
+        _restoreGlInterceptor();
+        _tpbSaveAll(_gl);
+        try { window.dispatchEvent(new CustomEvent('sfv:shader-compile-done')); } catch (e) {}
+        return;
+      }
+      // 加速:16ms; 正常:50ms
+      var delay = musicDeferredAccelerate ? 16 : 50;
+      setTimeout(compileNext, delay);
+    });
+  };
+  // 立即开始第一个
+  setTimeout(compileNext, 0);
+}
+
+function tickMusicDeferredCompile() {
+  // 现在编译在后台（requestIdleCallback/setTimeout）进行
+  // 此函数仅作为空操作占位，保持外部调用安全
+  // 真正的进度由 startMusicDeferredCompile 的回调驱动
+}
+     // 方案B: 拆批编译用临时 Scene(复用,惰性创建)
 // 方案B: 收集场景去重材质(实例级)生成拆批编译队列。同 programCacheKey 的重复项由 Three.js
 // programCache 拦截为 no-op，只保证每个独立 program 至少被编译一次；场景无灯光且材质均为
 // 无光照类(Basic/Shader/Points)，临时 Scene 不影响 key。
@@ -754,6 +1120,12 @@ function animate() {
   // The loop self-perpetuates via RAF above, so skipping one frame is harmless.
   if (typeof uniforms === 'undefined' || typeof uniforms.uTime === 'undefined') return;
   var now = performance.now();
+  // === Early compile start: uniforms ready → 立即启动编译 ===
+  // 利用 splash 播放期（~3s）完成编译，避免结束时卡顿
+  if (!bgCompileActive && !bgCompileDone && !musicDeferredMode && scene && camera) {
+    // 不等待 splash 结束，立即开始后台编译
+    startBackgroundCompile();
+  }
   // #17: 视频播放中 Three.js 画面被遮挡，跳过全套渲染与频谱分析，仅保持 RAF 存活以便恢复
   if (sfvRenderPaused) {
     prevTime = now; // 防止恢复时 dt 暴涨（dt 已 clamp 0.05，这里再保险一次）
@@ -774,91 +1146,29 @@ function animate() {
   sampleRenderPerf(now, dt);
   uniforms.uTime.value += dt;
   if (isMainSceneCoveredBySplash()) {
-    // B (2026-08-18): entrance-first sequencing.
-    // Entrance animation plays on compositor (not paused); heavy shader compile
-    // only starts after .splash-play is set (entrance done), so GPU/main stay free.
-    if (!document.body.classList.contains('splash-play')) {
-      return; // entrance in progress: keep GPU/main free
-    }
-    // Entrance done → start batched compile
-    if (!shaderCompileKicked && scene && camera) {
-      shaderCompileKicked = true;
-      markAppPerf('splash-render-start');
-      shaderCompileQueue = collectShaderCompileQueue();
-    } else if (!shaderCompileQueue && !shaderCompileDone && scene && camera) {
-      shaderCompileQueue = collectShaderCompileQueue();
-    }
-    // Compile one material per N frames (frame budget: skip if prev compile took > 8ms)
-    if (shaderCompileQueue && typeof renderer.compile === 'function') {
-      if (shaderCompileCooldown > 0) {
-        shaderCompileCooldown--;
-      } else {
-        var _t0 = performance.now();
-        var _item = shaderCompileQueue.shift();
-        shaderCompileCooldown = 3;
-        if (_item && _item.host) {
-          if (!_compileTmpScene) _compileTmpScene = new THREE.Scene();
-          try {
-            var _probe;
-            if (_item.host.isPoints) _probe = new THREE.Points(_item.host.geometry, _item.material);
-            else if (_item.host.isLine) _probe = new THREE.Line(_item.host.geometry, _item.material);
-            else if (_item.host.isSprite) _probe = new THREE.Sprite(_item.material);
-            else _probe = new THREE.Mesh(_item.host.geometry, _item.material);
-            _compileTmpScene.add(_probe);
-            renderer.compile(_compileTmpScene, camera);
-            _compileTmpScene.remove(_probe);
-          } catch (e) {}
-        }
-        var _elapsed = performance.now() - _t0;
-        // Frame budget: if compile took > 12ms, increase cooldown to let animation catch up
-        if (_elapsed > 12) shaderCompileCooldown = 6;
-        else if (_elapsed > 8) shaderCompileCooldown = 4;
-      }
-      if (!shaderCompileQueue.length) shaderCompileQueue = null;
-    }
-    if (parallelShaderCompileExt) {
-      var _allLinked = false;
-      var _progCount = 0;
-      if (shaderCompileDone) {
-        _allLinked = true;
-        _progCount = 1;
-      } else if (shaderCompileQueue) {
-      } else if (shaderPollSkipCount > 0) {
-        shaderPollSkipCount--;
-      } else {
-        shaderPollSkipCount = 2;
-        _allLinked = true;
-        if (renderer.programs && typeof renderer.programs.forEach === 'function') {
-          renderer.programs.forEach(function (wp) {
-            _progCount++;
-            if (wp && wp.program && _gl.getProgramParameter(wp.program, parallelShaderCompileExt.COMPLETION_STATUS_KHR) === false) _allLinked = false;
-          });
-        }
-      }
-      if (_allLinked && _progCount > 0) {
-        if (!shaderCompileDone) {
-          shaderCompileDone = true;
-          markAppPerf('splash-render-end');
-          window.__sfvShaderCompileDone = true;
-          try { window.dispatchEvent(new CustomEvent('sfv:shader-compile-done')); } catch (e) {}
-        }
-        if (now - splashWarmRenderLast > 520) {
-          splashWarmRenderLast = now;
-          renderer.render(scene, camera);
-        }
-      }
-    } else {
+    // entrance-first sequencing: 等 .splash-play 后再启动编译
+    if (!document.body.classList.contains('splash-play')) return;
+    // splash 期间：如果编译已完成则渲染，否则只 clear 保持上下文
+    if (!bgCompileDone) {
       if (now - splashWarmRenderLast > 520) {
         splashWarmRenderLast = now;
-        if (!shaderCompileDone) {
-          markAppPerf('splash-render-start');
-          shaderCompileDone = true;
-          window.__sfvShaderCompileDone = true;
-          try { window.dispatchEvent(new CustomEvent('sfv:shader-compile-done')); } catch (e) {}
+        if (_glIntercepting) {
+          _gl.clearColor(0, 0, 0, 0);
+          _gl.clear(_gl.COLOR_BUFFER_BIT);
         }
-        renderer.render(scene, camera);
-        markAppPerf('splash-render-end');
       }
+      return; // 编译中：保持 splash 覆盖，跳过渲染
+    }
+    // 编译已完成：在 splash 下方预热渲染
+    if (now - splashWarmRenderLast > 520) {
+      splashWarmRenderLast = now;
+      if (!shaderCompileDone) {
+        shaderCompileDone = true;
+        markAppPerf('splash-render-start');
+        window.__sfvShaderCompileDone = true;
+        try { window.dispatchEvent(new CustomEvent('sfv:shader-compile-done')); } catch (e) {}
+      }
+      renderer.render(scene, camera);
     }
     return;
   }
@@ -1103,7 +1413,13 @@ function animate() {
     if (thumbCoverEl) thumbCoverEl.style.transform = 'scale(' + s + ')';
   }
 
-  renderer.render(scene, camera);
+  tickMusicDeferredCompile();
+  var _isVideoSpace = !!(document.body && document.body.classList.contains('video-space-active'));
+  if (musicDeferredMode && _isVideoSpace && !musicDeferredDone) {
+    // 影视态 + 音乐 shader 未编译 → 跳过 render
+  } else {
+    renderer.render(scene, camera);
+  }
 }
 // 2.5b-regression-fix: defer starting the animate loop until DOMContentLoaded so
 // 08-fx-visual.js (loaded after this host) has executed and defined fx/uniforms/particles.
@@ -1114,3 +1430,29 @@ if (document.readyState === 'loading') {
 } else {
   startAnimateLoop();
 }
+
+// === Space change listener for deferred compilation ===
+if (window.addEventListener) {
+  window.addEventListener('spacechange', function (ev) {
+    var mode = (ev && ev.detail && ev.detail.spaceMode) || null;
+    if (mode === 'music' && musicDeferredMode && !musicDeferredDone) {
+      if (musicDeferredActive) {
+        musicDeferredAccelerate = true;
+        console.log('[Stellaflix] Accelerating music shader compilation (user switched to music space)');
+      } else {
+        startMusicDeferredCompile(true);
+      }
+    }
+  });
+}
+window.__sfvMusicDeferred = {
+  isDeferred: function () { return musicDeferredMode; },
+  isDone: function () { return musicDeferredDone; },
+  isActive: function () { return musicDeferredActive; },
+  accelerate: function () {
+    if (musicDeferredMode && !musicDeferredDone) {
+      if (musicDeferredActive) musicDeferredAccelerate = true;
+      else startMusicDeferredCompile(true);
+    }
+  }
+};

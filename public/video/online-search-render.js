@@ -42,6 +42,15 @@
       } else {
         cover.textContent = '🎬';
       }
+      /* T166b：电影评分徽章（海报右上角常驻）—— 替代原 hover 浮层 sub 内的
+         `★ 8.5` 文字。enrichTmdb 异步补全时仍可能往 sub prepend .sfv-tmdb-vote
+         （共享 helper 不为搜索页局部逻辑变动），由 CSS 视觉隐藏，避免重复显示。 */
+      if (it.tmdbRating != null) {
+        var voteBadge = doc.createElement('span');
+        voteBadge.className = 'sfv-card-vote';
+        voteBadge.textContent = '★ ' + Number(it.tmdbRating).toFixed(1);
+        cover.appendChild(voteBadge);
+      }
 
       var name = doc.createElement('div');
       name.className = 'sfv-card-name';
@@ -49,12 +58,7 @@
 
       var sub = doc.createElement('div');
       sub.className = 'sfv-card-sub';
-      if (it.tmdbRating != null) {
-        var vote = doc.createElement('span');
-        vote.className = 'sfv-tmdb-vote';
-        vote.textContent = '★ ' + Number(it.tmdbRating).toFixed(1);
-        sub.appendChild(vote);
-      }
+      /* T166b：原 sub 内的 `★ 8.5` 已挪到右上角徽章（见 cover 块），此处仅保留年份/来源 */
       var st = '';
       if (it.year) st += it.year;
       if (it.variants && it.variants.length > 1) {
@@ -64,9 +68,16 @@
       if (!st) st = '点击查看';
       sub.appendChild(doc.createTextNode(st));
 
+      /* T166：横卡 hover 浮层容器 —— 对齐追片页 .sfv-plex-card__cap（渐变 scrim +
+         底部滑入）。name/sub 类名保留，enrichTmdb 的 querySelector('.sfv-card-sub')
+         与 .sfv-card--kazumi .sfv-card-sub::after 不受影响。 */
+      var cap = doc.createElement('div');
+      cap.className = 'sfv-card__cap';
+      cap.appendChild(name);
+      cap.appendChild(sub);
+
       card.appendChild(cover);
-      card.appendChild(name);
-      card.appendChild(sub);
+      card.appendChild(cap);
       if (it.isKazumi) card.classList.add('sfv-card--kazumi');
 
       (function (cap) {

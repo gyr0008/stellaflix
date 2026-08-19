@@ -7946,7 +7946,11 @@ const server = http.createServer(async (req, res) => {
       // 弹弹play 等需认证 API：白名单透传客户端发来的认证头（避免透传任意客户端头）
       // B1 验证码闭环：新增 'cookie' —— 验证码解出后重查请求带上 persist 分区 cookie，
       // 须被代理透传至上游才能被识别为「已验证」。仅透传白名单内客户端头，不转发任意头。
-      ['x-appid', 'x-signature', 'x-timestamp', 'x-appsecret', 'cookie'].forEach(function (k) {
+      // 弹幕修复(2026-08-19)：补 'x-auth' —— DanDanPlay 自 2025-01-30 强制「签名验证模式」，
+      // client.js(makeAuthHeaders) 已发送 X-Auth:1 标记进入该模式；此前白名单遗漏此头，
+      // 导致经 /api/proxy 转发时 X-Auth 被丢弃 → 上游拒绝签名验证 → 真实弹幕拉取必然失败。
+      // 注：'x-appsecret' 为历史遗留占位（client 实际发 X-Signature，不发 x-appsecret），暂保留无害。
+      ['x-auth', 'x-appid', 'x-signature', 'x-timestamp', 'x-appsecret', 'cookie'].forEach(function (k) {
         if (req.headers[k]) headers[k] = req.headers[k];
       });
       const up = await fetch(target, { headers });
