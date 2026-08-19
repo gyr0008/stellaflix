@@ -1,0 +1,129 @@
+{
+  "name": "stellaflix",
+  "productName": "Stellaflix",
+  "version": "1.1.2",
+  "description": "沉浸式音乐播放器，融合天气电台、歌词舞台、粒子视觉和 3D 歌单架。",
+  "author": "Stellaflix",
+  "license": "GPL-3.0-or-later",
+  "main": "desktop/main.js",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gyr0008/stellaflix.git"
+  },
+  "scripts": {
+    "start": "electron .",
+    "dev": "node scripts/dev.mjs",
+    "test:equalizer": "node --test test/equalizer/*.test.js",
+    "test:lyrics": "node --test test/lyrics/*.test.js",
+    "test:custom-source": "node --test test/custom-source/*.test.js",
+    "test:custom-source:electron": "electron test/custom-source/electron-smoke.js",
+    "test:local-music": "node --test test/local-music/*.test.js",
+    "test:video": "node scripts/kazumi_phase1_test.js && node scripts/sprint_a_test.js && node scripts/kazumi_phase2_bridge_test.js && node scripts/online_phase2_test.js",
+    "test:video:e2e": "electron scripts/kazumi_e2e_electron.js",
+    "test:multisource:gate": "node scripts/multisource_gate.cjs",
+    "test:multisource:e2e": "electron scripts/multisource_e2e_electron.js",
+    "test:video:live": "node scripts/kazumi_live_rule_test.js",
+    "build:music": "esbuild src/music/legacy-music.js --minify --legal-comments=none --outfile=public/assets/music.js && esbuild src/music/bundled-update-summary.js --minify --legal-comments=none --outfile=public/assets/bundled-update-summary.js && esbuild src/music/local-library.js --minify --legal-comments=none --outfile=public/assets/local-library.js && esbuild src/music/local-playlists.js --minify --legal-comments=none --outfile=public/assets/local-playlists.js && esbuild src/music/globals-bridge.js --minify --legal-comments=none --outfile=public/assets/globals-bridge.js && esbuild src/music/02-equalizer-glue.js --minify --legal-comments=none --outfile=public/assets/02-equalizer-glue.js && esbuild src/music/04a-three-host.js --minify --legal-comments=none --outfile=public/assets/04a-three-host.js && esbuild src/music/04b-shelf-3d.js --minify --legal-comments=none --outfile=public/assets/04b-shelf-3d.js && esbuild src/music/04c-lyrics.js --minify --legal-comments=none --outfile=public/assets/04c-lyrics.js && esbuild src/music/04d-audio-beat.js --minify --legal-comments=none --outfile=public/assets/04d-audio-beat.js && esbuild src/music/04e-audio-engine.js --minify --legal-comments=none --outfile=public/assets/04e-audio-engine.js && esbuild src/music/08-fx-visual.js --minify --legal-comments=none --outfile=public/assets/08-fx-visual.js",
+    "build:music:watch": "esbuild src/music/legacy-music.js --minify --legal-comments=none --outfile=public/assets/music.js --watch",
+    "build:win": "npm run build:music && electron-builder --win nsis",
+    "build:win:dir": "npm run build:music && electron-builder --win dir"
+  },
+  "build": {
+    "appId": "com.stellaflix.desktop",
+    "productName": "Stellaflix",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "afterPack": "build/after-pack.js",
+    "toolsets": {
+      "winCodeSign": "1.1.0"
+    },
+    "files": [
+      "desktop/**/*",
+      "public/**/*",
+      "build/**/*",
+      "server.js",
+      "dj-analyzer.js",
+      "package.json",
+      "!public/index.*.html",
+      "public/index.html"
+    ],
+    "asar": false,
+    "extraResources": [
+      {
+        "from": "desktop/bin",
+        "to": "bin"
+      }
+    ],
+    "win": {
+      "executableName": "Stellaflix",
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "Stellaflix",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/installerSidebar.bmp",
+      "installerHeader": "build/installerHeader.bmp",
+      "include": "build/installer.nsh",
+      "artifactName": "Stellaflix-${version}-Setup.${ext}"
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "gyr0008",
+        "repo": "stellaflix"
+      }
+    ]
+  },
+  "stellaflix": {
+    "update": {
+      "provider": "github",
+      "owner": "gyr0008",
+      "repo": "stellaflix",
+      "preview": true,
+      "preferMirrors": true,
+      "mirrors": [
+        "https://gh.llkk.cc/",
+        "https://ghfast.top/",
+        "https://gh-proxy.com/"
+      ]
+    }
+  },
+  "dependencies": {
+    "maplibre-gl": "^4.7.1",
+    "mpg123-decoder": "^1.0.3",
+    "NeteaseCloudMusicApi": "^4.32.0",
+    "sql.js": "^1.14.1"
+  },
+  "devDependencies": {
+    "electron": "24.8.8",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.1",
+    "rcedit": "^5.0.2",
+    "vite": "^8.2.0"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/gyr0008/stellaflix/issues"
+  },
+  "homepage": "https://github.com/gyr0008/stellaflix#readme"
+}

@@ -1,0 +1,25 @@
+name = "stellaflix-lighthouse-edge"
+main = "worker.mjs"
+compatibility_date = "2024-09-23"
+
+# Durable Object 绑定（§7.1）
+[durable_objects]
+bindings = [
+  { name = "Lighthouse", class_name = "Lighthouse" }
+]
+
+# 首次部署的 DO 迁移
+[[migrations]]
+tag = "v1"
+new_classes = ["Lighthouse"]
+
+# 非敏感配置可放此处；敏感项务必用 wrangler secret（不进仓库）：
+#   wrangler secret put TURNSTILE_SECRET   # Cloudflare Turnstile 服务端密钥
+#   wrangler secret put HMAC_SECRET        # 与客户端 LH.config.securitySecret 一致的 HMAC 密钥
+#
+# 部署步骤：
+#   1. npm i -g wrangler && wrangler login
+#   2. wrangler secret put TURNSTILE_SECRET
+#   3. wrangler secret put HMAC_SECRET
+#   4. wrangler deploy
+#   5. 将生成的 *.workers.dev 域名填入桌面端 LH.config.edgeEndpoint

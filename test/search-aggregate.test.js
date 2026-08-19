@@ -1,0 +1,141 @@
+/*
+ * 多源结果聚合（方案 A 为主 + 方案 B 降级）单元测试
+ * 验证：cleanTitleForAgg 清洗归一 + aggregateByLocalKey 跨源归并。
+ * 运行：node test/search-aggregate.test.js
+ */
+'use strict';
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+
+// ---- 加载 search-filter-core.js（纯函数层，无 DOM 依赖）----
+const code = fs.readFileSync(
+  path.join(__dirname, '..', 'public', 'video', 'search-filter-core.js'),
+  'utf8'
+);
+const sandbox = { window: {}, console };
+vm.createContext(sandbox);
+vm.runInContext(code, sandbox);
+const Core = sandbox.window.StellaflixVideo.SearchFilterCore;
+
+let pass = 0, fail = 0;
+function expect(name, cond) {
+  if (cond) { pass++; console.log('  PASS:', name); }
+  else { fail++; console.log('  FAIL:', name); }
+}
+
+const cms = (title, year, pic, playUrl) => ({
+  key: 's1:' + title, vodId: title, sourceId: 's1', sourceName: '源1',
+  title, pic: pic || '', year: year || '', typeName: '动漫', playUrl: playUrl || '',
+  variants: [{ key: 's1:' + title, sourceId: 's1', vodId: title, playUrl: playUrl || '' }]
+});
+const kz = (title) => ({
+  isKazumi: true, key: 'kazumi:r1:' + title, title, pic: '', year: '',
+  sourceName: 'r1', ruleName: 'r1', src: 'http://d/' + title,
+  variants: [{ key: 'kazumi:r1:' + title, sourceId: 'kazumi:r1', vodId: 'kazumi:r1:' + title, isKazumi: true, ruleName: 'r1', src: 'http://d/' + title }]
+});
+
+console.log('cleanTitleForAgg:');
+expect('空格差异归一（同季）',
+  Core.cleanTitleForAgg('一人之下 第一季') === Core.cleanTitleForAgg('一人之下第一季'));
+expect('括号内源噪声归一（同季）',
+  Core.cleanTitleForAgg('一人之下 第一季（1080P国语版）') === Core.cleanTitleForAgg('一人之下第一季'));
+expect('不同季不能合并',
+  Core.cleanTitleForAgg('一人之下 第一季') !== Core.cleanTitleForAgg('一人之下 第二季'));
+expect('剧场版与 TV 不能合并',
+  Core.cleanTitleForAgg('一人之下 剧场版') !== Core.cleanTitleForAgg('一人之下 第一季'));
+expect('OVA/SP 保留为独立版本',
+  Core.cleanTitleForAgg('进击的巨人 OVA') !== Core.cleanTitleForAgg('进击的巨人'));
+expect('动态漫版与动画版不能合并',
+  Core.cleanTitleForAgg('一人之下 第一季（动态漫）') !== Core.cleanTitleForAgg('一人之下 第一季'));
+expect('标点后缀归一',
+  Core.cleanTitleForAgg('你的名字。') === Core.cleanTitleForAgg('你的名字'));
+expect('语言/画质噪声归一',
+  Core.cleanTitleForAgg('进击的巨人 国语版1080P') === Core.cleanTitleForAgg('进击的巨人'));
+
+console.log('aggregateByLocalKey:');
+const merged = Core.aggregateByLocalKey([
+  cms('一人之下 第一季', '2016', 'http://a.jpg', 'x$1.mp4'),
+  cms('一人之下第一季', '2016', 'http://b.jpg', 'y$1.mp4'),
+  kz('一人之下第一季')
+]);
+expect('同名异构源合并为 1 张卡', merged.length === 1);
+expect('variants 累积 = 3（2 CMS + 1 Kazumi）', merged[0].variants.length === 3);
+expect('cmsVars = 2', merged[0].cmsVars.length === 2);
+expect('kzVars = 1', merged[0].kzVars.length === 1);
+expect('混合卡 isKazumi = false（CMS 优先）', merged[0].isKazumi === false);
+expect('主 pic 取自首个非空', merged[0].pic === 'http://a.jpg');
+expect('保留清洗身份键', typeof merged[0]._localKey === 'string');
+
+const diffSeason = Core.aggregateByLocalKey([
+  cms('一人之下 第一季', '2016'),
+  cms('一人之下 第二季', '2017')
+]);
+expect('不同季不合并（2 张卡）', diffSeason.length === 2);
+
+const movieVsTv = Core.aggregateByLocalKey([
+  cms('一人之下 第一季', '2016'),
+  cms('一人之下 剧场版', '2024')
+]);
+expect('剧场版与 TV 不合并（2 张卡）', movieVsTv.length === 2);
+
+const diffYear = Core.aggregateByLocalKey([
+  cms('一人之下 第一季', '2016', 'http://a.jpg'),
+  cms('一人之下 第一季', '2021', 'http://b.jpg')
+]);
+expect('同年份不同季已分开，同季不同年份也不合并（2 张卡）', diffYear.length === 2);
+
+const onlyKz = Core.aggregateByLocalKey([kz('灵笼'), kz('灵笼')]);
+expect('纯 Kazumi 同标题合并为 1 张卡', onlyKz.length === 1);
+expect('纯 Kazumi 卡 isKazumi = true', onlyKz[0].isKazumi === true);
+expect('纯 Kazumi 卡 variants = 2', onlyKz[0].variants.length === 2);
+
+expect('空输入返回 []', Core.aggregateByLocalKey([]).length === 0);
+expect('null 输入返回 []', Core.aggregateByLocalKey(null).length === 0);
+
+console.log('filterCandidatesForQuery (方案 C):');
+const mk = (title, sourceId, vodId) => ({
+  id: sourceId + ':' + vodId, title, label: sourceId, sub: title, kind: 'cms',
+  _ref: { sourceId, vodId }
+});
+const cand = [
+  mk('你的名字。', 's1', '1'),
+  mk('你的名字', 's1', '2'),
+  mk('请以你的名字呼唤我', 's1', '3'),
+  mk('你的名字是玫瑰', 's1', '4'),
+  mk('当我呼唤你的名字', 's1', '5')
+];
+const filtered = Core.filterCandidatesForQuery(cand, '你的名字', { topN: 8 });
+expect('严格匹配只保留「你的名字」相关（含标点/无标点 2 条）', filtered.length === 2);
+expect('过滤掉「请以你的名字呼唤我」', !filtered.some(c => c.title === '请以你的名字呼唤我'));
+expect('过滤掉「你的名字是玫瑰」', !filtered.some(c => c.title === '你的名字是玫瑰'));
+
+const filteredDot = Core.filterCandidatesForQuery(cand, '你的名字。', { topN: 8 });
+expect('查询带标点同样严格命中（清洗归一）', filteredDot.length === 2);
+
+const cand2 = [
+  mk('完全无关影片A', 's1', '1'),
+  mk('你的名字的奇妙冒险番外篇', 's1', '2')
+];
+const fb = Core.filterCandidatesForQuery(cand2, '你的名字', { topN: 8 });
+expect('无严格匹配时回退保留包含项', fb.length === 1 && fb[0].title === '你的名字的奇妙冒险番外篇');
+
+const fbNone = Core.filterCandidatesForQuery([mk('完全无关影片A', 's1', '1')], '你的名字', { topN: 8 });
+expect('全部无关时返回空（上层回退自带源）', fbNone.length === 0);
+
+console.log('rankSearchResults (搜索面板相关性收敛):');
+const rs1 = Core.rankSearchResults(cand, '你的名字', { topN: 24 });
+expect('强匹配时剔除非开头的跨作品噪声（请以/当我）',
+  !rs1.some(c => c.title === '请以你的名字呼唤我') && !rs1.some(c => c.title === '当我呼唤你的名字'));
+expect('强匹配时保留精确+开头匹配（你的名字。/你的名字/你的名字是玫瑰）',
+  rs1.some(c => c.title === '你的名字。') && rs1.some(c => c.title === '你的名字') && rs1.some(c => c.title === '你的名字是玫瑰'));
+expect('精确匹配置顶', rs1[0].title === '你的名字。' || rs1[0].title === '你的名字');
+const seq = [ mk('复仇者联盟','s1','1'), mk('复仇者联盟2','s1','2'), mk('复仇者联盟3','s1','3'), mk('复仇者联盟4','s1','4') ];
+expect('无噪声时保留全部续集', Core.rankSearchResults(seq, '复仇者联盟', { topN: 24 }).length === 4);
+const onlyContains = [ mk('请以你的名字呼唤我','s1','3'), mk('当我呼唤你的名字','s1','5') ];
+expect('无强匹配时保留相关(包含)项', Core.rankSearchResults(onlyContains, '你的名字', { topN: 24 }).length === 2);
+expect('空查询原样返回', Core.rankSearchResults(cand, '', { topN: 24 }).length === cand.length);
+expect('空列表返回空', Core.rankSearchResults([], '你的名字', { topN: 24 }).length === 0);
+
+console.log('\nTotal: pass=' + pass + ', fail=' + fail);
+process.exit(fail ? 1 : 0);
